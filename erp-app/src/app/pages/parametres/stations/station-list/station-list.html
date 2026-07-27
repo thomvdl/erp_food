@@ -1,0 +1,36 @@
+<a routerLink="/parametres" class="back-link">← Paramètres</a>
+
+<div class="app-topbar">
+  <h1 class="text-2xl">Stations</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Slug</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (station of stations(); track station.id) {
+          <tr>
+            <td>{{ station.name }}</td>
+            <td class="text-muted">{{ station.slug }}</td>
+            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
+              <a class="btn btn-outline btn-sm" [routerLink]="[station.id]">Modifier</a>
+              <button type="button" class="btn btn-danger btn-sm" (click)="remove(station)">Supprimer</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="3" class="text-muted">Aucune station pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

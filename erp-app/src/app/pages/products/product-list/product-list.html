@@ -1,0 +1,48 @@
+<div class="app-topbar">
+  <h1 class="text-2xl">Produits</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Catégorie</th>
+          <th>Catalogues</th>
+          <th>Station</th>
+          <th>Prix</th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (product of products(); track product.id) {
+          <tr>
+            <td>{{ product.name }}</td>
+            <td class="text-muted">{{ product.category?.name ?? '—' }}</td>
+            <td class="text-muted">{{ catalogNames(product) }}</td>
+            <td class="text-muted">{{ product.station?.name ?? '—' }}</td>
+            <td class="font-semibold">{{ formatPrice(product) }}</td>
+            <td>
+              @if (product.active) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <span class="badge badge-neutral">Inactif</span>
+              }
+            </td>
+            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
+              <a class="btn btn-outline btn-sm" [routerLink]="[product.id]">Modifier</a>
+              <button type="button" class="btn btn-danger btn-sm" (click)="remove(product)">Supprimer</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="7" class="text-muted">Aucun produit pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

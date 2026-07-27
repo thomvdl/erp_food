@@ -1,0 +1,19 @@
+<a routerLink="/parametres/categories" class="back-link">← Catégories</a>
+
+<h1 class="text-2xl">{{ isEdit() ? 'Modifier la catégorie' : 'Nouvelle catégorie' }}</h1>
+
+<form class="form" (ngSubmit)="submit()">
+  <label class="field">
+    Nom
+    <input class="input" type="text" name="name" [ngModel]="name()" (ngModelChange)="name.set($event)" required />
+  </label>
+
+  @if (error()) {
+    <p class="error-text">{{ error() }}</p>
+  }
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+    <a class="btn btn-outline" routerLink="/parametres/categories">Annuler</a>
+  </div>
+</form>

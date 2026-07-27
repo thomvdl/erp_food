@@ -1,0 +1,46 @@
+<div class="app-shell">
+  <aside class="app-sidebar" [class.is-collapsed]="collapsed()">
+    <div class="app-sidebar__brand">
+      <span>🍽️</span>
+      <span class="app-nav-item__label">ERP v2</span>
+    </div>
+
+    <nav class="app-sidebar__nav">
+      @for (item of navItems; track item.path) {
+        <a
+          class="app-nav-item"
+          [routerLink]="item.path"
+          routerLinkActive="is-active"
+          [routerLinkActiveOptions]="{ exact: !!item.exact }"
+          [title]="item.label"
+        >
+          <span class="app-nav-item__icon">{{ item.icon }}</span>
+          <span class="app-nav-item__label">{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+
+    <button type="button" class="sidebar-collapse-btn" (click)="toggleCollapsed()" [title]="collapsed() ? 'Étendre' : 'Réduire'">
+      {{ collapsed() ? '»' : '« Réduire' }}
+    </button>
+
+    <div class="app-sidebar__footer">
+      <button type="button" class="app-nav-item theme-toggle" (click)="toggleTheme()" [title]="isDark() ? 'Thème clair' : 'Thème sombre'">
+        <span class="app-nav-item__icon">{{ isDark() ? '☀️' : '🌙' }}</span>
+        <span class="app-nav-item__label">{{ isDark() ? 'Thème clair' : 'Thème sombre' }}</span>
+      </button>
+
+      <div class="user-chip" [title]="currentUser.name + ' — ' + currentUser.role">
+        <span class="avatar user-chip__avatar">{{ currentUser.initials }}</span>
+        <span class="user-chip__info app-nav-item__label">
+          <span class="user-chip__name">{{ currentUser.name }}</span>
+          <span class="user-chip__role">{{ currentUser.role }}</span>
+        </span>
+      </div>
+    </div>
+  </aside>
+
+  <main class="app-main">
+    <router-outlet />
+  </main>
+</div>

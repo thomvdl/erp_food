@@ -1,0 +1,38 @@
+<a routerLink="/parametres" class="back-link">← Paramètres</a>
+
+<div class="app-topbar">
+  <h1 class="text-2xl">Utilisateurs</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nom d'utilisateur</th>
+          <th>Email</th>
+          <th>Rôles</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (user of users(); track user.id) {
+          <tr>
+            <td>{{ user.username }}</td>
+            <td class="text-muted">{{ user.email }}</td>
+            <td>{{ roleNames(user) }}</td>
+            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
+              <a class="btn btn-outline btn-sm" [routerLink]="[user.id]">Modifier</a>
+              <button type="button" class="btn btn-danger btn-sm" (click)="remove(user)">Supprimer</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4" class="text-muted">Aucun utilisateur pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,83 @@
+<div class="app-topbar">
+  <div>
+    <h1 class="text-2xl">Aperçu du style</h1>
+    <p class="text-muted">Démo des composants de styles.css — thème clair/sombre selon les préférences système</p>
+  </div>
+  <div style="display:flex; gap: 0.75rem;">
+    <button class="btn btn-outline">Exporter</button>
+    <button class="btn btn-accent">+ Nouvelle commande</button>
+  </div>
+</div>
+
+<div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
+  <div class="stat-card stat-card--brand">
+    <span class="text-sm">Nouvelles commandes</span>
+    <span class="stat-card__value">16</span>
+  </div>
+  <div class="stat-card">
+    <span class="text-sm text-muted">Total commandes</span>
+    <span class="stat-card__value">86</span>
+  </div>
+  <div class="stat-card">
+    <span class="text-sm text-muted">En attente</span>
+    <span class="stat-card__value">9</span>
+  </div>
+</div>
+
+<div class="tab-group">
+  <span class="tab-pill is-active">Toutes <span class="tab-pill__count">78</span></span>
+  <span class="tab-pill">Sur place <span class="tab-pill__count">4</span></span>
+  <span class="tab-pill">À emporter <span class="tab-pill__count">12</span></span>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="font-semibold">Commandes en cours</span>
+    <div class="search-input">
+      <span class="icon">🔍</span>
+      <input class="input" placeholder="Rechercher une commande" />
+    </div>
+  </div>
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Table</th>
+          <th>Client</th>
+          <th>Statut</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>A4</td>
+          <td>Ariel Hikmat</td>
+          <td><span class="badge badge-success">Prête</span></td>
+          <td class="font-semibold">87,34&nbsp;€</td>
+        </tr>
+        <tr>
+          <td>B2</td>
+          <td>Denis Freeman</td>
+          <td><span class="badge badge-warning">En cours</span></td>
+          <td class="font-semibold">57,87&nbsp;€</td>
+        </tr>
+        <tr>
+          <td>TA</td>
+          <td>Morgan Cox</td>
+          <td><span class="badge badge-info">Réservée</span></td>
+          <td class="font-semibold">86,96&nbsp;€</td>
+        </tr>
+        <tr>
+          <td>C2</td>
+          <td>Erwan Richard</td>
+          <td><span class="badge badge-danger">Rupture</span></td>
+          <td class="font-semibold">56,96&nbsp;€</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer" style="display:flex; gap: 0.75rem;">
+    <button class="btn btn-primary btn-sm">Payer</button>
+    <button class="btn btn-ghost btn-sm">Détails</button>
+  </div>
+</div>

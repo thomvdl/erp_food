@@ -38,7 +38,8 @@ slug
 -- Product_Catalogs 
 name
 slug
-taxe_id
+active
+
 
 -- Product 
 name
@@ -47,6 +48,7 @@ description
 price 
 sku
 active
+taxe_id
 station_id
 product_categories_id
 product_catalogs_id
@@ -72,7 +74,7 @@ room_id
 
 -- Order 
 id
-state (Validate -> Ask -> Do -> Seed -> Done)
+state (Send -> Ask -> Do -> Seed -> Done)
 client_id
 table_id
 
@@ -109,7 +111,6 @@ ticket_id
 ## Section
 POS Restaurant 
 Client 
-Product 
 Param
     -- Taxe
     -- Room
@@ -117,4 +118,29 @@ Param
     -- Category
     -- User 
     -- Role
+    -- Product 
+
+
+## Page 
+
+-- Dashboard 
+
+-- POS - Restaurant 
+    1. Affiche les plans de salles avec un selecteur de salle et la possibilite d'ouvrir une table avec le nombre de personne
+    2. Afficher le POS une fois que la tables est ouverte pour vraiment séléctioner des produits 
+    3. Selectioner des produit et les séparer en section pourvoir ajouter des section 
+    
+
+-- Product 
+    Gestion des produit en vente 
+
+-- Params 
+    Gérer les tables (position des table , ajout de salle)
+    Gérer les catégories des produits 
+    Gérer les catalogue de produit (Acviver un catalogue)
+    Gérer les utilisateur et les différants roles 
+    Gestion des produit 
+
+
+##  Todo 
 

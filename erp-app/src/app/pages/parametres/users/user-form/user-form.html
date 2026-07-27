@@ -1,0 +1,62 @@
+<a routerLink="/parametres/utilisateurs" class="back-link">← Utilisateurs</a>
+
+<h1 class="text-2xl">{{ isEdit() ? "Modifier l'utilisateur" : 'Nouvel utilisateur' }}</h1>
+
+<form class="form" (ngSubmit)="submit()">
+  <section class="form-section">
+    <h2 class="form-section-title">Informations</h2>
+
+    <label class="field">
+      Nom d'utilisateur
+      <input class="input" type="text" name="username" [ngModel]="username()" (ngModelChange)="username.set($event)" required />
+    </label>
+
+    <label class="field">
+      Email
+      <input class="input" type="email" name="email" [ngModel]="email()" (ngModelChange)="email.set($event)" required />
+    </label>
+
+    <label class="field">
+      Mot de passe
+      <input
+        class="input"
+        type="password"
+        name="password"
+        [ngModel]="password()"
+        (ngModelChange)="password.set($event)"
+        autocomplete="new-password"
+      />
+      @if (isEdit()) {
+        <span class="text-muted text-sm">Laisser vide pour ne pas changer le mot de passe.</span>
+      }
+    </label>
+  </section>
+
+  <section class="form-section">
+    <h2 class="form-section-title">Rôles</h2>
+
+    <div class="checkbox-group">
+      @for (role of roles(); track role.id) {
+        <label class="checkbox-field">
+          <input
+            type="checkbox"
+            [checked]="isRoleChecked(role.id)"
+            (change)="toggleRole(role.id, $any($event.target).checked)"
+          />
+          {{ role.name }}
+        </label>
+      }
+    </div>
+  </section>
+
+  @if (error()) {
+    <p class="error-text">{{ error() }}</p>
+  }
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary" [disabled]="saving()">
+      {{ saving() ? 'Enregistrement...' : 'Enregistrer' }}
+    </button>
+    <a class="btn btn-outline" routerLink="/parametres/utilisateurs">Annuler</a>
+  </div>
+</form>

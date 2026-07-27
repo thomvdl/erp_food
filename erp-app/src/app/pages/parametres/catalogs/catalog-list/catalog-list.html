@@ -1,0 +1,68 @@
+<a routerLink="/parametres" class="back-link">← Paramètres</a>
+
+<div class="app-topbar">
+  <h1 class="text-2xl">Catalogues de produits</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+<p class="text-muted">
+  Un seul catalogue actif à la fois pour le POS Restaurant, et un seul (indépendamment) pour le POS Vente directe.
+</p>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>POS Restaurant</th>
+          <th>POS Vente directe</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (catalog of catalogs(); track catalog.id) {
+          <tr>
+            <td>{{ catalog.name }}</td>
+            <td>
+              @if (catalog.active_restaurant) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <button
+                  type="button"
+                  class="btn btn-outline btn-sm"
+                  [disabled]="activating() !== null"
+                  (click)="activateForRestaurant(catalog)"
+                >
+                  Activer
+                </button>
+              }
+            </td>
+            <td>
+              @if (catalog.active_direct_sale) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <button
+                  type="button"
+                  class="btn btn-outline btn-sm"
+                  [disabled]="activating() !== null"
+                  (click)="activateForDirectSale(catalog)"
+                >
+                  Activer
+                </button>
+              }
+            </td>
+            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
+              <a class="btn btn-outline btn-sm" [routerLink]="[catalog.id]">Modifier</a>
+              <button type="button" class="btn btn-danger btn-sm" (click)="remove(catalog)">Supprimer</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4" class="text-muted">Aucun catalogue pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

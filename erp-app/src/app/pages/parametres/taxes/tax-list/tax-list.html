@@ -1,0 +1,36 @@
+<a routerLink="/parametres" class="back-link">← Paramètres</a>
+
+<div class="app-topbar">
+  <h1 class="text-2xl">Taxes</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Slug</th>
+          <th>Valeur</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (tax of taxes(); track tax.id) {
+          <tr>
+            <td>{{ tax.slug }}</td>
+            <td>{{ tax.value }}&nbsp;%</td>
+            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
+              <a class="btn btn-outline btn-sm" [routerLink]="[tax.id]">Modifier</a>
+              <button type="button" class="btn btn-danger btn-sm" (click)="remove(tax)">Supprimer</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="3" class="text-muted">Aucune taxe pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,56 @@
+<a routerLink="/parametres/salles" class="back-link">← Salles</a>
+<h1 class="text-2xl">Plan — {{ roomName() }}</h1>
+
+<div class="editor">
+  <aside class="toolbox">
+    <button type="button" class="btn btn-primary" (click)="addTable()">+ Ajouter une table</button>
+
+    @if (selectedTable(); as selected) {
+      <div class="card card-body properties">
+        <p class="form-section-title">Table sélectionnée</p>
+
+        <label class="field">
+          Libellé
+          <input
+            class="input"
+            type="text"
+            [ngModel]="selected.label ?? ''"
+            (ngModelChange)="updateLabel($event)"
+            (blur)="saveLabel()"
+          />
+        </label>
+
+        <button type="button" class="btn btn-danger btn-sm" (click)="deleteSelected()">Supprimer</button>
+      </div>
+    }
+
+    @if (error()) {
+      <p class="error-text">{{ error() }}</p>
+    }
+  </aside>
+
+  <div class="canvas" #canvas (pointerdown)="deselect()">
+    @for (table of tables(); track table.id) {
+      <div
+        class="table-element"
+        [class.selected]="selectedId() === table.id"
+        [style.left.px]="table.pos_left"
+        [style.top.px]="table.pos_top"
+        [style.width.px]="table.width"
+        [style.height.px]="table.height"
+        (pointerdown)="onTablePointerDown($event, table)"
+        (pointermove)="onTablePointerMove($event)"
+        (pointerup)="onTablePointerUp($event)"
+      >
+        <span class="table-element__label">{{ table.label }}</span>
+
+        <span
+          class="resize-handle"
+          (pointerdown)="onResizeHandlePointerDown($event, table)"
+          (pointermove)="onResizeHandlePointerMove($event)"
+          (pointerup)="onResizeHandlePointerUp($event)"
+        ></span>
+      </div>
+    }
+  </div>
+</div>

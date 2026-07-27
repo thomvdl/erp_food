@@ -1,0 +1,37 @@
+<a routerLink="/parametres" class="back-link">← Paramètres</a>
+
+<div class="app-topbar">
+  <h1 class="text-2xl">Salles</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Tables</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (room of rooms(); track room.id) {
+          <tr>
+            <td>{{ room.name }}</td>
+            <td class="text-muted">{{ room.tables?.length ?? 0 }}</td>
+            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
+              <a class="btn btn-primary btn-sm" [routerLink]="[room.id, 'plan']">Éditer le plan</a>
+              <a class="btn btn-outline btn-sm" [routerLink]="[room.id]">Renommer</a>
+              <button type="button" class="btn btn-danger btn-sm" (click)="remove(room)">Supprimer</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="3" class="text-muted">Aucune salle pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
