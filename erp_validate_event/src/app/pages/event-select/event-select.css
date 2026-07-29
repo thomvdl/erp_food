@@ -1,0 +1,108 @@
+:host {
+  display: flex;
+  min-height: 100vh;
+  background: var(--surface-page);
+}
+
+.select-screen {
+  margin: auto;
+  width: 100%;
+  max-width: 900px;
+  padding: var(--space-8) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.select-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.select-header__icon {
+  font-size: 3rem;
+}
+
+.select-header h1 {
+  font-size: var(--font-size-3xl);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.event-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+.event-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast), border-color var(--transition-fast);
+}
+
+.event-tile:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+  border-color: var(--color-primary-400);
+}
+
+/* Événement du jour mis en évidence dans la liste (voir Readme.md) — couleur distincte du
+   badge "Aujourd'hui" ajouté dans la tuile, pas juste le badge seul. */
+.event-tile--today {
+  background: var(--color-success-bg);
+  border-color: var(--color-success-text);
+}
+
+.event-tile--today .event-tile__name,
+.event-tile--today .event-tile__meta {
+  color: var(--color-success-text);
+}
+
+/* .calendar-event vient de styles.css global, pensé pour un <a> — reset nécessaire pour
+   l'utiliser en <button> ici (pas de routerLink direct, select() gère la navigation). */
+.calendar-event {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+/* Le calendrier affiche aussi les occurrences passées (contrairement à la liste, toujours
+   limitée à l'à-venir — voir Readme.md) mais en couleur discrète pour rester lisible sans
+   attirer l'œil dessus. Reste cliquable (utile pour consulter une occurrence déjà passée). */
+.calendar-event--past {
+  background: var(--color-neutral-bg);
+  color: var(--color-neutral-text);
+  opacity: 0.6;
+}
+
+.calendar-event--past:hover {
+  opacity: 0.85;
+}
+
+.event-tile__name {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.event-tile__meta {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}

@@ -1,0 +1,284 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background: var(--surface-page);
+}
+
+.kiosk {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5) var(--space-6);
+  gap: var(--space-5);
+}
+
+.kiosk-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.kiosk-header__event {
+  text-align: center;
+  flex: 1;
+}
+
+.kiosk-header__event h1 {
+  font-size: var(--font-size-2xl);
+}
+
+/* Caméra/clavier centrés — le plan de salle n'est plus affiché en permanence à côté (il
+   n'apparaît que dans la modal de placement après validation, voir Readme.md). */
+.kiosk-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kiosk-input {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.text-center {
+  text-align: center;
+}
+
+/* .scanner/.scanner__* n'existaient nulle part (ni ici, ni dans styles.css global — ces
+   classes vivent en réalité dans le CSS scopé de event-dashboard.css côté erp-app, jamais
+   copiées) : le <canvas> de traitement QR s'affichait donc à nu à côté de la vidéo, d'où
+   l'effet "deux fenêtres" remonté. Base ajoutée ici, canvas cadré hors écran (display:none
+   suffit puisqu'on ne l'utilise que pour lire des pixels, jamais pour l'afficher). */
+.scanner {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: #000;
+}
+
+.scanner--kiosk {
+  max-width: 480px;
+  aspect-ratio: 1 / 1;
+}
+
+.scanner__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.scanner__canvas {
+  display: none;
+}
+
+.scanner__frame {
+  position: absolute;
+  inset: 15%;
+  border: 3px solid var(--color-accent-500);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 999px rgb(0 0 0 / 35%);
+  pointer-events: none;
+}
+
+.kiosk-code-display {
+  width: 100%;
+  max-width: 480px;
+  padding: var(--space-5);
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  text-align: center;
+  font-size: var(--font-size-3xl);
+  font-weight: 700;
+  letter-spacing: 0.3rem;
+}
+
+/* Clavier tactile plein écran : sur un kiosque d'entrée d'événement les touches doivent
+   rester utilisables avec des doigts pressés, pas viser la précision d'un clavier physique —
+   d'où l'absence de max-width (contrairement à .kiosk-code-display) et des touches hautes. */
+.kiosk-keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.kiosk-keyboard__row {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+}
+
+/* Largeur fixe (calculée sur la plus longue ligne, 10 touches) plutôt que flex:1 : sinon la
+   ligne WXCVBN (6 touches) aurait des touches plus larges que AZERTYUIOP (10 touches). Les
+   lignes plus courtes restent centrées par .kiosk-keyboard__row (justify-content: center). */
+.kiosk-keyboard__row .pos-keypad__key {
+  flex: 0 0 calc((100% - 9 * var(--space-3)) / 10);
+  min-width: 0;
+  padding: var(--space-5) 0;
+  font-size: var(--font-size-2xl);
+}
+
+.kiosk-keyboard__actions {
+  display: flex;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.kiosk-keyboard__actions .btn {
+  flex: 1;
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-4);
+  font-size: var(--font-size-xl);
+}
+
+/* Modal de placement plus large que .modal-panel par défaut (480px) — doit accueillir le
+   plan de salle, pas juste un formulaire. */
+.modal-panel--wide {
+  max-width: 720px;
+}
+
+.checkin-canvas {
+  position: relative;
+  height: 55vh;
+  min-height: 360px;
+  background: var(--surface-card-muted);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background-image: radial-gradient(var(--border-color-strong) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.checkin-table {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-primary-fill);
+  border-radius: 999px;
+  background: var(--color-primary-50);
+  color: var(--color-primary-fill);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.checkin-table:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.checkin-table.is-selected {
+  border-color: var(--color-accent-600);
+  background: var(--color-accent-100);
+  color: var(--color-accent-700);
+  box-shadow: 0 0 0 3px rgb(245 166 35 / 30%);
+}
+
+.checkin-table.is-taken {
+  border-color: var(--color-danger-text);
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  cursor: not-allowed;
+}
+
+.checkin-table.is-taken:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+
+.legend-dot--free {
+  background: var(--color-primary-50);
+  border: 2px solid var(--color-primary-fill);
+}
+
+.legend-dot--selected {
+  background: var(--color-accent-500);
+  border: 2px solid var(--color-accent-600);
+}
+
+.legend-dot--taken {
+  background: var(--color-danger-bg);
+  border: 2px solid var(--color-danger-text);
+}
+
+/* Animation plein écran verte/rouge sur résultat de validation */
+.kiosk-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  color: #ffffff;
+  animation: kiosk-flash-in 0.25s ease-out;
+}
+
+.kiosk-flash--success {
+  background: linear-gradient(160deg, #0f766e, #16a34a);
+}
+
+.kiosk-flash--error {
+  background: linear-gradient(160deg, #991b1b, #dc2626);
+}
+
+.kiosk-flash__icon {
+  font-size: 8rem;
+  line-height: 1;
+  animation: kiosk-flash-pop 0.4s ease-out;
+}
+
+.kiosk-flash__title {
+  font-size: var(--font-size-3xl);
+  font-weight: 700;
+}
+
+.kiosk-flash__subtitle {
+  font-size: var(--font-size-xl);
+  opacity: 0.9;
+}
+
+@keyframes kiosk-flash-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes kiosk-flash-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}

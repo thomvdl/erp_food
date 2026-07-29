@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { RoomService } from '../../../../core/room.service';
+import { RoomType } from '../../../../core/models/floor-plan.model';
 
 @Component({
   selector: 'app-room-form',
@@ -18,6 +19,7 @@ export class RoomForm {
   readonly isEdit = signal(false);
 
   readonly name = signal('');
+  readonly type = signal<RoomType>('restaurant');
   readonly error = signal<string | null>(null);
 
   constructor() {
@@ -28,7 +30,10 @@ export class RoomForm {
 
       if (this.id !== null) {
         this.roomService.get(this.id).subscribe({
-          next: (room) => this.name.set(room.name),
+          next: (room) => {
+            this.name.set(room.name);
+            this.type.set(room.type);
+          },
           error: () => this.error.set('Impossible de charger la salle.'),
         });
       }
@@ -38,7 +43,7 @@ export class RoomForm {
   submit(): void {
     this.error.set(null);
 
-    const payload = { name: this.name() };
+    const payload = { name: this.name(), type: this.type() };
     const request =
       this.isEdit() && this.id !== null
         ? this.roomService.update(this.id, payload)

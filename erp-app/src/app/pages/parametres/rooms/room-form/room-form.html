@@ -8,6 +8,14 @@
     <input class="input" type="text" name="name" [ngModel]="name()" (ngModelChange)="name.set($event)" required />
   </label>
 
+  <label class="field">
+    Type
+    <select class="select" name="type" [ngModel]="type()" (ngModelChange)="type.set($event)">
+      <option value="restaurant">Restaurant</option>
+      <option value="event">Événement</option>
+    </select>
+  </label>
+
   @if (error()) {
     <p class="error-text">{{ error() }}</p>
   }

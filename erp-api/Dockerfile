@@ -1,8 +1,8 @@
 FROM php:8.4-apache
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libzip-dev unzip git \
-    && docker-php-ext-install pdo_mysql zip bcmath \
+    && apt-get install -y --no-install-recommends libzip-dev unzip git libpng-dev \
+    && docker-php-ext-install pdo_mysql zip bcmath gd \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 

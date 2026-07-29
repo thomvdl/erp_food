@@ -1,0 +1,119 @@
+:host {
+  display: block;
+  position: relative;
+}
+
+.tp__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tp__trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tp__icon {
+  flex-shrink: 0;
+}
+
+.tp__label {
+  flex: 1;
+}
+
+.tp__label--placeholder {
+  color: var(--text-secondary);
+}
+
+.tp__clear {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.tp__clear:hover {
+  background: var(--surface-card-muted);
+  color: var(--text-primary);
+}
+
+.tp__panel {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  gap: var(--space-2);
+  width: 200px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-3);
+}
+
+.tp__column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tp__column-label {
+  text-align: center;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+.tp__list {
+  height: 160px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  scroll-behavior: auto;
+}
+
+/* Seulement 4 quarts d'heure — pas besoin de défilement, et une hauteur fixe de 160px
+   laisserait un grand vide disproportionné à côté des 24 heures. */
+.tp__list--minutes {
+  height: auto;
+  overflow-y: visible;
+  justify-content: flex-start;
+  gap: var(--space-1);
+}
+
+.tp__item {
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0;
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: center;
+}
+
+.tp__item:hover {
+  background: var(--surface-card-muted);
+}
+
+.tp__item--selected {
+  background: var(--color-primary-fill);
+  color: #ffffff;
+}
+
+.tp__item--selected:hover {
+  background: var(--color-primary-fill-hover);
+}

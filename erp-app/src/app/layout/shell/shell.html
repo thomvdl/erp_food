@@ -30,17 +30,23 @@
         <span class="app-nav-item__label">{{ isDark() ? 'Thème clair' : 'Thème sombre' }}</span>
       </button>
 
-      <div class="user-chip" [title]="currentUser.name + ' — ' + currentUser.role">
-        <span class="avatar user-chip__avatar">{{ currentUser.initials }}</span>
+      <button
+        type="button"
+        class="app-nav-item user-chip"
+        (click)="logout()"
+        [title]="currentUser().name + ' — ' + currentUser().role + ' — Se déconnecter'"
+      >
+        <span class="avatar user-chip__avatar">{{ currentUser().initials }}</span>
         <span class="user-chip__info app-nav-item__label">
-          <span class="user-chip__name">{{ currentUser.name }}</span>
-          <span class="user-chip__role">{{ currentUser.role }}</span>
+          <span class="user-chip__name">{{ currentUser().name }}</span>
+          <span class="user-chip__role">{{ currentUser().role }}</span>
         </span>
-      </div>
+        <span class="app-nav-item__label user-chip__logout">⏻</span>
+      </button>
     </div>
   </aside>
 
-  <main class="app-main">
+  <main class="app-main" [class.app-main--fixed]="fixedLayout()">
     <router-outlet />
   </main>
 </div>

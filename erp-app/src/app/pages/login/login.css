@@ -1,0 +1,55 @@
+:host {
+  display: block;
+}
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-page);
+  padding: var(--space-5);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+.text-center {
+  text-align: center;
+}
+
+/* .scanner/.scanner__* n'existent pas globalement dans erp-app (ils vivent en CSS scopé dans
+   erp_validate_event/event-checkin.css) — repris ici tels quels pour la caméra de connexion QR. */
+.scanner {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: #000;
+}
+
+.scanner--login {
+  aspect-ratio: 1 / 1;
+}
+
+.scanner__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.scanner__canvas {
+  display: none;
+}
+
+.scanner__frame {
+  position: absolute;
+  inset: 15%;
+  border: 3px solid var(--color-accent-500);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 999px rgb(0 0 0 / 35%);
+  pointer-events: none;
+}

@@ -1,0 +1,60 @@
+<div class="login-kiosk">
+  <div class="login-kiosk__header">
+    <h1>🍽️ ERP v2 — Connexion</h1>
+    <div class="tab-group">
+      <button type="button" class="tab-pill" [class.is-active]="mode() === 'qr'" (click)="setMode('qr')">📷 QR code</button>
+      <button type="button" class="tab-pill" [class.is-active]="mode() === 'password'" (click)="setMode('password')">
+        ⌨️ Mot de passe
+      </button>
+    </div>
+  </div>
+
+  @if (mode() === 'qr') {
+    <div class="scanner scanner--login">
+      <video #scanVideo class="scanner__video" autoplay playsinline muted></video>
+      <canvas #scanCanvas class="scanner__canvas"></canvas>
+      <div class="scanner__frame"></div>
+    </div>
+
+    @if (scanError()) {
+      <p class="error-text">{{ scanError() }}</p>
+    }
+    @if (error()) {
+      <p class="error-text">{{ error() }}</p>
+    }
+    <p class="text-muted text-center">Présente ton QR code personnel devant la caméra</p>
+  } @else {
+    <div class="login-fields">
+      <button type="button" class="login-field" [class.login-field--active]="activeField() === 'username'" (click)="selectField('username')">
+        <span class="login-field__label">Utilisateur</span>
+        <span class="login-field__value">{{ username() || '········' }}</span>
+      </button>
+      <button type="button" class="login-field" [class.login-field--active]="activeField() === 'password'" (click)="selectField('password')">
+        <span class="login-field__label">Mot de passe</span>
+        <span class="login-field__value">{{ password() ? '●'.repeat(password().length) : '········' }}</span>
+      </button>
+    </div>
+
+    <div class="kiosk-keyboard">
+      @for (row of keyboardRows; track $index) {
+        <div class="kiosk-keyboard__row">
+          @for (key of row.split(''); track key) {
+            <button type="button" class="pos-keypad__key" (click)="pressKey(key)">{{ key }}</button>
+          }
+        </div>
+      }
+    </div>
+
+    @if (error()) {
+      <p class="error-text">{{ error() }}</p>
+    }
+
+    <div class="kiosk-keyboard__actions">
+      <button type="button" class="btn btn-outline btn-lg" (click)="clearField()">Effacer</button>
+      <button type="button" class="btn btn-outline btn-lg" (click)="backspace()">⌫</button>
+      <button type="button" class="btn btn-accent btn-lg" [disabled]="submitting()" (click)="submitPassword()">
+        {{ submitting() ? '…' : 'Se connecter' }}
+      </button>
+    </div>
+  }
+</div>

@@ -1,0 +1,43 @@
+<button type="button" class="input tp__trigger" (click)="toggle()" [disabled]="disabled()">
+  <span class="tp__icon">🕒</span>
+  <span class="tp__label" [class.tp__label--placeholder]="!value()">{{ value() ?? placeholder }}</span>
+  @if (value()) {
+    <span class="tp__clear" (click)="clear($event)" title="Effacer">✕</span>
+  }
+</button>
+
+@if (open()) {
+  <div class="tp__panel">
+    <div class="tp__column">
+      <div class="tp__column-label">Heures</div>
+      <div class="tp__list">
+        @for (hour of hours; track hour) {
+          <button
+            type="button"
+            class="tp__item"
+            [class.tp__item--selected]="hour === selectedHour()"
+            (click)="selectHour(hour)"
+          >
+            {{ hour }}
+          </button>
+        }
+      </div>
+    </div>
+
+    <div class="tp__column">
+      <div class="tp__column-label">Minutes</div>
+      <div class="tp__list tp__list--minutes">
+        @for (minute of minutes; track minute) {
+          <button
+            type="button"
+            class="tp__item"
+            [class.tp__item--selected]="minute === selectedMinute()"
+            (click)="selectMinute(minute)"
+          >
+            {{ minute }}
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}

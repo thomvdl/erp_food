@@ -18,4 +18,9 @@ class Client extends Model
     {
         return $this->hasMany(Ticket::class);
     }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
 }

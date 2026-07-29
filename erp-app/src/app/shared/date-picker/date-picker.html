@@ -1,0 +1,38 @@
+<button type="button" class="input dp__trigger" (click)="toggle()" [disabled]="disabled()">
+  <span class="dp__icon">📅</span>
+  <span class="dp__label" [class.dp__label--placeholder]="!displayLabel()">{{ displayLabel() ?? placeholder }}</span>
+  @if (value()) {
+    <span class="dp__clear" (click)="clear($event)" title="Effacer">✕</span>
+  }
+</button>
+
+@if (open()) {
+  <div class="dp__panel">
+    <div class="dp__panel-header">
+      <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="prevMonth()">←</button>
+      <span class="dp__month-label">{{ monthLabel() }}</span>
+      <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="nextMonth()">→</button>
+    </div>
+
+    <div class="dp__weekdays">
+      @for (label of weekdayLabels; track label) {
+        <span>{{ label }}</span>
+      }
+    </div>
+
+    <div class="dp__days">
+      @for (cell of cells(); track cell.dateKey) {
+        <button
+          type="button"
+          class="dp__day"
+          [class.dp__day--outside]="!cell.inMonth"
+          [class.dp__day--today]="cell.isToday"
+          [class.dp__day--selected]="cell.isSelected"
+          (click)="selectDay(cell)"
+        >
+          {{ cell.day }}
+        </button>
+      }
+    </div>
+  </div>
+}

@@ -1,0 +1,75 @@
+<div class="app-topbar">
+  <h1 class="text-2xl">Réservations</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+<div class="app-topbar" style="margin-top: var(--space-2)">
+  <div style="display: flex; align-items: center; gap: var(--space-3)">
+    <app-date-picker [ngModel]="dayFilter()" (ngModelChange)="setDayFilter($event)" placeholder="Filtrer par jour" />
+    <button type="button" class="btn btn-ghost btn-sm" (click)="goToToday()">Aujourd'hui</button>
+    <button type="button" class="btn btn-ghost btn-sm" [class.is-active]="dayFilter() === null" (click)="showAllDays()">
+      Toutes les dates
+    </button>
+  </div>
+
+  <div class="tab-group">
+    <button type="button" class="tab-pill" [class.is-active]="typeFilter() === null" (click)="setTypeFilter(null)">Tous</button>
+    @for (type of bookingTypeOptions; track type) {
+      <button type="button" class="tab-pill" [class.is-active]="typeFilter() === type" (click)="setTypeFilter(type)">
+        {{ typeLabel(type) }}
+      </button>
+    }
+  </div>
+</div>
+
+<p class="text-muted text-sm" style="margin-bottom: var(--space-3)">
+  {{ sortedBookings().length }} réservation{{ sortedBookings().length > 1 ? 's' : '' }} au total
+  — {{ totalGuests() }} personne{{ totalGuests() > 1 ? 's' : '' }}
+</p>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th class="is-sortable" (click)="toggleSort('client')">Client <span class="sort-indicator">{{ sortIndicator('client') }}</span></th>
+          <th class="is-sortable" (click)="toggleSort('type')">Type <span class="sort-indicator">{{ sortIndicator('type') }}</span></th>
+          <th class="is-sortable" (click)="toggleSort('hour')">Date / Heure <span class="sort-indicator">{{ sortIndicator('hour') }}</span></th>
+          <th class="is-sortable" (click)="toggleSort('guests')">
+            Personnes <span class="sort-indicator">{{ sortIndicator('guests') }}</span>
+          </th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (booking of sortedBookings(); track booking.id) {
+          <tr>
+            <td>{{ booking.client?.firstname }} {{ booking.client?.lastname }}</td>
+            <td class="text-muted">{{ typeLabel(booking.type) }}</td>
+            <td class="text-muted">{{ formatDate(booking) }} à {{ formatHour(booking) }}</td>
+            <td class="text-muted">{{ booking.number_of_guests }}</td>
+            <td>
+              @if (booking.validated_at) {
+                <span class="badge badge-success">Validée</span>
+              } @else {
+                <span class="badge badge-warning">En attente</span>
+              }
+            </td>
+            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
+              @if (!booking.validated_at) {
+                <button type="button" class="btn btn-accent btn-sm" (click)="validate(booking)">Valider</button>
+              }
+              <a class="btn btn-outline btn-sm" [routerLink]="[booking.id]">Modifier</a>
+              <button type="button" class="btn btn-danger btn-sm" (click)="remove(booking)">Supprimer</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="6" class="text-muted">Aucune réservation pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

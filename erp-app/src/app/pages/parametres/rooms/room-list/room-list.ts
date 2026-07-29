@@ -18,6 +18,10 @@ export class RoomList {
     this.refresh();
   }
 
+  typeLabel(room: Room): string {
+    return room.type === 'event' ? 'Événement' : 'Restaurant';
+  }
+
   remove(room: Room): void {
     if (!confirm(`Supprimer la salle "${room.name}" ?`)) {
       return;

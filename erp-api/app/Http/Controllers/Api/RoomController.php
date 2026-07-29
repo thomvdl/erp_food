@@ -15,9 +15,7 @@ class RoomController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-        ]);
+        $data = $this->validated($request);
 
         return response()->json(Room::query()->create($data), 201);
     }
@@ -29,9 +27,7 @@ class RoomController extends Controller
 
     public function update(Request $request, Room $room)
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-        ]);
+        $data = $this->validated($request);
 
         $room->update($data);
 
@@ -43,5 +39,16 @@ class RoomController extends Controller
         $room->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validated(Request $request): array
+    {
+        return $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'type' => ['required', 'string', 'in:restaurant,event'],
+        ]);
     }
 }

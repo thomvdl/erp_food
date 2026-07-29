@@ -1,0 +1,201 @@
+<div class="app-topbar">
+  <h1 class="text-2xl">Fond de caisse</h1>
+</div>
+
+@if (!activeCashierService.loaded()) {
+  <p class="text-muted">Chargement…</p>
+} @else if (!activeCashierService.cashier()) {
+  <div class="card">
+    <div class="card-header">
+      <span class="font-semibold">Qui êtes-vous ?</span>
+    </div>
+    <div class="card-body">
+      <label class="field">
+        Utilisateur
+        <select class="select" [ngModel]="selectedUserId()" (ngModelChange)="selectedUserId.set($event)">
+          <option [ngValue]="null">— Sélectionner —</option>
+          @for (user of users(); track user.id) {
+            <option [ngValue]="user.id">{{ user.username }}</option>
+          }
+        </select>
+      </label>
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" [disabled]="selectedUserId() === null" (click)="confirmCashier()">Continuer</button>
+      </div>
+    </div>
+  </div>
+} @else {
+  <div class="card">
+    <div class="card-header">
+      <span class="font-semibold">👤 {{ activeCashierService.cashier()?.username }}</span>
+      <button type="button" class="btn btn-ghost btn-sm" (click)="changeCashier()">Changer d'utilisateur</button>
+    </div>
+
+    <div class="card-body">
+      @if (closeResult(); as result) {
+        <div class="card" style="margin-bottom: var(--space-4)">
+          <div class="card-body">
+            <p class="font-semibold">Caisse fermée</p>
+            <p class="text-sm">Fond compté : {{ formatPrice(result.closing_amount) }}</p>
+            <p class="text-sm">Montant attendu : {{ formatPrice(result.expected_amount) }}</p>
+            <p class="text-sm" [class.error-text]="hasDiscrepancy(result.discrepancy)">
+              Écart : {{ formatPrice(result.discrepancy) }}
+            </p>
+          </div>
+        </div>
+      }
+
+      @if (activeCashierService.activeSession(); as session) {
+        <p>Caisse ouverte depuis {{ formatDateTime(session.opened_at) }}</p>
+        <p class="text-muted text-sm">Fond d'ouverture : {{ formatPrice(session.opening_amount) }}</p>
+
+        <div class="form-actions" style="margin-top: var(--space-3)">
+          <a class="btn btn-outline btn-sm" [routerLink]="['/caisse', session.id]">Voir les paiements</a>
+          @if (!showCloseForm()) {
+            <button type="button" class="btn btn-primary btn-sm" (click)="toggleCloseForm()">Fermer la caisse</button>
+          }
+        </div>
+
+        @if (showCloseForm()) {
+          <div style="margin-top: var(--space-4)">
+            <p class="text-muted text-sm" style="margin-bottom: var(--space-3)">
+              Compte chaque moyen de paiement — le montant attendu est pré-rempli, ajuste-le si le comptage réel diffère.
+            </p>
+
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Moyen de paiement</th>
+                  <th>Attendu</th>
+                  <th>Compté</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of closingRows(); track row.payment_method_id; let i = $index) {
+                  <tr>
+                    <td>{{ row.name }}</td>
+                    <td class="text-muted">{{ formatPrice(row.expected) }}</td>
+                    <td>
+                      <input
+                        class="input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        [ngModel]="row.counted"
+                        (ngModelChange)="updateCountedAmount(i, $event)"
+                      />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+
+            @if (error()) {
+              <p class="error-text">{{ error() }}</p>
+            }
+            <div class="form-actions" style="margin-top: var(--space-3)">
+              <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="closeSession()">
+                {{ saving() ? 'Fermeture...' : 'Confirmer la fermeture' }}
+              </button>
+              <button type="button" class="btn btn-outline" (click)="showCloseForm.set(false)">Annuler</button>
+            </div>
+          </div>
+        }
+      } @else {
+        <p class="text-muted text-sm" style="margin-bottom: var(--space-3)">Aucune caisse ouverte pour cet utilisateur.</p>
+        <div class="form-section">
+          <label class="field">
+            Fond de caisse à l'ouverture (€)
+            <input class="input" type="number" min="0" step="0.01" [ngModel]="openingAmount()" (ngModelChange)="openingAmount.set($event)" />
+          </label>
+          @if (error()) {
+            <p class="error-text">{{ error() }}</p>
+          }
+          <div class="form-actions">
+            <button type="button" class="btn btn-primary" [disabled]="saving()" (click)="openSession()">
+              {{ saving() ? 'Ouverture...' : 'Ouvrir la caisse' }}
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+}
+
+<div class="card" style="margin-top: var(--space-4)">
+  <div class="card-header">
+    <span class="font-semibold">Historique des sessions</span>
+  </div>
+  <div class="card-body">
+    <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4)">
+      <div class="field" style="max-width: 220px">
+        <label>Filtrer par jour</label>
+        <app-date-picker [ngModel]="historyDayFilter()" (ngModelChange)="historyDayFilter.set($event)" placeholder="Toutes les dates" />
+      </div>
+
+      <div class="field" style="max-width: 220px">
+        <label for="history-user-filter">Filtrer par utilisateur</label>
+        <select id="history-user-filter" class="select" [ngModel]="historyUserFilter()" (ngModelChange)="historyUserFilter.set($event)">
+          <option [ngValue]="null">Tous les utilisateurs</option>
+          @for (user of users(); track user.id) {
+            <option [ngValue]="user.id">{{ user.username }}</option>
+          }
+        </select>
+      </div>
+
+      @if (historyDayFilter() || historyUserFilter() !== null) {
+        <div class="field" style="justify-content: flex-end">
+          <label>&nbsp;</label>
+          <button type="button" class="btn btn-ghost btn-sm" (click)="historyDayFilter.set(null); historyUserFilter.set(null)">
+            Réinitialiser
+          </button>
+        </div>
+      }
+    </div>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th class="is-sortable" (click)="toggleSort('user')">Utilisateur <span class="sort-indicator">{{ sortIndicator('user') }}</span></th>
+          <th class="is-sortable" (click)="toggleSort('opened')">Ouverture <span class="sort-indicator">{{ sortIndicator('opened') }}</span></th>
+          <th class="is-sortable" (click)="toggleSort('closed')">Fermeture <span class="sort-indicator">{{ sortIndicator('closed') }}</span></th>
+          <th class="is-sortable" (click)="toggleSort('opening')">
+            Fond initial <span class="sort-indicator">{{ sortIndicator('opening') }}</span>
+          </th>
+          <th class="is-sortable" (click)="toggleSort('closing')">
+            Fond compté <span class="sort-indicator">{{ sortIndicator('closing') }}</span>
+          </th>
+          <th class="is-sortable" (click)="toggleSort('discrepancy')">Écart <span class="sort-indicator">{{ sortIndicator('discrepancy') }}</span></th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (session of sortedSessions(); track session.id) {
+          <tr>
+            <td>{{ session.user?.username }}</td>
+            <td class="text-muted">{{ formatDateTime(session.opened_at) }}</td>
+            <td class="text-muted">{{ formatDateTime(session.closed_at) }}</td>
+            <td class="text-muted">{{ formatPrice(session.opening_amount) }}</td>
+            <td class="text-muted">{{ formatPrice(session.closing_amount) }}</td>
+            <td class="text-muted">{{ formatPrice(session.discrepancy) }}</td>
+            <td>
+              @if (session.closed_at) {
+                <span class="badge badge-neutral">Fermée</span>
+              } @else {
+                <span class="badge badge-success">Ouverte</span>
+              }
+            </td>
+            <td style="text-align: right;">
+              <a class="btn btn-outline btn-sm" [routerLink]="['/caisse', session.id]">Détail</a>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="8" class="text-muted">Aucune session de caisse pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

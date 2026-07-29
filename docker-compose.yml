@@ -62,6 +62,20 @@ services:
     depends_on:
       - api
 
+  validate_event:
+    build:
+      context: ./erp_validate_event
+    container_name: erp_v2_validate_event
+    restart: unless-stopped
+    ports:
+      - "${VALIDATE_EVENT_PORT:-19003}:4200"
+    volumes:
+      - ./erp_validate_event:/app
+      - validate_event_node_modules:/app/node_modules
+    depends_on:
+      - api
+
 volumes:
   db_data:
   app_node_modules:
+  validate_event_node_modules:

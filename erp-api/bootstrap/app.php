@@ -13,7 +13,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Laravel redirige par défaut les invités non authentifiés vers une route nommée
+        // 'login' (voir ApplicationBuilder::withMiddleware) — cette API est 100% JSON, il n'y a
+        // pas de route 'login' web (routes/web.php n'a qu'une page d'accueil par défaut).
+        // Sans ce override, une requête non authentifiée sans en-tête "Accept: application/json"
+        // explicite (ex. un simple curl) plante en 500 (RouteNotFoundException) au lieu du 401
+        // attendu — AuthController::login (public) répond en JSON de toute façon.
+        $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -1,0 +1,120 @@
+<a routerLink="/reservations" class="back-link">← Réservations</a>
+
+<h1 class="text-2xl">{{ isEdit() ? 'Modifier la réservation' : 'Nouvelle réservation' }}</h1>
+
+<form class="form" (ngSubmit)="submit()">
+  <label class="field">Client</label>
+  <div class="pos-client">
+    @if (selectedClient(); as client) {
+      <div class="pos-client__chip">
+        <span>👤 {{ client.firstname }} {{ client.lastname }}</span>
+        <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="clearClient()">✕</button>
+      </div>
+    } @else {
+      <div class="pos-client__search">
+        <input
+          class="input"
+          type="text"
+          placeholder="Rechercher un client (2 lettres minimum)…"
+          [ngModel]="clientSearch()"
+          (ngModelChange)="onClientSearchChange($event)"
+          name="clientSearch"
+        />
+        @if (clientResults().length > 0) {
+          <div class="pos-client__results">
+            @for (client of clientResults(); track client.id) {
+              <button type="button" class="pos-client__result" (click)="selectClient(client)">
+                {{ client.firstname }} {{ client.lastname }}
+                @if (client.phone) {
+                  <span class="text-muted text-xs">{{ client.phone }}</span>
+                }
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      @if (!showNewClientForm()) {
+        <button type="button" class="btn btn-outline btn-sm" (click)="toggleNewClientForm()">+ Nouveau client</button>
+      } @else {
+        <div class="pos-client__new-form">
+          <input
+            class="input"
+            type="text"
+            placeholder="Prénom"
+            [ngModel]="newClientFirstname()"
+            (ngModelChange)="newClientFirstname.set($event)"
+            name="newClientFirstname"
+          />
+          <input
+            class="input"
+            type="text"
+            placeholder="Nom"
+            [ngModel]="newClientLastname()"
+            (ngModelChange)="newClientLastname.set($event)"
+            name="newClientLastname"
+          />
+          <input
+            class="input"
+            type="text"
+            placeholder="Téléphone (optionnel)"
+            [ngModel]="newClientPhone()"
+            (ngModelChange)="newClientPhone.set($event)"
+            name="newClientPhone"
+          />
+          <div class="form-actions">
+            <button type="button" class="btn btn-primary btn-sm" [disabled]="savingClient()" (click)="submitNewClient()">
+              Ajouter
+            </button>
+            <button type="button" class="btn btn-ghost btn-sm" (click)="toggleNewClientForm()">Annuler</button>
+          </div>
+        </div>
+      }
+    }
+  </div>
+
+  <div class="form-section" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4)">
+    <label class="field">
+      Type
+      <select class="select" [ngModel]="type()" (ngModelChange)="type.set($event)" name="type" required>
+        @for (option of bookingTypes; track option.value) {
+          <option [ngValue]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="field">
+      Nombre de personnes
+      <input
+        class="input"
+        type="number"
+        min="1"
+        [ngModel]="numberOfGuests()"
+        (ngModelChange)="numberOfGuests.set($event)"
+        name="number_of_guests"
+        required
+      />
+    </label>
+
+    <label class="field">
+      Date
+      <app-date-picker [ngModel]="date()" (ngModelChange)="date.set($event)" name="date" required />
+    </label>
+
+    <label class="field">
+      Heure
+      <app-time-picker [ngModel]="hour()" (ngModelChange)="hour.set($event)" name="hour" required />
+    </label>
+  </div>
+
+  @if (error()) {
+    <p class="error-text">{{ error() }}</p>
+  }
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary" [disabled]="saving()">
+      {{ saving() ? 'Enregistrement...' : 'Enregistrer' }}
+    </button>
+    <a class="btn btn-outline" routerLink="/reservations">Annuler</a>
+  </div>
+</form>

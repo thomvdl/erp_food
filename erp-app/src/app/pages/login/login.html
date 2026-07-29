@@ -1,0 +1,60 @@
+<div class="login-page">
+  <div class="card login-card">
+    <div class="card-header" style="justify-content: center">
+      <span class="font-semibold text-lg">🍽️ ERP v2 — Connexion</span>
+    </div>
+
+    <div class="card-body">
+      <div class="tab-group" style="justify-content: center; margin-bottom: var(--space-4)">
+        <button type="button" class="tab-pill" [class.is-active]="mode() === 'password'" (click)="setMode('password')">
+          Mot de passe
+        </button>
+        <button type="button" class="tab-pill" [class.is-active]="mode() === 'qr'" (click)="setMode('qr')">📷 QR code</button>
+      </div>
+
+      @if (mode() === 'password') {
+        <form class="form" (ngSubmit)="submitPassword()">
+          <label class="field">
+            Utilisateur
+            <input class="input" type="text" name="username" [ngModel]="username()" (ngModelChange)="username.set($event)" required autofocus />
+          </label>
+          <label class="field">
+            Mot de passe
+            <input
+              class="input"
+              type="password"
+              name="password"
+              [ngModel]="password()"
+              (ngModelChange)="password.set($event)"
+              required
+            />
+          </label>
+
+          @if (error()) {
+            <p class="error-text">{{ error() }}</p>
+          }
+
+          <button type="submit" class="btn btn-primary" [disabled]="submitting()" style="width: 100%">
+            {{ submitting() ? 'Connexion...' : 'Se connecter' }}
+          </button>
+        </form>
+      } @else {
+        <div class="scanner scanner--login">
+          <video #scanVideo class="scanner__video" autoplay playsinline muted></video>
+          <canvas #scanCanvas class="scanner__canvas"></canvas>
+          <div class="scanner__frame"></div>
+        </div>
+
+        @if (scanError()) {
+          <p class="error-text">{{ scanError() }}</p>
+        }
+        @if (error()) {
+          <p class="error-text">{{ error() }}</p>
+        }
+        <p class="text-muted text-sm text-center" style="margin-top: var(--space-2)">
+          Présente ton QR code personnel devant la caméra
+        </p>
+      }
+    </div>
+  </div>
+</div>

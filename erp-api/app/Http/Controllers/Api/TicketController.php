@@ -1,0 +1,103 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\CashSession;
+use App\Models\Product;
+use App\Models\Ticket;
+use App\Models\TicketPayment;
+use App\Models\TicketSection;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+class TicketController extends Controller
+{
+    private const WITH = ['client', 'sections.lines.product', 'payments.paymentMethod'];
+
+    /**
+     * Derniers tickets encaissés — utilisé par le dashboard ("derniers tickets", voir Readme.md).
+     * `limit` optionnel (défaut 10) pour ne pas rapatrier tout l'historique de vente.
+     */
+    public function index(Request $request)
+    {
+        $limit = (int) $request->query('limit', 10);
+
+        return Ticket::query()->with(self::WITH)->latest('paid_at')->limit($limit)->get();
+    }
+
+    /**
+     * Vente directe : encaisse immédiatement (pas de flux Order/cuisine, voir CONTEXT.md).
+     * Le prix de chaque ligne est toujours recalculé depuis Product::price côté serveur (jamais
+     * fait confiance au front) puis figé dans ticket_lines.unit_price. Paiement multi-moyens :
+     * la somme des `payments` doit correspondre exactement au total, sinon 422.
+     */
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'client_id' => ['nullable', 'integer', 'exists:clients,id'],
+            'cash_session_id' => ['nullable', 'integer', 'exists:cash_sessions,id'],
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
+            'lines.*.quantity' => ['required', 'integer', 'min:1'],
+            'payments' => ['required', 'array', 'min:1'],
+            'payments.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
+            'payments.*.value' => ['required', 'numeric', 'min:0.01'],
+        ]);
+
+        // Pas d'auth : l'utilisateur qui encaisse est celui qui a ouvert la session de caisse
+        // active (voir CashSessionController). Sans session ouverte, la vente reste possible,
+        // juste sans rattachement utilisateur (voir migration add_cash_session_to_ticket_payments).
+        $cashSession = !empty($data['cash_session_id']) ? CashSession::query()->find($data['cash_session_id']) : null;
+
+        $products = Product::query()->whereIn('id', collect($data['lines'])->pluck('product_id'))->get()->keyBy('id');
+
+        $total = 0;
+        foreach ($data['lines'] as $line) {
+            $total += (float) $products[$line['product_id']]->price * $line['quantity'];
+        }
+
+        $paidTotal = collect($data['payments'])->sum('value');
+
+        if (round($paidTotal, 2) !== round($total, 2)) {
+            throw ValidationException::withMessages([
+                'payments' => ["Le total des paiements ({$paidTotal}) ne correspond pas au montant dû ({$total})."],
+            ]);
+        }
+
+        $ticket = DB::transaction(function () use ($data, $products, $cashSession) {
+            $ticket = Ticket::query()->create([
+                'paid_at' => now(),
+                'client_id' => $data['client_id'] ?? null,
+            ]);
+
+            $section = TicketSection::query()->create([
+                'name' => 'Vente directe',
+                'ticket_id' => $ticket->id,
+            ]);
+
+            foreach ($data['lines'] as $line) {
+                $section->lines()->create([
+                    'quantity' => $line['quantity'],
+                    'unit_price' => $products[$line['product_id']]->price,
+                    'product_id' => $line['product_id'],
+                ]);
+            }
+
+            foreach ($data['payments'] as $payment) {
+                TicketPayment::query()->create([
+                    'value' => $payment['value'],
+                    'payment_method_id' => $payment['payment_method_id'],
+                    'ticket_id' => $ticket->id,
+                    'user_id' => $cashSession?->user_id,
+                    'cash_session_id' => $cashSession?->id,
+                ]);
+            }
+
+            return $ticket;
+        });
+
+        return response()->json($ticket->load(self::WITH), 201);
+    }
+}

@@ -1,0 +1,290 @@
+<div class="app-topbar">
+  <div>
+    <h1 class="text-2xl">POS — Vente directe</h1>
+    <p class="text-muted text-sm">Comptoir / à emporter — encaissement immédiat, sans passage en cuisine.</p>
+  </div>
+  @if (activeCashierService.activeSession(); as session) {
+    <span class="badge badge-success">💶 Caisse ouverte — {{ session.user?.username }}</span>
+  } @else {
+    <a class="badge badge-warning" routerLink="/caisse">💶 Aucune caisse ouverte — Ouvrir</a>
+  }
+</div>
+
+@if (activeDirectSaleCatalogId() === null) {
+  <div class="card card-body">
+    <p>
+      Aucun catalogue n'est actif pour le POS Vente directe. Active-en un depuis
+      <strong>Paramètres → Catalogues</strong>.
+    </p>
+  </div>
+} @else {
+  <div class="pos-layout">
+    <section class="pos-products">
+      <div class="pos-toolbar">
+        <div class="search-input">
+          <span class="icon">🔍</span>
+          <input
+            class="input"
+            type="text"
+            placeholder="Rechercher un produit…"
+            [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)"
+          />
+        </div>
+
+        <div class="tab-group">
+          <button type="button" class="tab-pill" [class.is-active]="selectedCategoryId() === null" (click)="selectedCategoryId.set(null)">
+            Tous
+            <span class="tab-pill__count">{{ availableProducts().length }}</span>
+          </button>
+          @for (category of categories(); track category.id) {
+            <button
+              type="button"
+              class="tab-pill"
+              [class.is-active]="selectedCategoryId() === category.id"
+              (click)="selectedCategoryId.set(category.id)"
+            >
+              {{ category.name }}
+              <span class="tab-pill__count">{{ category.count }}</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="pos-grid">
+        @for (product of filteredProducts(); track product.id) {
+          <button type="button" class="pos-product-card" (click)="addToCart(product)">
+            @if (quantityInCart(product) > 0) {
+              <span class="pos-product-card__badge">{{ quantityInCart(product) }}</span>
+            }
+            <span class="pos-product-card__thumb">{{ productEmoji(product) }}</span>
+            <span class="pos-product-card__name">{{ product.name }}</span>
+            <span class="pos-product-card__price">{{ formatMoney(product.price) }}</span>
+          </button>
+        } @empty {
+          <p class="text-muted">Aucun produit ne correspond à cette recherche.</p>
+        }
+      </div>
+    </section>
+
+    <aside class="pos-cart card card-elevated">
+      <div class="card-header">
+        <h2 class="text-lg">Vente en cours</h2>
+        @if (cart().length > 0) {
+          <button type="button" class="btn btn-ghost btn-sm" (click)="clearSale()">Vider</button>
+        }
+      </div>
+
+      <div class="card-body pos-cart__body">
+        <div class="pos-client">
+          @if (selectedClient(); as client) {
+            <div class="pos-client__chip">
+              <span>👤 {{ client.firstname }} {{ client.lastname }}</span>
+              <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="clearClient()">✕</button>
+            </div>
+          } @else {
+            <div class="pos-client__search">
+              <input
+                class="input"
+                type="text"
+                placeholder="Client (optionnel) — rechercher…"
+                [ngModel]="clientSearch()"
+                (ngModelChange)="onClientSearchChange($event)"
+              />
+              @if (clientResults().length > 0) {
+                <div class="pos-client__results">
+                  @for (client of clientResults(); track client.id) {
+                    <button type="button" class="pos-client__result" (click)="selectClient(client)">
+                      {{ client.firstname }} {{ client.lastname }}
+                      @if (client.phone) {
+                        <span class="text-muted text-xs">{{ client.phone }}</span>
+                      }
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+
+            @if (!showNewClientForm()) {
+              <button type="button" class="btn btn-outline btn-sm" (click)="toggleNewClientForm()">+ Nouveau client</button>
+            } @else {
+              <div class="pos-client__new-form">
+                <input
+                  class="input"
+                  type="text"
+                  placeholder="Prénom"
+                  [ngModel]="newClientFirstname()"
+                  (ngModelChange)="newClientFirstname.set($event)"
+                />
+                <input
+                  class="input"
+                  type="text"
+                  placeholder="Nom"
+                  [ngModel]="newClientLastname()"
+                  (ngModelChange)="newClientLastname.set($event)"
+                />
+                <input
+                  class="input"
+                  type="text"
+                  placeholder="Téléphone (optionnel)"
+                  [ngModel]="newClientPhone()"
+                  (ngModelChange)="newClientPhone.set($event)"
+                />
+                <div class="form-actions">
+                  <button type="button" class="btn btn-primary btn-sm" [disabled]="savingClient()" (click)="submitNewClient()">
+                    Ajouter
+                  </button>
+                  <button type="button" class="btn btn-ghost btn-sm" (click)="toggleNewClientForm()">Annuler</button>
+                </div>
+              </div>
+            }
+          }
+        </div>
+
+        <hr class="divider" />
+
+        <div class="pos-cart__lines">
+          @for (line of cart(); track line.product.id) {
+            <div class="pos-cart__line">
+              <div class="pos-cart__line-info">
+                <span class="font-medium">{{ line.product.name }}</span>
+                <span class="text-muted text-xs">{{ formatMoney(line.product.price) }} / unité</span>
+              </div>
+              <div class="qty-stepper">
+                <button type="button" class="qty-stepper__btn" (click)="decrementCartLine(line.product)">−</button>
+                <span>{{ line.quantity }}</span>
+                <button type="button" class="qty-stepper__btn" (click)="addToCart(line.product)">+</button>
+              </div>
+              <span class="pos-cart__line-total">{{ formatMoney(lineTotal(line)) }}</span>
+              <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeCartLine(line.product)">✕</button>
+            </div>
+          } @empty {
+            <p class="text-muted text-sm">Le panier est vide — sélectionne des produits à gauche.</p>
+          }
+        </div>
+
+        <hr class="divider" />
+
+        <div class="pos-cart__totals">
+          <div class="pos-cart__totals-row text-muted text-sm">
+            <span>dont TVA</span>
+            <span>{{ formatMoney(vatTotal()) }}</span>
+          </div>
+          <div class="pos-cart__totals-row pos-cart__totals-row--grand">
+            <span>Total à payer</span>
+            <span>{{ formatMoney(cartTotal()) }}</span>
+          </div>
+        </div>
+
+        @if (success()) {
+          <p class="pos-success">{{ success() }}</p>
+        }
+      </div>
+
+      <div class="card-footer">
+        <button type="button" class="btn btn-accent btn-lg" style="width: 100%" [disabled]="cart().length === 0" (click)="openPaymentModal()">
+          Payer — {{ formatMoney(cartTotal()) }}
+        </button>
+      </div>
+    </aside>
+  </div>
+}
+
+@if (showPaymentModal()) {
+  <div class="modal-overlay" (click)="closePaymentModal()">
+    <div class="modal-panel" (click)="$event.stopPropagation()">
+      <div class="card-header">
+        <h2 class="text-lg">Paiement</h2>
+        <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="closePaymentModal()">✕</button>
+      </div>
+
+      <div class="card-body pos-payments">
+        <div class="pos-cart__totals-row pos-cart__totals-row--grand">
+          <span>Total à payer</span>
+          <span>{{ formatMoney(cartTotal()) }}</span>
+        </div>
+
+        @if (paymentLines().length > 0) {
+          <div class="pos-payments__list">
+            @for (payment of paymentLines(); track $index) {
+              <div class="pos-payments__line">
+                <span>{{ payment.method.name }}</span>
+                <span class="font-semibold">{{ formatMoney(payment.value) }}</span>
+                <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removePayment($index)">✕</button>
+              </div>
+            }
+          </div>
+        }
+
+        @if (!enteringMethod()) {
+          <div class="tab-group">
+            @for (method of paymentMethods(); track method.id) {
+              <button type="button" class="tab-pill" [disabled]="remaining() <= 0" (click)="selectPaymentMethod(method)">
+                {{ method.name }}
+              </button>
+            }
+          </div>
+        } @else {
+          <div class="pos-keypad">
+            <div class="pos-keypad__header">
+              <button type="button" class="btn btn-ghost btn-sm" (click)="cancelPaymentEntry()">← {{ enteringMethod()!.name }}</button>
+            </div>
+
+            <div class="pos-keypad__display">{{ formatMoney(keypadValue()) }}</div>
+
+            @if (changeDue() > 0) {
+              <div class="pos-keypad__change">Rendu : {{ formatMoney(changeDue()) }}</div>
+            }
+
+            <div class="pos-keypad__quick">
+              <button type="button" class="btn btn-outline btn-sm" (click)="setExactRemaining()">Montant dû</button>
+              <button type="button" class="btn btn-outline btn-sm" (click)="setQuickAmount(5)">5 €</button>
+              <button type="button" class="btn btn-outline btn-sm" (click)="setQuickAmount(10)">10 €</button>
+              <button type="button" class="btn btn-outline btn-sm" (click)="setQuickAmount(20)">20 €</button>
+              <button type="button" class="btn btn-outline btn-sm" (click)="setQuickAmount(50)">50 €</button>
+            </div>
+
+            <div class="pos-keypad__grid">
+              @for (key of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫']; track key) {
+                @if (key === '⌫') {
+                  <button type="button" class="pos-keypad__key" (click)="backspace()">⌫</button>
+                } @else {
+                  <button type="button" class="pos-keypad__key" (click)="pressDigit(key)">{{ key }}</button>
+                }
+              }
+            </div>
+
+            <button
+              type="button"
+              class="btn btn-primary btn-lg"
+              style="width: 100%"
+              [disabled]="appliedAmount() <= 0"
+              (click)="confirmPaymentEntry()"
+            >
+              Ajouter {{ formatMoney(appliedAmount()) }}
+            </button>
+          </div>
+        }
+
+        <div class="pos-payments__remaining" [class.is-settled]="remaining() <= 0.004 && paidTotal() > 0">
+          @if (remaining() > 0.004) {
+            <span>Restant à payer : {{ formatMoney(remaining()) }}</span>
+          } @else if (paidTotal() > 0) {
+            <span>✓ Paiement complet</span>
+          }
+        </div>
+
+        @if (error()) {
+          <p class="error-text">{{ error() }}</p>
+        }
+      </div>
+
+      <div class="card-footer form-actions">
+        <button type="button" class="btn btn-accent btn-lg" style="flex: 1" [disabled]="!canSubmit()" (click)="submit()">
+          {{ submitting() ? 'Encaissement…' : 'Valider la vente' }}
+        </button>
+        <button type="button" class="btn btn-outline" (click)="closePaymentModal()">Annuler</button>
+      </div>
+    </div>
+  </div>
+}

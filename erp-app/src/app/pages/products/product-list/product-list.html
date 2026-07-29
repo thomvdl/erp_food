@@ -3,22 +3,66 @@
   <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
 </div>
 
+<div style="display: flex; gap: var(--space-4); flex-wrap: wrap">
+  <div class="field" style="max-width: 280px">
+    <label for="name-filter">Rechercher par nom</label>
+    <input
+      id="name-filter"
+      class="input"
+      type="text"
+      placeholder="Nom du produit…"
+      [ngModel]="nameFilter()"
+      (ngModelChange)="nameFilter.set($event)"
+    />
+  </div>
+
+  <div class="field" style="max-width: 280px">
+    <label for="catalog-filter">Filtrer par catalogue</label>
+    <select
+      id="catalog-filter"
+      class="select"
+      [ngModel]="catalogFilterId()"
+      (ngModelChange)="catalogFilterId.set($event)"
+    >
+      <option [ngValue]="null">Tous les catalogues</option>
+      @for (catalog of catalogs(); track catalog.id) {
+        <option [ngValue]="catalog.id">{{ catalog.name }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="field" style="max-width: 280px">
+    <label for="category-filter">Filtrer par catégorie</label>
+    <select
+      id="category-filter"
+      class="select"
+      [ngModel]="categoryFilterId()"
+      (ngModelChange)="categoryFilterId.set($event)"
+    >
+      <option [ngValue]="null">Toutes les catégories</option>
+      @for (category of categories(); track category.id) {
+        <option [ngValue]="category.id">{{ category.name }}</option>
+      }
+    </select>
+  </div>
+</div>
+
 <div class="card">
   <div class="card-body">
     <table class="table">
       <thead>
         <tr>
-          <th>Nom</th>
-          <th>Catégorie</th>
-          <th>Catalogues</th>
-          <th>Station</th>
-          <th>Prix</th>
-          <th>Statut</th>
+          <th class="is-sortable" (click)="toggleSort('name')">Nom <span class="sort-indicator">{{ sortIndicator('name') }}</span></th>
+          <th class="is-sortable" (click)="toggleSort('category')">Catégorie <span class="sort-indicator">{{ sortIndicator('category') }}</span></th>
+          <th class="is-sortable" (click)="toggleSort('catalogs')">Catalogues <span class="sort-indicator">{{ sortIndicator('catalogs') }}</span></th>
+          <th class="is-sortable" (click)="toggleSort('station')">Station <span class="sort-indicator">{{ sortIndicator('station') }}</span></th>
+          <th class="is-sortable" (click)="toggleSort('price')">Prix <span class="sort-indicator">{{ sortIndicator('price') }}</span></th>
+          <th class="is-sortable" (click)="toggleSort('active')">Statut <span class="sort-indicator">{{ sortIndicator('active') }}</span></th>
           <th></th>
         </tr>
       </thead>
       <tbody>
-        @for (product of products(); track product.id) {
+        @for (product of filteredProducts(); track product.id) {
           <tr>
             <td>{{ product.name }}</td>
             <td class="text-muted">{{ product.category?.name ?? '—' }}</td>

@@ -9,9 +9,12 @@ export interface TableElement {
   height: number;
 }
 
+export type RoomType = 'restaurant' | 'event';
+
 export interface Room {
   id: number;
   name: string;
   slug: string;
+  type: RoomType;
   tables?: TableElement[];
 }

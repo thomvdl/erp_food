@@ -1,9 +1,15 @@
 import { Routes } from '@angular/router';
+import { authGuard } from './core/auth.guard';
 
 export const routes: Routes = [
   {
+    path: 'login',
+    loadComponent: () => import('./pages/login/login').then((m) => m.Login),
+  },
+  {
     path: '',
     loadComponent: () => import('./layout/shell/shell').then((m) => m.Shell),
+    canActivate: [authGuard],
     children: [
       {
         path: '',
@@ -118,6 +124,10 @@ export const routes: Routes = [
         ],
       },
       {
+        path: 'pos-vente',
+        loadComponent: () => import('./pages/pos-vente/pos-vente').then((m) => m.PosVente),
+      },
+      {
         path: 'produits',
         children: [
           {
@@ -131,6 +141,68 @@ export const routes: Routes = [
           {
             path: ':id',
             loadComponent: () => import('./pages/products/product-form/product-form').then((m) => m.ProductForm),
+          },
+        ],
+      },
+      {
+        path: 'evenements',
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./pages/events/event-list/event-list').then((m) => m.EventList),
+          },
+          {
+            path: 'nouveau',
+            loadComponent: () => import('./pages/events/event-form/event-form').then((m) => m.EventForm),
+          },
+          {
+            path: 'vente',
+            loadComponent: () =>
+              import('./pages/events/event-date-select/event-date-select').then((m) => m.EventDateSelect),
+          },
+          {
+            path: ':id/modifier',
+            loadComponent: () => import('./pages/events/event-form/event-form').then((m) => m.EventForm),
+          },
+          {
+            path: ':id',
+            loadComponent: () => import('./pages/events/event-detail/event-detail').then((m) => m.EventDetail),
+          },
+          {
+            path: ':id/dates/:dateId',
+            loadComponent: () => import('./pages/events/event-dashboard/event-dashboard').then((m) => m.EventDashboard),
+          },
+        ],
+      },
+      {
+        path: 'caisse',
+        children: [
+          {
+            path: '',
+            loadComponent: () =>
+              import('./pages/cash-register/cash-register-home/cash-register-home').then((m) => m.CashRegisterHome),
+          },
+          {
+            path: ':id',
+            loadComponent: () =>
+              import('./pages/cash-register/cash-session-detail/cash-session-detail').then((m) => m.CashSessionDetail),
+          },
+        ],
+      },
+      {
+        path: 'reservations',
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./pages/bookings/booking-list/booking-list').then((m) => m.BookingList),
+          },
+          {
+            path: 'nouveau',
+            loadComponent: () => import('./pages/bookings/booking-form/booking-form').then((m) => m.BookingForm),
+          },
+          {
+            path: ':id',
+            loadComponent: () => import('./pages/bookings/booking-form/booking-form').then((m) => m.BookingForm),
           },
         ],
       },

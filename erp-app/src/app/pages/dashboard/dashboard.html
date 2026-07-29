@@ -1,83 +1,123 @@
 <div class="app-topbar">
   <div>
-    <h1 class="text-2xl">Aperçu du style</h1>
-    <p class="text-muted">Démo des composants de styles.css — thème clair/sombre selon les préférences système</p>
-  </div>
-  <div style="display:flex; gap: 0.75rem;">
-    <button class="btn btn-outline">Exporter</button>
-    <button class="btn btn-accent">+ Nouvelle commande</button>
+    <h1 class="text-2xl">Tableau de bord</h1>
+    <p class="text-muted">Aperçu de l'activité du jour</p>
   </div>
 </div>
 
-<div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
+<div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem;">
   <div class="stat-card stat-card--brand">
-    <span class="text-sm">Nouvelles commandes</span>
-    <span class="stat-card__value">16</span>
+    <span class="text-sm">Ventes du jour</span>
+    <span class="stat-card__value">{{ formatPrice(salesToday().total) }}</span>
+    <span class="text-sm">{{ salesToday().count }} ticket{{ salesToday().count > 1 ? 's' : '' }}</span>
   </div>
   <div class="stat-card">
-    <span class="text-sm text-muted">Total commandes</span>
-    <span class="stat-card__value">86</span>
+    <span class="text-sm text-muted">Réservations aujourd'hui</span>
+    <span class="stat-card__value">{{ todaysBookings().length }}</span>
+    <span class="text-sm text-muted">{{ totalGuestsToday() }} personne{{ totalGuestsToday() > 1 ? 's' : '' }}</span>
   </div>
   <div class="stat-card">
-    <span class="text-sm text-muted">En attente</span>
-    <span class="stat-card__value">9</span>
+    <span class="text-sm text-muted">Événements à venir</span>
+    <span class="stat-card__value">{{ upcomingEventDates().length }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="text-sm text-muted">Produits actifs</span>
+    <span class="stat-card__value">{{ activeProductsCount() }}</span>
   </div>
 </div>
 
-<div class="tab-group">
-  <span class="tab-pill is-active">Toutes <span class="tab-pill__count">78</span></span>
-  <span class="tab-pill">Sur place <span class="tab-pill__count">4</span></span>
-  <span class="tab-pill">À emporter <span class="tab-pill__count">12</span></span>
-</div>
-
-<div class="card">
-  <div class="card-header">
-    <span class="font-semibold">Commandes en cours</span>
-    <div class="search-input">
-      <span class="icon">🔍</span>
-      <input class="input" placeholder="Rechercher une commande" />
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+  <div class="card">
+    <div class="card-header">
+      <span class="font-semibold">Réservations du jour</span>
+      <a class="btn btn-ghost btn-sm" routerLink="/reservations">Voir tout →</a>
+    </div>
+    <div class="card-body">
+      @if (todaysBookings().length === 0) {
+        <p class="text-muted text-sm">Aucune réservation aujourd'hui.</p>
+      } @else {
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Type</th>
+              <th>Heure</th>
+              <th>Pers.</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (booking of todaysBookings(); track booking.id) {
+              <tr>
+                <td>{{ booking.client?.firstname }} {{ booking.client?.lastname }}</td>
+                <td class="text-muted">{{ bookingTypeLabel(booking.type) }}</td>
+                <td class="text-muted">{{ formatHour(booking.hour) }}</td>
+                <td class="text-muted">{{ booking.number_of_guests }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
     </div>
   </div>
-  <div class="card-body">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Table</th>
-          <th>Client</th>
-          <th>Statut</th>
-          <th>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>A4</td>
-          <td>Ariel Hikmat</td>
-          <td><span class="badge badge-success">Prête</span></td>
-          <td class="font-semibold">87,34&nbsp;€</td>
-        </tr>
-        <tr>
-          <td>B2</td>
-          <td>Denis Freeman</td>
-          <td><span class="badge badge-warning">En cours</span></td>
-          <td class="font-semibold">57,87&nbsp;€</td>
-        </tr>
-        <tr>
-          <td>TA</td>
-          <td>Morgan Cox</td>
-          <td><span class="badge badge-info">Réservée</span></td>
-          <td class="font-semibold">86,96&nbsp;€</td>
-        </tr>
-        <tr>
-          <td>C2</td>
-          <td>Erwan Richard</td>
-          <td><span class="badge badge-danger">Rupture</span></td>
-          <td class="font-semibold">56,96&nbsp;€</td>
-        </tr>
-      </tbody>
-    </table>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="font-semibold">Prochains événements</span>
+      <a class="btn btn-ghost btn-sm" routerLink="/evenements/vente">Voir tout →</a>
+    </div>
+    <div class="card-body">
+      @if (upcomingEventDates().length === 0) {
+        <p class="text-muted text-sm">Aucun événement à venir.</p>
+      } @else {
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Événement</th>
+              <th>Date</th>
+              <th>Heure</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (eventDate of upcomingEventDates(); track eventDate.id) {
+              <tr>
+                <td>{{ eventDate.event?.name }}</td>
+                <td class="text-muted">{{ formatEventDate(eventDate) }}</td>
+                <td class="text-muted">{{ formatHour(eventDate.start_hour) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
   </div>
-  <div class="card-footer" style="display:flex; gap: 0.75rem;">
-    <button class="btn btn-primary btn-sm">Payer</button>
-    <button class="btn btn-ghost btn-sm">Détails</button>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="font-semibold">Derniers tickets</span>
+    </div>
+    <div class="card-body">
+      @if (recentTickets().length === 0) {
+        <p class="text-muted text-sm">Aucune vente pour le moment.</p>
+      } @else {
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Heure</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (ticket of recentTickets(); track ticket.id) {
+              <tr>
+                <td>{{ ticket.client ? ticket.client.firstname + ' ' + ticket.client.lastname : 'Client anonyme' }}</td>
+                <td class="text-muted">{{ formatTicketTime(ticket) }}</td>
+                <td class="font-semibold">{{ formatPrice(ticketTotal(ticket)) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
   </div>
 </div>

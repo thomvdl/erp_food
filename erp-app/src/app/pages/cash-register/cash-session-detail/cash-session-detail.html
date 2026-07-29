@@ -1,0 +1,111 @@
+<a routerLink="/caisse" class="back-link">← Fond de caisse</a>
+
+@if (session(); as s) {
+  <div class="app-topbar">
+    <h1 class="text-2xl">Session de {{ s.user?.username }}</h1>
+    @if (s.closed_at) {
+      <span class="badge badge-neutral">Fermée</span>
+    } @else {
+      <span class="badge badge-success">Ouverte</span>
+    }
+  </div>
+
+  <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem;">
+    <div class="stat-card">
+      <span class="text-sm text-muted">Fond d'ouverture</span>
+      <span class="stat-card__value">{{ formatPrice(s.opening_amount) }}</span>
+    </div>
+    <div class="stat-card">
+      <span class="text-sm text-muted">Total des paiements</span>
+      <span class="stat-card__value">{{ formatPrice(grandTotal()) }}</span>
+    </div>
+    <div class="stat-card">
+      <span class="text-sm text-muted">Fond compté (fermeture)</span>
+      <span class="stat-card__value">{{ formatPrice(s.closing_amount) }}</span>
+    </div>
+    <div class="stat-card">
+      <span class="text-sm text-muted">Écart</span>
+      <span class="stat-card__value">{{ formatPrice(s.discrepancy) }}</span>
+    </div>
+  </div>
+
+  @if (s.closed_at && s.counts?.length) {
+    <div class="card" style="margin-top: var(--space-4)">
+      <div class="card-header">
+        <span class="font-semibold">Réconciliation par moyen de paiement</span>
+      </div>
+      <div class="card-body">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Moyen de paiement</th>
+              <th>Attendu</th>
+              <th>Compté</th>
+              <th>Écart</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (count of s.counts; track count.id) {
+              <tr>
+                <td>{{ count.payment_method?.name }}</td>
+                <td class="text-muted">{{ formatPrice(count.expected_amount) }}</td>
+                <td class="text-muted">{{ formatPrice(count.counted_amount) }}</td>
+                <td [class.error-text]="hasDiscrepancy(count.discrepancy)">{{ formatPrice(count.discrepancy) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  } @else {
+    <div class="card" style="margin-top: var(--space-4)">
+      <div class="card-header">
+        <span class="font-semibold">Totaux par moyen de paiement (en cours)</span>
+      </div>
+      <div class="card-body" style="display:flex; gap: var(--space-5); flex-wrap: wrap;">
+        @for (entry of totalsByMethod(); track entry.name) {
+          <div>
+            <span class="text-muted text-sm">{{ entry.name }}</span>
+            <p class="font-semibold text-lg">{{ formatPrice(entry.total) }}</p>
+          </div>
+        } @empty {
+          <p class="text-muted text-sm">Aucun paiement rattaché à cette session.</p>
+        }
+      </div>
+    </div>
+  }
+
+  <div class="card" style="margin-top: var(--space-4)">
+    <div class="card-header">
+      <span class="font-semibold">Paiements — validés par utilisateur</span>
+    </div>
+    <div class="card-body">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Ticket</th>
+            <th>Encaissé par</th>
+            <th>Moyen</th>
+            <th>Montant</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (payment of payments(); track payment.id) {
+            <tr>
+              <td class="text-muted">#{{ payment.ticket_id ?? payment.ticket?.id }}</td>
+              <td>{{ payment.user?.username ?? '—' }}</td>
+              <td class="text-muted">{{ payment.payment_method?.name }}</td>
+              <td class="font-semibold">{{ formatPrice(payment.value) }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="4" class="text-muted">Aucun paiement pour le moment.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+} @else {
+  <p class="text-muted">Chargement…</p>
+}

@@ -1,0 +1,78 @@
+<div class="select-screen">
+  <div style="display: flex; justify-content: flex-end; gap: var(--space-3);">
+    <button type="button" class="btn btn-outline btn-sm" (click)="themeService.toggleTheme()" [title]="themeService.isDark() ? 'Thème clair' : 'Thème sombre'">
+      {{ themeService.isDark() ? '☀️' : '🌙' }}
+    </button>
+    <button type="button" class="btn btn-outline btn-sm" (click)="logout()">⏻ Déconnexion</button>
+  </div>
+
+  <div class="select-header">
+    <span class="select-header__icon">🎫</span>
+    <h1>Choisir une occurrence</h1>
+    <p class="text-muted">Sélectionne la date à contrôler à cette entrée</p>
+
+    <div class="tab-group" style="justify-content: center">
+      <button type="button" class="tab-pill" [class.is-active]="viewMode() === 'liste'" (click)="viewMode.set('liste')">Liste</button>
+      <button type="button" class="tab-pill" [class.is-active]="viewMode() === 'calendrier'" (click)="viewMode.set('calendrier')">
+        Calendrier
+      </button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <p class="text-muted text-center">Chargement…</p>
+  } @else if (viewMode() === 'liste' && upcomingDates().length === 0) {
+    <p class="text-muted text-center">Aucune occurrence à venir.</p>
+  } @else if (viewMode() === 'liste') {
+    <div class="event-tiles">
+      @for (eventDate of upcomingDates(); track eventDate.id) {
+        <button type="button" class="event-tile" [class.event-tile--today]="isToday(eventDate)" (click)="select(eventDate)">
+          @if (isToday(eventDate)) {
+            <span class="badge badge-success">Aujourd'hui</span>
+          }
+          <span class="event-tile__name">{{ eventDate.event?.name }}</span>
+          <span class="event-tile__meta">{{ formatDate(eventDate) }} à {{ formatHour(eventDate) }}</span>
+          @if (eventDate.room) {
+            <span class="badge badge-info">🪑 {{ eventDate.room.name }}</span>
+          }
+        </button>
+      }
+    </div>
+  } @else {
+    <div class="card">
+      <div class="card-header">
+        <div style="display: flex; align-items: center; gap: var(--space-3)">
+          <button type="button" class="btn btn-outline btn-sm" (click)="prevMonth()">←</button>
+          <h2 class="text-lg" style="min-width: 180px; text-align: center">{{ monthLabel() }}</h2>
+          <button type="button" class="btn btn-outline btn-sm" (click)="nextMonth()">→</button>
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" (click)="goToToday()">Aujourd'hui</button>
+      </div>
+      <div class="card-body">
+        <div class="calendar-grid calendar-grid--header">
+          @for (label of weekdayLabels; track label) {
+            <div class="calendar-weekday">{{ label }}</div>
+          }
+        </div>
+        <div class="calendar-grid">
+          @for (cell of calendarCells(); track cell.dateKey) {
+            <div class="calendar-cell" [class.is-outside]="!cell.inMonth" [class.is-today]="cell.isToday">
+              <span class="calendar-cell__day">{{ cell.day }}</span>
+              @for (eventDate of cell.dates; track eventDate.id) {
+                <button
+                  type="button"
+                  class="calendar-event"
+                  [class.calendar-event--past]="isPast(eventDate)"
+                  [title]="eventDate.event?.name"
+                  (click)="select(eventDate)"
+                >
+                  {{ formatHour(eventDate) }} {{ eventDate.event?.name }}
+                </button>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  }
+</div>

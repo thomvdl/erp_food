@@ -1,0 +1,113 @@
+<div class="kiosk">
+  <header class="kiosk-header">
+    <a routerLink="/" class="back-link">← Changer d'occurrence</a>
+    <div class="kiosk-header__event">
+      <h1>{{ eventDate()?.event?.name }}</h1>
+      @if (eventDate(); as ed) {
+        <p class="text-muted">{{ formatDate(ed) }} à {{ formatHour(ed) }}</p>
+      }
+    </div>
+    <div class="tab-group">
+      <button type="button" class="tab-pill" [class.is-active]="mode() === 'scan'" (click)="setMode('scan')">📷 Scanner</button>
+      <button type="button" class="tab-pill" [class.is-active]="mode() === 'clavier'" (click)="setMode('clavier')">⌨️ Clavier</button>
+    </div>
+  </header>
+
+  <div class="kiosk-body">
+    <section class="kiosk-input">
+      @if (mode() === 'scan') {
+        <div class="scanner scanner--kiosk">
+          <video #scanVideo class="scanner__video" autoplay playsinline muted></video>
+          <canvas #scanCanvas class="scanner__canvas"></canvas>
+          <div class="scanner__frame"></div>
+        </div>
+        @if (scanError()) {
+          <p class="error-text">{{ scanError() }}</p>
+        }
+        <p class="text-muted text-center">Présente le QR code devant la caméra</p>
+      } @else {
+        <div class="kiosk-code-display">{{ code() || '········' }}</div>
+
+        <div class="kiosk-keyboard">
+          @for (row of keyboardRows; track $index) {
+            <div class="kiosk-keyboard__row">
+              @for (key of row.split(''); track key) {
+                <button type="button" class="pos-keypad__key" (click)="pressKey(key)">{{ key }}</button>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="kiosk-keyboard__actions">
+          <button type="button" class="btn btn-outline btn-lg" (click)="clearCode()">Effacer tout</button>
+          <button type="button" class="btn btn-outline btn-lg" (click)="backspace()">⌫</button>
+          <button type="button" class="btn btn-accent btn-lg" [disabled]="!code().trim() || validating()" (click)="submitCode()">
+            {{ validating() ? '…' : 'Valider' }}
+          </button>
+        </div>
+      }
+    </section>
+  </div>
+
+  @if (resultState() !== 'idle') {
+    <div class="kiosk-flash" [class.kiosk-flash--success]="resultState() === 'success'" [class.kiosk-flash--error]="resultState() === 'error'">
+      <span class="kiosk-flash__icon">{{ resultState() === 'success' ? '✓' : '✕' }}</span>
+      <h2 class="kiosk-flash__title">{{ resultTitle() }}</h2>
+      <p class="kiosk-flash__subtitle">{{ resultSubtitle() }}</p>
+    </div>
+  }
+
+  @if (showSeatModal()) {
+    <div class="modal-overlay">
+      <div class="modal-panel modal-panel--wide">
+        <div class="card-header">
+          <h2 class="text-lg">Choisir une place — {{ pendingTicket()?.client?.firstname }} {{ pendingTicket()?.client?.lastname }}</h2>
+        </div>
+
+        <div class="card-body">
+          <div style="display: flex; gap: 1rem; font-size: var(--font-size-xs); margin-bottom: var(--space-3)">
+            <span><span class="legend-dot legend-dot--free"></span> Libre</span>
+            <span><span class="legend-dot legend-dot--selected"></span> Sélectionnée</span>
+            <span><span class="legend-dot legend-dot--taken"></span> Prise</span>
+          </div>
+
+          @if (selectedTableId() !== null) {
+            <p class="text-sm" style="margin-bottom: var(--space-2)">
+              Place sélectionnée : <strong>{{ selectedTableLabel() }}</strong>
+            </p>
+          }
+
+          <div class="checkin-canvas">
+            @for (table of tables(); track table.id) {
+              <div
+                class="checkin-table"
+                [class.is-taken]="occupant(table)"
+                [class.is-selected]="selectedTableId() === table.id"
+                [style.left.px]="table.pos_left"
+                [style.top.px]="table.pos_top"
+                [style.width.px]="table.width"
+                [style.height.px]="table.height"
+                (click)="selectTable(table)"
+              >
+                {{ table.label }}
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="card-footer form-actions">
+          <button
+            type="button"
+            class="btn btn-accent btn-lg"
+            style="flex: 1"
+            [disabled]="selectedTableId() === null || assigningTable()"
+            (click)="confirmSeat()"
+          >
+            {{ assigningTable() ? 'Attribution…' : 'Attribuer cette place' }}
+          </button>
+          <button type="button" class="btn btn-outline" (click)="closeSeatModal()">Passer</button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

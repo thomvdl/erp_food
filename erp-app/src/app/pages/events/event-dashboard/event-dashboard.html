@@ -1,0 +1,290 @@
+<a [routerLink]="['/evenements', eventDate()?.event?.id]" class="back-link">← {{ eventDate()?.event?.name }}</a>
+
+<div class="app-topbar">
+  <div>
+    <h1 class="text-2xl">
+      {{ eventDate()?.event?.name }}
+      @if (eventDate(); as ed) {
+        <span class="text-muted text-lg"> — {{ formatDate(ed) }} à {{ formatHour(ed) }}</span>
+      }
+    </h1>
+    <p class="text-muted text-sm">
+      {{ tickets().length }} place(s) vendue(s)
+      @if (placesLeft() !== null) {
+        — {{ placesLeft() }} restante(s)
+      }
+      @if (eventDate()?.room) {
+        — Salle : {{ eventDate()?.room?.name }}
+      }
+    </p>
+  </div>
+</div>
+
+<div class="dashboard-grid">
+  <div class="card">
+    <div class="card-header">
+      <h2 class="text-lg">{{ editingTicketId() !== null ? 'Modifier la place' : 'Vendre des places' }}</h2>
+    </div>
+
+    <div class="card-body pos-client">
+      @if (selectedClient(); as client) {
+        <div class="pos-client__chip pos-client__chip--stacked">
+          <span>👤 {{ client.firstname }} {{ client.lastname }}</span>
+          <span class="text-xs">{{ client.email ?? 'Pas d\'email renseigné' }}</span>
+          <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="clearClient()">✕</button>
+        </div>
+      } @else {
+        <div class="pos-client__search">
+          <input
+            class="input"
+            type="text"
+            placeholder="Rechercher un client…"
+            [ngModel]="clientSearch()"
+            (ngModelChange)="onClientSearchChange($event)"
+          />
+          @if (clientResults().length > 0) {
+            <div class="pos-client__results">
+              @for (client of clientResults(); track client.id) {
+                <button type="button" class="pos-client__result" (click)="selectClient(client)">
+                  {{ client.firstname }} {{ client.lastname }}
+                  <span class="text-muted text-xs">{{ client.email ?? 'Pas d\'email' }}{{ client.phone ? ' · ' + client.phone : '' }}</span>
+                </button>
+              }
+            </div>
+          }
+        </div>
+
+        @if (!showNewClientForm()) {
+          <button type="button" class="btn btn-outline btn-sm" (click)="toggleNewClientForm()">+ Nouveau client</button>
+        } @else {
+          <div class="pos-client__new-form">
+            <input
+              class="input"
+              type="text"
+              placeholder="Prénom"
+              [ngModel]="newClientFirstname()"
+              (ngModelChange)="newClientFirstname.set($event)"
+            />
+            <input
+              class="input"
+              type="text"
+              placeholder="Nom"
+              [ngModel]="newClientLastname()"
+              (ngModelChange)="newClientLastname.set($event)"
+            />
+            <input
+              class="input"
+              type="email"
+              placeholder="Email (pour l'envoi du code)"
+              [ngModel]="newClientEmail()"
+              (ngModelChange)="newClientEmail.set($event)"
+            />
+            <input
+              class="input"
+              type="text"
+              placeholder="Téléphone (optionnel)"
+              [ngModel]="newClientPhone()"
+              (ngModelChange)="newClientPhone.set($event)"
+            />
+            <div class="form-actions">
+              <button type="button" class="btn btn-primary btn-sm" [disabled]="savingClient()" (click)="submitNewClient()">
+                Ajouter
+              </button>
+              <button type="button" class="btn btn-ghost btn-sm" (click)="toggleNewClientForm()">Annuler</button>
+            </div>
+          </div>
+        }
+      }
+
+      @if (editingTicketId() === null) {
+        <label class="field">
+          Nombre de places
+          <input
+            class="input"
+            type="number"
+            min="1"
+            max="50"
+            [ngModel]="quantity()"
+            (ngModelChange)="quantity.set($event)"
+          />
+        </label>
+
+        <label class="checkbox-field">
+          <input type="checkbox" [ngModel]="sendEmail()" (ngModelChange)="sendEmail.set($event)" />
+          Envoyer le(s) code(s) de validation par email
+        </label>
+      }
+
+      @if (sellError()) {
+        <p class="error-text">{{ sellError() }}</p>
+      }
+
+      @if (lastSoldCodes().length > 0) {
+        <div class="pos-success">
+          <p>{{ lastSoldCodes().length }} place(s) vendue(s) — code(s) de validation :</p>
+          <ul>
+            @for (code of lastSoldCodes(); track code) {
+              <li><strong>{{ code }}</strong></li>
+            }
+          </ul>
+          <button type="button" class="btn btn-outline btn-sm" (click)="printTickets(lastSoldTickets())">
+            🖨️ Imprimer / PDF ces places
+          </button>
+        </div>
+      }
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" [disabled]="!selectedClient() || saving()" (click)="submitSale()">
+          {{ editingTicketId() !== null ? 'Enregistrer' : (quantity() > 1 ? 'Vendre ' + quantity() + ' places' : 'Vendre la place') }}
+        </button>
+        @if (editingTicketId() !== null) {
+          <button type="button" class="btn btn-outline" (click)="cancelEdit()">Annuler</button>
+        }
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="text-lg">Valider une présence</h2>
+    </div>
+
+    <div class="card-body">
+      <div class="checkin-form">
+        <label class="field" style="flex: 1">
+          Code de validation
+          <input
+            class="input"
+            type="text"
+            placeholder="Ex. A1B2C3D4"
+            style="text-transform: uppercase"
+            [ngModel]="code()"
+            (ngModelChange)="code.set($event)"
+            (keyup.enter)="submitValidation()"
+          />
+        </label>
+
+        <button type="button" class="btn btn-primary" [disabled]="!code().trim() || validating()" (click)="submitValidation()">
+          {{ validating() ? 'Validation…' : 'Valider' }}
+        </button>
+
+        @if (!scanning()) {
+          <button type="button" class="btn btn-outline" (click)="startScan()">📷 Scanner un QR code</button>
+        } @else {
+          <button type="button" class="btn btn-outline" (click)="stopScan()">Fermer la caméra</button>
+        }
+      </div>
+
+      @if (scanning()) {
+        <div class="scanner">
+          <video #scanVideo class="scanner__video" autoplay playsinline muted></video>
+          <canvas #scanCanvas class="scanner__canvas"></canvas>
+          <div class="scanner__frame"></div>
+        </div>
+      }
+
+      @if (scanError()) {
+        <p class="error-text">{{ scanError() }}</p>
+      }
+
+      @if (eventDate()?.room_id) {
+        @if (selectedTableId() === null) {
+          <p class="text-muted text-sm">Placement strict : sélectionne une place libre sur le plan avant de valider (optionnel).</p>
+        } @else {
+          <p class="text-sm">
+            Place sélectionnée : <strong>{{ selectedTableLabel() }}</strong>
+            <button type="button" class="btn btn-ghost btn-sm" (click)="selectedTableId.set(null)">Désélectionner</button>
+          </p>
+        }
+      }
+
+      @if (validateError()) {
+        <p class="error-text">{{ validateError() }}</p>
+      }
+      @if (validateSuccess()) {
+        <p class="pos-success">{{ validateSuccess() }}</p>
+      }
+    </div>
+  </div>
+</div>
+
+@if (eventDate()?.room_id) {
+  <div class="card">
+    <div class="card-header">
+      <h2 class="text-lg">Plan de salle — {{ eventDate()?.room?.name }}</h2>
+      <div style="display: flex; gap: 1rem; font-size: var(--font-size-xs)">
+        <span><span class="legend-dot legend-dot--free"></span> Libre</span>
+        <span><span class="legend-dot legend-dot--selected"></span> Sélectionnée</span>
+        <span><span class="legend-dot legend-dot--taken"></span> Prise</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="checkin-canvas">
+        @for (table of tables(); track table.id) {
+          <div
+            class="checkin-table"
+            [class.is-taken]="occupant(table)"
+            [class.is-selected]="selectedTableId() === table.id"
+            [style.left.px]="table.pos_left"
+            [style.top.px]="table.pos_top"
+            [style.width.px]="table.width"
+            [style.height.px]="table.height"
+            [title]="occupant(table) ? occupant(table)!.client!.firstname + ' ' + occupant(table)!.client!.lastname : 'Libre — cliquer pour sélectionner'"
+            (click)="selectTable(table)"
+          >
+            {{ table.label }}
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="text-lg">Places vendues</h2>
+    @if (tickets().length > 0) {
+      <button type="button" class="btn btn-outline btn-sm" (click)="printTickets(tickets())">
+        🖨️ Imprimer / PDF toutes les places
+      </button>
+    }
+  </div>
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th>Code</th>
+          <th>Statut</th>
+          <th>Place</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (ticket of tickets(); track ticket.id) {
+          <tr>
+            <td>{{ ticket.client?.firstname }} {{ ticket.client?.lastname }}</td>
+            <td class="text-muted">{{ ticket.validation_code }}</td>
+            <td>
+              @if (ticket.validated_at) {
+                <span class="badge badge-success">Validée — {{ formatDateTime(ticket.validated_at) }}</span>
+              } @else {
+                <span class="badge badge-neutral">En attente</span>
+              }
+            </td>
+            <td class="text-muted">{{ ticket.table?.label ?? '—' }}</td>
+            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
+              <button type="button" class="btn btn-outline btn-sm" (click)="printTickets([ticket])" title="Imprimer / PDF">🖨️</button>
+              <button type="button" class="btn btn-outline btn-sm" (click)="startEdit(ticket)">Modifier</button>
+              <button type="button" class="btn btn-danger btn-sm" (click)="removeTicket(ticket)">Supprimer</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5" class="text-muted">Aucune place vendue pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

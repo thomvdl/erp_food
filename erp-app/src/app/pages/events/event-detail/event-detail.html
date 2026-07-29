@@ -1,0 +1,178 @@
+<a routerLink="/evenements" class="back-link">← Événements</a>
+
+<div class="app-topbar">
+  <h1 class="text-2xl">{{ event()?.name }}</h1>
+  <a class="btn btn-outline" [routerLink]="['/evenements', event()?.id, 'modifier']">Renommer</a>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h2 class="text-lg">{{ editingDateId() !== null ? 'Modifier la date' : 'Ajouter une date' }}</h2>
+  </div>
+
+  <div class="card-body">
+    <form class="form" (ngSubmit)="submitDates()">
+      @for (row of pendingDates(); track $index) {
+        <div
+          class="form-section date-row"
+          style="display: grid; grid-template-columns: repeat(2, 1fr) auto; gap: var(--space-4); align-items: end;"
+        >
+          <label class="field">
+            Date
+            <app-date-picker
+              [ngModel]="row.date"
+              (ngModelChange)="updatePendingRow($index, { date: $event })"
+              [name]="'date-' + $index"
+              required
+            />
+          </label>
+
+          <label class="field">
+            Heure
+            <app-time-picker
+              [ngModel]="row.start_hour"
+              (ngModelChange)="updatePendingRow($index, { start_hour: $event })"
+              [name]="'start_hour-' + $index"
+              required
+            />
+          </label>
+
+          @if (editingDateId() === null && pendingDates().length > 1) {
+            <button type="button" class="btn btn-outline btn-sm" title="Retirer cette date" (click)="removePendingRow($index)">✕</button>
+          }
+
+          <label class="field">
+            Salle (optionnel — active le placement strict)
+            <select class="select" [ngModel]="row.room_id" (ngModelChange)="updatePendingRow($index, { room_id: $event })" [name]="'room-' + $index">
+              <option [ngValue]="null">— Aucune (admission libre) —</option>
+              @for (room of eventRooms(); track room.id) {
+                <option [ngValue]="room.id">{{ room.name }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="field">
+            Limite de places (optionnel)
+            <input
+              class="input"
+              type="number"
+              min="1"
+              [ngModel]="row.number_place_limit"
+              (ngModelChange)="updatePendingRow($index, { number_place_limit: $event })"
+              [name]="'number_place_limit-' + $index"
+            />
+          </label>
+        </div>
+      }
+
+      @if (editingDateId() === null) {
+        <button type="button" class="btn btn-ghost btn-sm" (click)="addPendingRow()">+ Ajouter une autre date</button>
+      }
+
+      @if (error()) {
+        <p class="error-text">{{ error() }}</p>
+      }
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" [disabled]="saving()">
+          {{
+            saving()
+              ? 'Enregistrement...'
+              : editingDateId() !== null
+                ? 'Enregistrer'
+                : pendingDates().length > 1
+                  ? 'Enregistrer ' + pendingDates().length + ' dates'
+                  : '+ Ajouter la date'
+          }}
+        </button>
+        @if (editingDateId() !== null) {
+          <button type="button" class="btn btn-outline" (click)="cancelEdit()">Annuler</button>
+        }
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="app-topbar" style="margin-top: var(--space-2)">
+  <h2 class="text-lg">Dates programmées</h2>
+  <div class="tab-group">
+    <button type="button" class="tab-pill" [class.is-active]="viewMode() === 'liste'" (click)="viewMode.set('liste')">Liste</button>
+    <button type="button" class="tab-pill" [class.is-active]="viewMode() === 'calendrier'" (click)="viewMode.set('calendrier')">
+      Calendrier
+    </button>
+  </div>
+</div>
+
+@if (viewMode() === 'liste') {
+  <div class="card">
+    <div class="card-body">
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="is-sortable" (click)="toggleSort('date')">Date <span class="sort-indicator">{{ sortIndicator('date') }}</span></th>
+            <th>Heure</th>
+            <th class="is-sortable" (click)="toggleSort('room')">Salle <span class="sort-indicator">{{ sortIndicator('room') }}</span></th>
+            <th class="is-sortable" (click)="toggleSort('limit')">
+              Limite de places <span class="sort-indicator">{{ sortIndicator('limit') }}</span>
+            </th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (eventDate of sortedDates(); track eventDate.id) {
+            <tr [class.event-row--today]="isToday(eventDate)">
+              <td>
+                {{ formatDate(eventDate) }}
+                @if (isToday(eventDate)) {
+                  <span class="badge badge-success">Aujourd'hui</span>
+                }
+              </td>
+              <td class="text-muted">{{ formatHour(eventDate) }}</td>
+              <td class="text-muted">{{ eventDate.room?.name ?? '—' }}</td>
+              <td class="text-muted">{{ eventDate.number_place_limit ?? 'Illimité' }}</td>
+              <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
+                <a class="btn btn-primary btn-sm" [routerLink]="['dates', eventDate.id]">Places</a>
+                <button type="button" class="btn btn-outline btn-sm" (click)="startEdit(eventDate)">Modifier</button>
+                <button type="button" class="btn btn-danger btn-sm" (click)="removeDate(eventDate)">Supprimer</button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5" class="text-muted">Aucune date programmée pour le moment.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+} @else {
+  <div class="card">
+    <div class="card-header">
+      <div style="display: flex; align-items: center; gap: var(--space-3)">
+        <button type="button" class="btn btn-outline btn-sm" (click)="prevMonth()">←</button>
+        <h2 class="text-lg" style="min-width: 180px; text-align: center">{{ monthLabel() }}</h2>
+        <button type="button" class="btn btn-outline btn-sm" (click)="nextMonth()">→</button>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" (click)="goToToday()">Aujourd'hui</button>
+    </div>
+    <div class="card-body">
+      <div class="calendar-grid calendar-grid--header">
+        @for (label of weekdayLabels; track label) {
+          <div class="calendar-weekday">{{ label }}</div>
+        }
+      </div>
+      <div class="calendar-grid">
+        @for (cell of calendarCells(); track cell.dateKey) {
+          <div class="calendar-cell" [class.is-outside]="!cell.inMonth" [class.is-today]="cell.isToday">
+            <span class="calendar-cell__day">{{ cell.day }}</span>
+            @for (eventDate of cell.dates; track eventDate.id) {
+              <a class="calendar-event" [routerLink]="['dates', eventDate.id]" [title]="formatHour(eventDate)">
+                {{ formatHour(eventDate) }}
+              </a>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}
