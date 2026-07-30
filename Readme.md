@@ -235,3 +235,5 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
   rôle — actuellement tout utilisateur connecté à `erp-app` a accès à tout)
 
 Amméliore le ticket quand on imprimer le ticket de caisse 
+Affichage du plan sur pos - restaurant 
+Pas avoir la possibiliter de faire des paiment avec l'utilisateur si il n'a pas ouvert ca caisse 
