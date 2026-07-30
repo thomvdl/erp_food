@@ -233,3 +233,5 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
 
 - Définir ce qui est disponible de faire avec les différents rôles utilisateur (permissions par
   rôle — actuellement tout utilisateur connecté à `erp-app` a accès à tout)
+
+Amméliore le ticket quand on imprimer le ticket de caisse 

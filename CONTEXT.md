@@ -1094,3 +1094,36 @@ Demandé dans Readme.md : "ne plus avoir la possibilité de supprimer, juste sup
 - `cash-register-home.ts` : **deux usages distincts de la liste d'utilisateurs, traités différemment** — `activeUsers` (nouveau, filtré) pour "Qui êtes-vous ?" (ouvrir la caisse : un utilisateur désactivé ne doit plus pouvoir ouvrir de session) ; `users()` **non filtré** conservé pour le filtre de l'historique des sessions (une session passée peut légitimement appartenir à un utilisateur depuis désactivé — le masquer casserait le filtre sur les données historiques).
 - **Vérifié en conditions réelles** (Playwright) : les 8 pages de liste Paramètres n'affichent plus aucun bouton "Supprimer" et affichent bien le badge de statut (aucune erreur console). Désactivation de la station "Dessert" depuis son formulaire → liste des stations la montre "Inactif" → dropdown "Station" de `product-form` (nouveau produit) ne propose plus que Bar/Froid/Poisson/Viande (Dessert bien absent) → réactivée pour ne pas laisser de données de test dans un état modifié.
 - `npx tsc --noEmit` propre sur `erp-app` et `erp_validate_event`, build Angular propre (les deux apps sont bind-mountées, contrairement à `erp-api`).
+
+## Favicon cohérent pour les 3 apps Angular (2026-07-30)
+
+Les 3 apps (`erp-app`, `erp_kitchen_display`, `erp_validate_event`) utilisaient encore le
+favicon.ico par défaut d'Angular CLI (logo Angular générique, fichier identique bit-à-bit dans
+les 3 apps — vérifié par hash MD5). Demandé : un favicon cohérent avec l'identité du projet.
+
+- **Design** : carré à coins arrondis (`rx=14` sur un viewBox 64×64) en teal `#0f766e`
+  (`--color-primary-fill`, la couleur de marque déjà utilisée partout dans l'UI — sidebar,
+  boutons primaires), avec un emoji centré **différent par app mais déjà utilisé dans l'UI de
+  cette app** plutôt qu'une nouvelle icône inventée :
+  - `erp-app` : 🍽️ — identique à `.app-sidebar__brand` (`shell.html`).
+  - `erp_kitchen_display` : 👨‍🍳 — déjà utilisé sur le bouton "Marquer prête" (`kitchen-board.html`).
+  - `erp_validate_event` : 🎫 — déjà utilisé dans l'en-tête de `event-select.html`.
+  Permet aussi de distinguer les onglets du navigateur entre les 3 apps quand elles tournent en
+  parallèle (cas courant en dev/test, voir le reste de cette session).
+- **Format** : `favicon.svg` (source de vérité, vectoriel, net à toute taille — navigateurs
+  modernes) en icône principale, `favicon.ico` (généré depuis le SVG, multi-résolution 16/32/48px,
+  frames PNG packées manuellement dans le conteneur ICO — pas d'ImageMagick/rsvg-convert
+  disponibles sur la machine, rendu du SVG via un screenshot Playwright headless à 512px puis
+  downscale `sips`) en `<link rel="alternate icon">` pour la compatibilité navigateurs anciens/
+  épinglage d'onglet Windows.
+- Chaque `public/favicon.svg` + `public/favicon.ico` remplacé dans les 3 apps (le dossier
+  `public/` entier est déjà copié tel quel comme assets statiques par `angular.json`, aucune
+  config supplémentaire nécessaire).
+- Au passage, `erp-app/src/index.html` avait encore le `<title>ErpApp</title>` et `lang="en"` par
+  défaut d'Angular CLI (jamais personnalisés, contrairement aux 2 autres apps qui avaient déjà
+  "X — ERP v2" + `lang="fr"`) — corrigé en `<title>ERP v2</title>` + `lang="fr"` pour la même
+  cohérence.
+- **Vérifié** : `curl` sur `/favicon.svg` et `/favicon.ico` renvoie 200 dans les 3 apps ; `file`
+  confirme des ICO valides ("MS Windows icon resource, 3 icons") ; titres d'onglet corrects via
+  Playwright (`ERP v2` / `Kitchen Display — ERP v2` / `Contrôle d'accès — ERP v2`) ; build Angular
+  propre dans les 3 conteneurs (bind-mountés, rechargement à chaud).
