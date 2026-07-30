@@ -15,7 +15,7 @@
       @for (row of pendingDates(); track $index) {
         <div
           class="form-section date-row"
-          style="display: grid; grid-template-columns: repeat(2, 1fr) auto; gap: var(--space-4); align-items: end;"
+          style="display: grid; grid-template-columns: minmax(min(160px, 100%), 1fr) minmax(min(160px, 100%), 1fr) auto; gap: var(--space-4); align-items: end;"
         >
           <label class="field">
             Date

@@ -3,6 +3,19 @@ services:
     image: mysql:8.4
     container_name: erp_v2_db
     restart: unless-stopped
+    # Réglages mémoire réduits (buffer pool par défaut de MySQL 8.4 vise plusieurs centaines de
+    # Mo) — la VM Docker de cette machine n'a que ~970 Mo au total pour tous les conteneurs
+    # (3 serveurs Angular + PHP + Reverb + Adminer + MySQL), ce qui faisait planter/redémarrer en
+    # boucle le conteneur db par manque de mémoire (~1 fois/minute, RestartCount observé à 38) —
+    # coupait la connexion (500 "Connection refused") de façon intermittente. Largement suffisant
+    # pour une base de dev de cette taille.
+    command: >
+      --innodb-buffer-pool-size=64M
+      --innodb-log-buffer-size=8M
+      --key-buffer-size=8M
+      --table-open-cache=64
+      --max-connections=50
+      --performance-schema=OFF
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-erp_v2}
       MYSQL_USER: ${DB_USERNAME:-erp_v2_user}
@@ -49,6 +62,32 @@ services:
     ports:
       - "${API_PORT:-19001}:80"
 
+  # Serveur WebSocket pour le kitchen display (Laravel Reverb) — même image que `api` (même code,
+  # même vendor/) mais avec l'ENTRYPOINT remplacé pour éviter de relancer migrate/seed en même
+  # temps que le conteneur api à chaque démarrage (entrypoint.sh de l'image fait les deux avant
+  # d'exec sa CMD ; ici on saute entrypoint.sh entièrement et on lance reverb:start directement).
+  reverb:
+    build:
+      context: ./erp-api
+    container_name: erp_v2_reverb
+    restart: unless-stopped
+    entrypoint: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: ./.env
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      SESSION_DRIVER: database
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+      LOG_CHANNEL: stack
+      FILESYSTEM_DISK: local
+    ports:
+      - "${REVERB_PORT_HOST:-19004}:8080"
+
   app:
     build:
       context: ./erp-app
@@ -75,7 +114,22 @@ services:
     depends_on:
       - api
 
+  kitchen_display:
+    build:
+      context: ./erp_kitchen_display
+    container_name: erp_v2_kitchen_display
+    restart: unless-stopped
+    ports:
+      - "${KITCHEN_DISPLAY_PORT:-19005}:4200"
+    volumes:
+      - ./erp_kitchen_display:/app
+      - kitchen_display_node_modules:/app/node_modules
+    depends_on:
+      - api
+      - reverb
+
 volumes:
   db_data:
   app_node_modules:
   validate_event_node_modules:
+  kitchen_display_node_modules:

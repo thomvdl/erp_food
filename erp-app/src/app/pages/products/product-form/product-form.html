@@ -42,7 +42,7 @@
     Catégorie
     <select class="select" name="category" [ngModel]="categoryId()" (ngModelChange)="categoryId.set($event)">
       <option [ngValue]="null">— Aucune —</option>
-      @for (category of categories(); track category.id) {
+      @for (category of selectableCategories(); track category.id) {
         <option [ngValue]="category.id">{{ category.name }}</option>
       }
     </select>
@@ -51,7 +51,7 @@
   <div class="field">
     Catalogues
     <div class="checkbox-group">
-      @for (catalog of catalogs(); track catalog.id) {
+      @for (catalog of selectableCatalogs(); track catalog.id) {
         <label class="checkbox-field">
           <input
             type="checkbox"
@@ -70,7 +70,7 @@
     Station
     <select class="select" name="station" [ngModel]="stationId()" (ngModelChange)="stationId.set($event)">
       <option [ngValue]="null">— Aucune —</option>
-      @for (station of stations(); track station.id) {
+      @for (station of selectableStations(); track station.id) {
         <option [ngValue]="station.id">{{ station.name }}</option>
       }
     </select>
@@ -80,7 +80,7 @@
     Taxe
     <select class="select" name="tax" [ngModel]="taxId()" (ngModelChange)="taxId.set($event)">
       <option [ngValue]="null">— Aucune —</option>
-      @for (tax of taxes(); track tax.id) {
+      @for (tax of selectableTaxes(); track tax.id) {
         <option [ngValue]="tax.id">{{ tax.slug }} ({{ tax.value }}%)</option>
       }
     </select>

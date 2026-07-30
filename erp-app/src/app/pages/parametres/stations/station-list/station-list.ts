@@ -18,14 +18,6 @@ export class StationList {
     this.refresh();
   }
 
-  remove(station: Station): void {
-    if (!confirm(`Supprimer la station "${station.name}" ?`)) {
-      return;
-    }
-
-    this.stationService.remove(station.id).subscribe(() => this.refresh());
-  }
-
   private refresh(): void {
     this.stationService.list().subscribe((stations) => this.stations.set(stations));
   }

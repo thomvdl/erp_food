@@ -18,14 +18,6 @@ export class RoleList {
     this.refresh();
   }
 
-  remove(role: Role): void {
-    if (!confirm(`Supprimer le rôle "${role.name}" ?`)) {
-      return;
-    }
-
-    this.roleService.remove(role.id).subscribe(() => this.refresh());
-  }
-
   private refresh(): void {
     this.roleService.list().subscribe((roles) => this.roles.set(roles));
   }

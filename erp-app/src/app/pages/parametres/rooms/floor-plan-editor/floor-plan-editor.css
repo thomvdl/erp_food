@@ -49,6 +49,15 @@
   box-shadow: 0 0 0 3px rgb(245 166 35 / 30%);
 }
 
+/* "Ne plus avoir la possibilité de supprimer... ajouter un champ active" (voir Readme.md) — une
+   table inactive reste éditable ici (elle n'a pas disparu, juste désactivée), mais s'estompe
+   pour signaler qu'elle n'apparaîtra plus dans les composants qui consomment le plan de salle
+   (POS - Restaurant, event-checkin, event-dashboard). */
+.table-element.is-inactive {
+  opacity: 0.4;
+  border-style: dashed;
+}
+
 .table-element__label {
   font-size: var(--font-size-sm);
   font-weight: 600;

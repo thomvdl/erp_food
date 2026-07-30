@@ -20,7 +20,10 @@
           />
         </label>
 
-        <button type="button" class="btn btn-danger btn-sm" (click)="deleteSelected()">Supprimer</button>
+        <label class="checkbox-field">
+          <input type="checkbox" [checked]="selected.active" (change)="toggleActive($any($event.target).checked)" />
+          Table active
+        </label>
       </div>
     }
 
@@ -34,6 +37,7 @@
       <div
         class="table-element"
         [class.selected]="selectedId() === table.id"
+        [class.is-inactive]="!table.active"
         [style.left.px]="table.pos_left"
         [style.top.px]="table.pos_top"
         [style.width.px]="table.width"

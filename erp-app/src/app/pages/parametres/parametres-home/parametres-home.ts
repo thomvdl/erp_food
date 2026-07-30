@@ -22,6 +22,7 @@ export class ParametresHome {
     { icon: '👤', title: 'Utilisateurs', description: 'Comptes et rôles', path: '/parametres/utilisateurs' },
     { icon: '🔑', title: 'Rôles', description: 'Rôles utilisateurs', path: '/parametres/roles' },
     { icon: '👨‍🍳', title: 'Stations', description: 'Postes de préparation', path: '/parametres/stations' },
+    { icon: '📣', title: 'Passes', description: "Points d'expédition en cuisine (kitchen display)", path: '/parametres/passes' },
     { icon: '💶', title: 'Taxes', description: 'Taux de TVA', path: '/parametres/taxes' },
   ];
 }

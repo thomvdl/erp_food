@@ -110,6 +110,18 @@ export const routes: Routes = [
               import('./pages/parametres/stations/station-form/station-form').then((m) => m.StationForm),
           },
           {
+            path: 'passes',
+            loadComponent: () => import('./pages/parametres/passes/passe-list/passe-list').then((m) => m.PasseList),
+          },
+          {
+            path: 'passes/nouveau',
+            loadComponent: () => import('./pages/parametres/passes/passe-form/passe-form').then((m) => m.PasseForm),
+          },
+          {
+            path: 'passes/:id',
+            loadComponent: () => import('./pages/parametres/passes/passe-form/passe-form').then((m) => m.PasseForm),
+          },
+          {
             path: 'taxes',
             loadComponent: () => import('./pages/parametres/taxes/tax-list/tax-list').then((m) => m.TaxList),
           },
@@ -126,6 +138,19 @@ export const routes: Routes = [
       {
         path: 'pos-vente',
         loadComponent: () => import('./pages/pos-vente/pos-vente').then((m) => m.PosVente),
+      },
+      {
+        path: 'pos-restaurant',
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./pages/pos-restaurant/table-select/table-select').then((m) => m.TableSelect),
+          },
+          {
+            path: ':orderId',
+            loadComponent: () => import('./pages/pos-restaurant/order-builder/order-builder').then((m) => m.OrderBuilder),
+          },
+        ],
       },
       {
         path: 'produits',
@@ -203,6 +228,19 @@ export const routes: Routes = [
           {
             path: ':id',
             loadComponent: () => import('./pages/bookings/booking-form/booking-form').then((m) => m.BookingForm),
+          },
+        ],
+      },
+      {
+        path: 'tickets',
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./pages/tickets/ticket-list/ticket-list').then((m) => m.TicketList),
+          },
+          {
+            path: ':id',
+            loadComponent: () => import('./pages/tickets/ticket-detail/ticket-detail').then((m) => m.TicketDetail),
           },
         ],
       },

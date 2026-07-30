@@ -8,6 +8,11 @@
     <input class="input" type="text" name="name" [ngModel]="name()" (ngModelChange)="name.set($event)" required />
   </label>
 
+  <label class="checkbox-field">
+    <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
+    Actif
+  </label>
+
   @if (error()) {
     <p class="error-text">{{ error() }}</p>
   }

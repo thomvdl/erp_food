@@ -49,14 +49,6 @@ export class CatalogList {
     });
   }
 
-  remove(catalog: ProductCatalog): void {
-    if (!confirm(`Supprimer le catalogue "${catalog.name}" ?`)) {
-      return;
-    }
-
-    this.catalogService.remove(catalog.id).subscribe(() => this.refresh());
-  }
-
   private refresh(): void {
     this.catalogService.list().subscribe((catalogs) => this.catalogs.set(catalogs));
   }

@@ -12,6 +12,7 @@
         <tr>
           <th>Nom</th>
           <th>Slug</th>
+          <th>Statut</th>
           <th></th>
         </tr>
       </thead>
@@ -20,14 +21,20 @@
           <tr>
             <td>{{ category.name }}</td>
             <td class="text-muted">{{ category.slug }}</td>
+            <td>
+              @if (category.active) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <span class="badge badge-neutral">Inactif</span>
+              }
+            </td>
             <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
               <a class="btn btn-outline btn-sm" [routerLink]="[category.id]">Modifier</a>
-              <button type="button" class="btn btn-danger btn-sm" (click)="remove(category)">Supprimer</button>
             </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="3" class="text-muted">Aucune catégorie pour le moment.</td>
+            <td colspan="4" class="text-muted">Aucune catégorie pour le moment.</td>
           </tr>
         }
       </tbody>

@@ -12,6 +12,7 @@
         <tr>
           <th>Slug</th>
           <th>Valeur</th>
+          <th>Statut</th>
           <th></th>
         </tr>
       </thead>
@@ -20,14 +21,20 @@
           <tr>
             <td>{{ tax.slug }}</td>
             <td>{{ tax.value }}&nbsp;%</td>
+            <td>
+              @if (tax.active) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <span class="badge badge-neutral">Inactif</span>
+              }
+            </td>
             <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
               <a class="btn btn-outline btn-sm" [routerLink]="[tax.id]">Modifier</a>
-              <button type="button" class="btn btn-danger btn-sm" (click)="remove(tax)">Supprimer</button>
             </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="3" class="text-muted">Aucune taxe pour le moment.</td>
+            <td colspan="4" class="text-muted">Aucune taxe pour le moment.</td>
           </tr>
         }
       </tbody>

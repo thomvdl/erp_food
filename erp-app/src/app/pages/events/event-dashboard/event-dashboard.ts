@@ -73,7 +73,8 @@ export class EventDashboard implements OnDestroy {
   private scanStream: MediaStream | null = null;
   private scanFrameId: number | null = null;
 
-  readonly tables = computed<TableElement[]>(() => this.eventDate()?.room?.tables ?? []);
+  /** Seules les tables actives (voir Readme.md, "n'afficher que les éléments actifs"). */
+  readonly tables = computed<TableElement[]>(() => (this.eventDate()?.room?.tables ?? []).filter((table) => table.active));
 
   readonly selectedTableLabel = computed(
     () => this.tables().find((table) => table.id === this.selectedTableId())?.label ?? '',

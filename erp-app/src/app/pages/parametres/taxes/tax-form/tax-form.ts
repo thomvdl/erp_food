@@ -19,6 +19,7 @@ export class TaxForm {
 
   readonly slug = signal('');
   readonly value = signal<number>(0);
+  readonly active = signal(true);
   readonly error = signal<string | null>(null);
 
   constructor() {
@@ -32,6 +33,7 @@ export class TaxForm {
           next: (tax) => {
             this.slug.set(tax.slug);
             this.value.set(Number(tax.value));
+            this.active.set(tax.active);
           },
           error: () => this.error.set('Impossible de charger la taxe.'),
         });
@@ -42,7 +44,7 @@ export class TaxForm {
   submit(): void {
     this.error.set(null);
 
-    const payload = { slug: this.slug(), value: this.value() };
+    const payload = { slug: this.slug(), value: this.value(), active: this.active() };
     const request =
       this.isEdit() && this.id !== null
         ? this.taxService.update(this.id, payload)

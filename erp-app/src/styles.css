@@ -622,6 +622,10 @@ button {
 .card-footer {
   padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--border-color);
+  /* margin-top: auto n'a d'effet que dans un parent flex-column (ex: .pos-cart) — pousse le
+     footer en bas de la carte même quand le contenu au-dessus (.pos-cart__body) est court.
+     No-op ailleurs (cartes en flux normal), sans risque pour les autres usages de .card-footer. */
+  margin-top: auto;
 }
 
 /* Carte "stat" façon tuiles du dashboard (Nouvelles commandes, Total, etc.) */
@@ -1098,22 +1102,38 @@ textarea.input {
   font-size: var(--font-size-sm);
 }
 
-/* ---------- POS Vente directe ---------- */
-/* Page "fixe" (voir .app-main--fixed) : .pos-layout occupe tout l'espace restant sous
-   .app-topbar, chaque colonne gère son propre scroll interne — jamais la page entière. */
+/* ---------- POS Vente directe / POS Restaurant ---------- */
+/* Page "fixe" (voir .app-main--fixed) : confirmé par capture d'écran (Safari) que CSS Grid avec
+   minmax(0, 1fr) imbriqué ne se comporte pas de façon fiable ici — WebKit a des bugs connus sur
+   cette combinaison précise (grille imbriquée + min-height:0 + intrinsic sizing). Remplacé par
+   du flexbox de bout en bout (.pos-page, .pos-layout, .pos-products, .pos-cart), technique
+   nettement plus éprouvée cross-navigateur pour ce pattern "colonnes avec scroll interne" —
+   flex:1 + min-height:0 en cascade à chaque niveau, sans aucune grille sur l'axe vertical
+   critique (une grille reste utilisée seulement pour .pos-grid, qui n'a pas besoin de hauteur
+   propre puisqu'il EST le conteneur scrollable final, pas un ancêtre d'un autre scrollable). */
+.pos-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
 .pos-layout {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: 1fr 400px;
+  display: flex;
+  flex-direction: row;
   gap: var(--space-5);
 }
 
 .pos-products {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  min-height: 0;
 }
 
 .pos-toolbar {
@@ -1124,6 +1144,13 @@ textarea.input {
 }
 
 .pos-grid {
+  /* Mesuré via Playwright (viewport 900px de haut) : .pos-grid s'étirait à sa hauteur de
+     contenu intrinsèque (846px avec 19 produits) au lieu de se laisser borner par flex:1 — même
+     bug que .pos-cart__body ci-dessous, confirmé cette fois avec de vraies mesures plutôt qu'un
+     raisonnement théorique. calc(100vh - 340px) = espace réellement disponible au-dessus de
+     .pos-grid (padding .app-main + topbar + .pos-toolbar ≈ 279px mesurés) + une marge de
+     sécurité (~60px) si le nombre de catégories fait passer .pos-toolbar sur 2 lignes. */
+  max-height: calc(100vh - 340px);
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   align-content: start;
@@ -1195,17 +1222,31 @@ textarea.input {
 
 .pos-cart {
   margin-top: 0;
+  /* flex: 0 0 400px (pas grid-template-columns) : remplace la 2ᵉ colonne de .pos-layout,
+     maintenant lui aussi en flexbox — voir commentaire plus haut. */
+  flex: 0 0 400px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  min-height: 0;
 }
 
 .pos-cart__body {
+  /* flex:1 comptait sur .pos-cart pour lui fournir une hauteur bornée à remplir — en pratique
+     peu fiable. Remplacé par une valeur calc() mesurée via Playwright (viewport 900px) plutôt
+     qu'un pourcentage arbitraire (55vh) : .pos-cart__body commence à 233px du haut (padding
+     .app-main + topbar + .card-header + .tab-group des sections) et .card-footer + le padding
+     bas de .app-main prennent encore ~180px en dessous. calc(100vh - 450px) garde une marge de
+     sécurité (~35px) pour absorber une légère variation de hauteur du header/footer selon le
+     contenu (nom de table plus long, plusieurs sections qui font passer les onglets sur 2
+     lignes...). S'adapte à la hauteur de fenêtre (contrairement à un px fixe) sans dépendre du
+     calcul de hauteur des ancêtres flex (contrairement à flex:1 seul, peu fiable ici). */
+  max-height: calc(100vh - 450px);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   min-height: 0;
   overflow-y: auto;
+  overflow-x: auto;
 }
 
 .pos-client {
@@ -1474,7 +1515,7 @@ textarea.input {
 
 @media (max-width: 960px) {
   .pos-layout {
-    grid-template-columns: 1fr;
+    flex-direction: column;
     overflow-y: auto;
   }
 
@@ -1483,6 +1524,131 @@ textarea.input {
   }
 
   .pos-cart {
+    flex-basis: auto;
     min-height: 320px;
   }
+}
+
+/* Sidebar auto-réduite en icônes seules sous 900px (tablette portrait/petit écran) — reprend
+   telles quelles les règles déjà utilisées pour .is-collapsed (bascule manuelle desktop) plutôt
+   que de dupliquer une logique séparée : à cette largeur, la sidebar pleine largeur (260px)
+   laisserait trop peu de place au contenu. Le bouton "Réduire/Étendre" est masqué ici : sous ce
+   seuil la largeur est imposée par la mise en page, pas par un choix utilisateur, un bouton qui
+   ne changerait plus rien serait juste source de confusion. */
+@media (max-width: 900px) {
+  .app-sidebar {
+    width: 76px;
+  }
+
+  .app-nav-item__label {
+    display: none;
+  }
+
+  .app-nav-item {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .user-chip {
+    padding-inline: 0;
+    justify-content: center;
+  }
+
+  .sidebar-collapse-btn {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-main {
+    padding: var(--space-4);
+  }
+
+  .card-header {
+    flex-wrap: wrap;
+  }
+}
+
+/* Filet de sécurité générique : une table plus large que son conteneur scrolle horizontalement
+   au lieu de déborder de la page ou de casser la mise en page sur mobile. */
+.card-body:has(> .table) {
+  overflow-x: auto;
+}
+
+/* Ticket imprimable (POS - Restaurant, voir Readme.md étape 6 "imprimer le ticket de caisse") —
+   pattern standard : tout est masqué à l'impression sauf .ticket-print, qui est ensuite repositionné
+   en pleine page. window.print() est déclenché depuis order-builder.ts (printTicket()). */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .ticket-print,
+  .ticket-print * {
+    visibility: visible;
+  }
+
+  .ticket-print {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+
+/* Ticket imprimable façon "vrai" reçu de caisse (voir Readme.md : "modifier le ticket de caisse,
+   s'inspirer de [référence]") — colonnes alignées à droite (Qté/Prix, puis HT/Taux/TVA/TTC).
+   Global (pas scopé à order-builder) : réutilisé par ticket-list.ts (réimpression, historique
+   des tickets) — voir core/ticket-print.util.ts pour les calculs partagés. */
+.ticket-receipt__brand {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.ticket-receipt__brand span {
+  color: var(--color-accent-500);
+}
+
+.ticket-receipt__center {
+  text-align: center;
+  margin: 2px 0;
+}
+
+.ticket-receipt__row {
+  display: grid;
+  grid-template-columns: 1fr 2.5ch 6ch;
+  gap: var(--space-2);
+  padding: 2px 0;
+  align-items: baseline;
+}
+
+.ticket-receipt__row span:nth-child(2),
+.ticket-receipt__row span:nth-child(3) {
+  text-align: right;
+}
+
+.ticket-receipt__row--header {
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--space-1);
+}
+
+.ticket-receipt__tax-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  padding: 2px 0;
+  text-align: right;
+}
+
+.ticket-receipt__tax-row--header {
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--space-1);
 }

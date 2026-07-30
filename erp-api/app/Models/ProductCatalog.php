@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 // "active_restaurant"/"active_direct_sale" volontairement absents du Fillable : ne doivent
 // jamais transiter par les payloads store/update classiques, seulement être écrits par
 // ProductCatalogController@activateForRestaurant/activateForDirectSale.
-#[Fillable(['name', 'slug'])]
+#[Fillable(['name', 'slug', 'active'])]
 class ProductCatalog extends Model
 {
     use HasSlug;
@@ -18,6 +18,7 @@ class ProductCatalog extends Model
     protected function casts(): array
     {
         return [
+            'active' => 'boolean',
             'active_restaurant' => 'boolean',
             'active_direct_sale' => 'boolean',
         ];

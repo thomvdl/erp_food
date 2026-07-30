@@ -1,0 +1,82 @@
+<div class="app-topbar">
+  <div>
+    <h1 class="text-2xl">Gestion des tickets</h1>
+    <p class="text-muted text-sm">Historique des ventes encaissées — consultation et réimpression uniquement.</p>
+  </div>
+</div>
+
+@if (error()) {
+  <p class="error-text">{{ error() }}</p>
+}
+
+<div class="card">
+  <div class="card-body">
+    <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: flex-end; margin-bottom: var(--space-4)">
+      <div class="field" style="max-width: 220px">
+        <label>Filtrer par jour</label>
+        <app-date-picker [ngModel]="dayFilter()" (ngModelChange)="dayFilter.set($event)" placeholder="Toutes les dates" />
+      </div>
+
+      <div class="field" style="max-width: 260px">
+        <label for="ticket-client-filter">Filtrer par client</label>
+        <input
+          id="ticket-client-filter"
+          class="input"
+          type="text"
+          placeholder="Nom du client…"
+          [ngModel]="clientFilter()"
+          (ngModelChange)="clientFilter.set($event)"
+        />
+      </div>
+
+      @if (dayFilter() || clientFilter()) {
+        <div class="field" style="justify-content: flex-end">
+          <label>&nbsp;</label>
+          <button type="button" class="btn btn-ghost btn-sm" (click)="resetFilters()">Réinitialiser</button>
+        </div>
+      }
+    </div>
+
+    @if (loading()) {
+      <p class="text-muted">Chargement…</p>
+    } @else {
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Ticket</th>
+            <th>Date</th>
+            <th>Table</th>
+            <th>Client</th>
+            <th>Paiement</th>
+            <th>Total</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (ticket of filteredTickets(); track ticket.id) {
+            <tr>
+              <td><a [routerLink]="[ticket.id]">#{{ ticket.id }}</a></td>
+              <td class="text-muted">{{ formatTicketDate(ticket.paid_at) }}</td>
+              <td class="text-muted">{{ ticket.table?.label ?? '—' }}</td>
+              <td>{{ clientLabel(ticket) }}</td>
+              <td class="text-muted">{{ paymentSummary(ticket) }}</td>
+              <td class="font-semibold">{{ formatMoney(ticketTotal(ticket)) }}</td>
+              <td style="text-align: right; display: flex; gap: var(--space-2); justify-content: flex-end">
+                <a class="btn btn-ghost btn-sm" [routerLink]="[ticket.id]">Voir</a>
+                <button type="button" class="btn btn-outline btn-sm" (click)="print(ticket)">🖨️ Réimprimer</button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7" class="text-muted">Aucun ticket pour le moment.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+@if (printingTicket(); as ticket) {
+  <app-ticket-receipt class="ticket-print ticket-receipt" style="max-width: 380px; margin: 0 auto; display: block" [ticket]="ticket" />
+}

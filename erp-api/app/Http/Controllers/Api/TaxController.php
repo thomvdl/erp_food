@@ -37,13 +37,6 @@ class TaxController extends Controller
         return $tax;
     }
 
-    public function destroy(Tax $tax)
-    {
-        $tax->delete();
-
-        return response()->noContent();
-    }
-
     /**
      * @return array<string, mixed>
      */
@@ -52,6 +45,7 @@ class TaxController extends Controller
         return $request->validate([
             'slug' => ['required', 'string', 'max:255', Rule::unique('taxes', 'slug')->ignore($tax?->id)],
             'value' => ['required', 'numeric', 'min:0'],
+            'active' => ['boolean'],
         ]);
     }
 }

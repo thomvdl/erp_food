@@ -18,14 +18,6 @@ export class CategoryList {
     this.refresh();
   }
 
-  remove(category: ProductCategory): void {
-    if (!confirm(`Supprimer la catégorie "${category.name}" ?`)) {
-      return;
-    }
-
-    this.categoryService.remove(category.id).subscribe(() => this.refresh());
-  }
-
   private refresh(): void {
     this.categoryService.list().subscribe((categories) => this.categories.set(categories));
   }

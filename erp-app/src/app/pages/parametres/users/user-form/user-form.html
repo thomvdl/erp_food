@@ -30,6 +30,11 @@
         <span class="text-muted text-sm">Laisser vide pour ne pas changer le mot de passe.</span>
       }
     </label>
+
+    <label class="checkbox-field">
+      <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
+      Actif
+    </label>
   </section>
 
   @if (isEdit()) {
@@ -66,7 +71,7 @@
     <h2 class="form-section-title">Rôles</h2>
 
     <div class="checkbox-group">
-      @for (role of roles(); track role.id) {
+      @for (role of selectableRoles(); track role.id) {
         <label class="checkbox-field">
           <input
             type="checkbox"

@@ -15,6 +15,7 @@
       <thead>
         <tr>
           <th>Nom</th>
+          <th>Statut</th>
           <th>POS Restaurant</th>
           <th>POS Vente directe</th>
           <th></th>
@@ -24,6 +25,13 @@
         @for (catalog of catalogs(); track catalog.id) {
           <tr>
             <td>{{ catalog.name }}</td>
+            <td>
+              @if (catalog.active) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <span class="badge badge-neutral">Inactif</span>
+              }
+            </td>
             <td>
               @if (catalog.active_restaurant) {
                 <span class="badge badge-success">Actif</span>
@@ -54,12 +62,11 @@
             </td>
             <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
               <a class="btn btn-outline btn-sm" [routerLink]="[catalog.id]">Modifier</a>
-              <button type="button" class="btn btn-danger btn-sm" (click)="remove(catalog)">Supprimer</button>
             </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="4" class="text-muted">Aucun catalogue pour le moment.</td>
+            <td colspan="5" class="text-muted">Aucun catalogue pour le moment.</td>
           </tr>
         }
       </tbody>

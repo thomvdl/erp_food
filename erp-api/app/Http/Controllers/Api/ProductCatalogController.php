@@ -18,6 +18,7 @@ class ProductCatalogController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'active' => ['boolean'],
         ]);
 
         return response()->json(ProductCatalog::query()->create($data), 201);
@@ -32,18 +33,12 @@ class ProductCatalogController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'active' => ['boolean'],
         ]);
 
         $productCatalog->update($data);
 
         return $productCatalog;
-    }
-
-    public function destroy(ProductCatalog $productCatalog)
-    {
-        $productCatalog->delete();
-
-        return response()->noContent();
     }
 
     /**

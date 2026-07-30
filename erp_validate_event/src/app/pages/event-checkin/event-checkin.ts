@@ -58,7 +58,8 @@ export class EventCheckin implements OnDestroy {
   private scanFrameId: number | null = null;
   private resultTimer: ReturnType<typeof setTimeout> | null = null;
 
-  readonly tables = computed<TableElement[]>(() => this.eventDate()?.room?.tables ?? []);
+  /** Seules les tables actives (voir Readme.md, "n'afficher que les éléments actifs"). */
+  readonly tables = computed<TableElement[]>(() => (this.eventDate()?.room?.tables ?? []).filter((table) => table.active));
 
   readonly occupiedByTable = computed(() => {
     const map = new Map<number, EventTicket>();

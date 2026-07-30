@@ -22,14 +22,6 @@ export class RoomList {
     return room.type === 'event' ? 'Événement' : 'Restaurant';
   }
 
-  remove(room: Room): void {
-    if (!confirm(`Supprimer la salle "${room.name}" ?`)) {
-      return;
-    }
-
-    this.roomService.remove(room.id).subscribe(() => this.refresh());
-  }
-
   private refresh(): void {
     this.roomService.list().subscribe((rooms) => this.rooms.set(rooms));
   }

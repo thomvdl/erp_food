@@ -18,14 +18,6 @@ export class TaxList {
     this.refresh();
   }
 
-  remove(tax: Tax): void {
-    if (!confirm(`Supprimer la taxe "${tax.slug}" ?`)) {
-      return;
-    }
-
-    this.taxService.remove(tax.id).subscribe(() => this.refresh());
-  }
-
   private refresh(): void {
     this.taxService.list().subscribe((taxes) => this.taxes.set(taxes));
   }

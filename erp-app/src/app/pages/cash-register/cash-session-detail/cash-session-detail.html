@@ -10,7 +10,7 @@
     }
   </div>
 
-  <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem;">
+  <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 1.5rem;">
     <div class="stat-card">
       <span class="text-sm text-muted">Fond d'ouverture</span>
       <span class="stat-card__value">{{ formatPrice(s.opening_amount) }}</span>

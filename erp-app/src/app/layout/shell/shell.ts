@@ -14,8 +14,14 @@ const COLLAPSED_KEY = 'erp-v2-sidebar-collapsed';
 const THEME_KEY = 'erp-v2-theme';
 
 /** Routes "plein écran" : pas de scroll de page, tout tient dans le viewport avec du scroll
- *  interne (POS Vente directe demandé explicitement, voir CONTEXT.md). */
-const FIXED_LAYOUT_ROUTES = ['/pos-vente'];
+ *  interne (POS Vente directe puis POS Restaurant, demandé explicitement, voir CONTEXT.md).
+ *  Comparaison par préfixe (pas égalité stricte) : POS Restaurant a une route enfant dynamique
+ *  (/pos-restaurant/:orderId) qui doit aussi matcher. */
+const FIXED_LAYOUT_ROUTES = ['/pos-vente', '/pos-restaurant'];
+
+function isFixedLayoutUrl(url: string): boolean {
+  return FIXED_LAYOUT_ROUTES.some((route) => url === route || url.startsWith(`${route}/`));
+}
 
 @Component({
   selector: 'app-shell',
@@ -31,14 +37,15 @@ export class Shell {
     { icon: '🏠', label: 'Dashboard', path: '/', exact: true },
     { icon: '🪑', label: 'POS - Restaurant', path: '/pos-restaurant' },
     { icon: '🏷️​', label: 'POS - Vente directe', path: '/pos-vente' },
-    { icon: '🍔', label: 'Produits', path: '/produits' },
     { icon: '🎫', label: 'Événements', path: '/evenements' },
     { icon: '📅', label: 'Réservations', path: '/reservations' },
     { icon: '💶', label: 'Fond de caisse', path: '/caisse' },
+    { icon: '🧾', label: 'Gestion des tickets', path: '/tickets' },
+    { icon: '🍔', label: 'Gestion des produits', path: '/produits' },
     { icon: '⚙️', label: 'Paramètres', path: '/parametres' },
   ];
 
-  readonly fixedLayout = signal(FIXED_LAYOUT_ROUTES.includes(this.router.url));
+  readonly fixedLayout = signal(isFixedLayoutUrl(this.router.url));
 
   protected readonly currentUser = computed(() => {
     const user = this.authService.currentUser();
@@ -55,7 +62,7 @@ export class Shell {
 
   constructor() {
     this.router.events.pipe(filter((event) => event instanceof NavigationEnd)).subscribe((event) => {
-      this.fixedLayout.set(FIXED_LAYOUT_ROUTES.includes(event.urlAfterRedirects));
+      this.fixedLayout.set(isFixedLayoutUrl(event.urlAfterRedirects));
     });
   }
 

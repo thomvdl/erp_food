@@ -8,8 +8,10 @@ use App\Models\TableElement;
 use Illuminate\Http\Request;
 
 // Imbrication "shallow" : index/store passent par la room (POST /api/rooms/{room}/tables),
-// show/update/destroy non (PUT/DELETE /api/tables/{table}) — même convention que
+// show/update non (PUT /api/tables/{table}) — même convention que
 // ERP/erp-api/app/Http/Controllers/Api/RoomElementController.php pour Route::apiResource(...)->shallow().
+// Pas de destroy() (voir Readme.md "ne plus avoir la possibilité de supprimer... ajouter un
+// champ active") : une table se désactive via update(['active' => false]), ne se supprime plus.
 class TableElementController extends Controller
 {
     public function index(Room $room)
@@ -38,13 +40,6 @@ class TableElementController extends Controller
         return $table;
     }
 
-    public function destroy(TableElement $table)
-    {
-        $table->delete();
-
-        return response()->noContent();
-    }
-
     /**
      * @return array<string, mixed>
      */
@@ -57,6 +52,7 @@ class TableElementController extends Controller
             'pos_top' => ['required', 'integer'],
             'width' => ['required', 'integer', 'min:10'],
             'height' => ['required', 'integer', 'min:10'],
+            'active' => ['boolean'],
         ]);
     }
 }

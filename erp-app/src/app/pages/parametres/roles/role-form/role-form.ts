@@ -18,6 +18,7 @@ export class RoleForm {
   readonly isEdit = signal(false);
 
   readonly name = signal('');
+  readonly active = signal(true);
   readonly error = signal<string | null>(null);
 
   constructor() {
@@ -28,7 +29,10 @@ export class RoleForm {
 
       if (this.id !== null) {
         this.roleService.get(this.id).subscribe({
-          next: (role) => this.name.set(role.name),
+          next: (role) => {
+            this.name.set(role.name);
+            this.active.set(role.active);
+          },
           error: () => this.error.set('Impossible de charger le rôle.'),
         });
       }
@@ -38,7 +42,7 @@ export class RoleForm {
   submit(): void {
     this.error.set(null);
 
-    const payload = { name: this.name() };
+    const payload = { name: this.name(), active: this.active() };
     const request =
       this.isEdit() && this.id !== null
         ? this.roleService.update(this.id, payload)

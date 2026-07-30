@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ProductService } from '../../../core/product.service';
@@ -43,6 +43,19 @@ export class ProductForm {
   readonly catalogIds = signal<number[]>([]);
   readonly stationId = signal<number | null>(null);
   readonly taxId = signal<number | null>(null);
+
+  /**
+   * "Mettre à jour les composants pour n'afficher que les éléments actifs" (voir Readme.md) —
+   * mais sans faire disparaître silencieusement la valeur DÉJÀ choisie sur ce produit si elle
+   * vient d'être désactivée entretemps (sinon un simple "Enregistrer" sans y toucher la
+   * détacherait par accident, le <select> ne montrant plus aucune option correspondante).
+   */
+  readonly selectableCategories = computed(() => this.categories().filter((c) => c.active || c.id === this.categoryId()));
+  readonly selectableStations = computed(() => this.stations().filter((s) => s.active || s.id === this.stationId()));
+  readonly selectableTaxes = computed(() => this.taxes().filter((t) => t.active || t.id === this.taxId()));
+  readonly selectableCatalogs = computed(() =>
+    this.catalogs().filter((catalog) => catalog.active || this.catalogIds().includes(catalog.id)),
+  );
 
   constructor() {
     this.categoryService.list().subscribe((categories) => this.categories.set(categories));

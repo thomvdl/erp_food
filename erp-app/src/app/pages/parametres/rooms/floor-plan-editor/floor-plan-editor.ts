@@ -108,19 +108,14 @@ export class FloorPlanEditor {
     }
   }
 
-  deleteSelected(): void {
+  /** "Ne plus avoir la possibilité de supprimer... ajouter un champ active" (voir Readme.md) — remplace deleteSelected(). */
+  toggleActive(active: boolean): void {
     const id = this.selectedId();
-    if (id === null || !confirm('Supprimer cette table ?')) {
+    if (id === null) {
       return;
     }
-
-    this.tableElementService.remove(id).subscribe({
-      next: () => {
-        this.tables.set(this.tables().filter((t) => t.id !== id));
-        this.selectedId.set(null);
-      },
-      error: () => this.error.set('Impossible de supprimer la table.'),
-    });
+    this.patchLocal(id, { active });
+    this.persist(id);
   }
 
   onTablePointerDown(event: PointerEvent, table: TableElement): void {
@@ -248,6 +243,7 @@ export class FloorPlanEditor {
         pos_top: table.pos_top,
         width: table.width,
         height: table.height,
+        active: table.active,
       })
       .subscribe({
         error: () => this.error.set("Impossible d'enregistrer la position."),

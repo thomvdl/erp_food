@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { UserService } from '../../../../core/user.service';
@@ -29,6 +29,11 @@ export class UserForm implements OnDestroy {
   readonly email = signal('');
   readonly password = signal('');
   readonly roleIds = signal<number[]>([]);
+  readonly active = signal(true);
+
+  /** "N'afficher que les éléments actifs" (voir Readme.md) — sans détacher silencieusement un
+   *  rôle déjà attribué à cet utilisateur si ce rôle vient d'être désactivé entretemps. */
+  readonly selectableRoles = computed(() => this.roles().filter((role) => role.active || this.roleIds().includes(role.id)));
 
   readonly barcode = signal<string | null>(null);
   readonly qrImageUrl = signal<string | null>(null);
@@ -56,6 +61,7 @@ export class UserForm implements OnDestroy {
             this.username.set(user.username);
             this.email.set(user.email);
             this.roleIds.set(user.roles.map((role) => role.id));
+            this.active.set(user.active);
             this.barcode.set(user.barcode);
             if (user.barcode) {
               this.loadQrImage();
@@ -223,6 +229,7 @@ export class UserForm implements OnDestroy {
       email: this.email(),
       password: this.password() || undefined,
       role_ids: this.roleIds(),
+      active: this.active(),
     };
 
     const request =

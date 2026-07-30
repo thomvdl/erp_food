@@ -9,11 +9,11 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 /**
- * Contrairement à ERP/ (où plusieurs stations pointent vers un passe partagé via
- * `stations.passe_id`), le schéma de erp_v2 inverse la relation : `passes.station_id` — un
- * passe appartient à UNE SEULE station (choix délibéré du brouillon Readme.md, voir
- * CONTEXT.md). Chaque passe est donc créé directement avec sa station, pas de seeder de
- * liaison séparé nécessaire (contrairement à StationPasseSeeder dans ERP/).
+ * "C'est dans station qu'on doit pouvoir choisir dans quelle passe ça doit aller" (voir
+ * Readme.md) — `stations.passe_id`, comme dans `ERP/` (le projet original) : plusieurs stations
+ * peuvent partager un même passe. Les passes sont donc créés d'abord (sans lien), puis chaque
+ * station est rattachée à son passe — inverse de l'ancien PasseSeeder qui créait le passe
+ * directement avec sa station.
  */
 class PasseSeeder extends Seeder
 {
@@ -27,16 +27,12 @@ class PasseSeeder extends Seeder
         ];
 
         foreach ($passes as $passeName => $stationName) {
-            $station = Station::query()->where('slug', Str::slug($stationName))->first();
-
-            if (! $station) {
-                continue;
-            }
-
-            Passe::query()->firstOrCreate(
+            $passe = Passe::query()->firstOrCreate(
                 ['slug' => Str::slug($passeName)],
-                ['name' => $passeName, 'station_id' => $station->id],
+                ['name' => $passeName],
             );
+
+            Station::query()->where('slug', Str::slug($stationName))->update(['passe_id' => $passe->id]);
         }
     }
 }

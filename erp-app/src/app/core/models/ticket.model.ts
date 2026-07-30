@@ -1,5 +1,6 @@
 import { Product } from './product.model';
 import { User } from './user.model';
+import { TableElement } from './floor-plan.model';
 
 export interface Client {
   id: number;
@@ -46,7 +47,9 @@ export interface Ticket {
   id: number;
   paid_at: string;
   client_id: number | null;
+  table_id?: number | null;
   client?: Client | null;
+  table?: TableElement | null;
   sections: TicketSection[];
   payments: TicketPayment[];
 }

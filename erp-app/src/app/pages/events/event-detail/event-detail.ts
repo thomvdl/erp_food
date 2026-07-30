@@ -74,8 +74,9 @@ export class EventDetail {
   readonly error = signal<string | null>(null);
 
   /** Seulement les salles pensées pour un événement (voir rooms.type) — pas les salles du POS
-   *  Restaurant, qui n'ont pas de sens ici. */
-  readonly eventRooms = computed(() => this.rooms().filter((room) => room.type === 'event'));
+   *  Restaurant, qui n'ont pas de sens ici. Et seulement les salles actives (voir Readme.md,
+   *  "n'afficher que les éléments actifs"). */
+  readonly eventRooms = computed(() => this.rooms().filter((room) => room.type === 'event' && room.active));
 
   readonly sortedDates = computed(() => {
     const field = this.sortField();

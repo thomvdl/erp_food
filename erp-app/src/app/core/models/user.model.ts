@@ -2,6 +2,8 @@ export interface Role {
   id: number;
   name: string;
   slug: string;
+  /** "Ne plus avoir la possibilité de supprimer... ajouter un champ active" (voir Readme.md). */
+  active: boolean;
 }
 
 export interface User {
@@ -15,4 +17,6 @@ export interface User {
   roles: Role[];
   /** write-only : envoyé en payload create/update, jamais renvoyé tel quel (voir `roles`) */
   role_ids?: number[];
+  /** "Ne plus avoir la possibilité de supprimer... ajouter un champ active" (voir Readme.md). */
+  active: boolean;
 }

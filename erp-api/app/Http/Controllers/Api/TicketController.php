@@ -14,17 +14,26 @@ use Illuminate\Validation\ValidationException;
 
 class TicketController extends Controller
 {
-    private const WITH = ['client', 'sections.lines.product', 'payments.paymentMethod'];
+    // product.tax nécessaire pour la répartition HT/Taux/TVA/TTC du reçu imprimable (voir
+    // core/ticket-print.util.ts côté erp-app, réutilisé par order-builder.ts et ticket-list.ts).
+    private const WITH = ['client', 'table', 'sections.lines.product.tax', 'payments.paymentMethod'];
 
     /**
-     * Derniers tickets encaissés — utilisé par le dashboard ("derniers tickets", voir Readme.md).
-     * `limit` optionnel (défaut 10) pour ne pas rapatrier tout l'historique de vente.
+     * Derniers tickets encaissés (dashboard) — ou historique complet ("Gestion des tickets",
+     * réimpression uniquement, voir Readme.md : "pas de modification et de suppression").
+     * `limit` optionnel (défaut 10) pour ne pas rapatrier tout l'historique par défaut.
      */
     public function index(Request $request)
     {
         $limit = (int) $request->query('limit', 10);
 
         return Ticket::query()->with(self::WITH)->latest('paid_at')->limit($limit)->get();
+    }
+
+    /** Détail d'un ticket ("Gestion des tickets" — voir Readme.md, consultation + réimpression uniquement). */
+    public function show(Ticket $ticket)
+    {
+        return $ticket->load(self::WITH);
     }
 
     /**

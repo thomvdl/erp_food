@@ -18,6 +18,7 @@ export class CatalogForm {
   readonly isEdit = signal(false);
 
   readonly name = signal('');
+  readonly active = signal(true);
   readonly error = signal<string | null>(null);
 
   constructor() {
@@ -28,7 +29,10 @@ export class CatalogForm {
 
       if (this.id !== null) {
         this.catalogService.get(this.id).subscribe({
-          next: (catalog) => this.name.set(catalog.name),
+          next: (catalog) => {
+            this.name.set(catalog.name);
+            this.active.set(catalog.active);
+          },
           error: () => this.error.set('Impossible de charger le catalogue.'),
         });
       }
@@ -38,7 +42,7 @@ export class CatalogForm {
   submit(): void {
     this.error.set(null);
 
-    const payload = { name: this.name() };
+    const payload = { name: this.name(), active: this.active() };
     const request =
       this.isEdit() && this.id !== null
         ? this.catalogService.update(this.id, payload)

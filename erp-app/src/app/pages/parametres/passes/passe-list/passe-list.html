@@ -1,0 +1,49 @@
+<a routerLink="/parametres" class="back-link">← Paramètres</a>
+
+<div class="app-topbar">
+  <h1 class="text-2xl">Passes</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Stations</th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (passe of passes(); track passe.id) {
+          <tr>
+            <td>{{ passe.name }}</td>
+            <td class="text-muted">
+              @if (passe.stations && passe.stations.length > 0) {
+                {{ passe.stations.map((s) => s.name).join(', ') }}
+              } @else {
+                —
+              }
+            </td>
+            <td>
+              @if (passe.active) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <span class="badge badge-neutral">Inactif</span>
+              }
+            </td>
+            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
+              <a class="btn btn-outline btn-sm" [routerLink]="[passe.id]">Modifier</a>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4" class="text-muted">Aucun passe pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

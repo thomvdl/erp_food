@@ -1,0 +1,74 @@
+<div class="app-topbar">
+  <h1 class="text-2xl">POS — Restaurant</h1>
+</div>
+
+@if (loading()) {
+  <p class="text-muted">Chargement…</p>
+} @else if (restaurantRooms().length === 0) {
+  <div class="card card-body">
+    <p>
+      Aucune salle de type "Restaurant" n'existe encore. Crée-en une depuis
+      <strong>Paramètres → Salles</strong>.
+    </p>
+  </div>
+} @else {
+  <div class="tab-group">
+    @for (room of restaurantRooms(); track room.id) {
+      <button type="button" class="tab-pill" [class.is-active]="selectedRoomId() === room.id" (click)="selectRoom(room.id)">
+        {{ room.name }}
+      </button>
+    }
+  </div>
+
+  <div class="card table-select__card">
+    <div class="card-header">
+      <div style="display: flex; gap: 1rem; font-size: var(--font-size-xs)">
+        <span><span class="legend-dot legend-dot--free"></span> Libre</span>
+        <span><span class="legend-dot legend-dot--taken"></span> Occupée</span>
+      </div>
+    </div>
+    <div class="card-body table-select__card-body">
+      <div class="checkin-canvas">
+        @for (table of tables(); track table.id) {
+          <div
+            class="checkin-table"
+            [class.is-taken]="orderForTable(table)"
+            [style.left.px]="table.pos_left"
+            [style.top.px]="table.pos_top"
+            [style.width.px]="table.width"
+            [style.height.px]="table.height"
+            [title]="orderForTable(table) ? (orderForTable(table)!.number_of_guests + ' pers. — cliquer pour reprendre la commande') : 'Libre — cliquer pour ouvrir'"
+            (click)="clickTable(table)"
+          >
+            {{ table.label }}
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+@if (openingTable(); as table) {
+  <div class="modal-overlay">
+    <div class="modal-panel">
+      <div class="card-header">
+        <h2 class="text-lg">Ouvrir la table {{ table.label }}</h2>
+      </div>
+      <div class="card-body">
+        <label class="field">
+          Nombre de personnes
+          <input class="input" type="number" min="1" [ngModel]="guestCount()" (ngModelChange)="guestCount.set($event)" />
+        </label>
+        @if (error()) {
+          <p class="error-text">{{ error() }}</p>
+        }
+      </div>
+      <div class="card-footer form-actions">
+        <button type="button" class="btn btn-primary" style="flex: 1" [disabled]="opening()" (click)="confirmOpenTable()">
+          {{ opening() ? 'Ouverture...' : 'Ouvrir la table' }}
+        </button>
+        <button type="button" class="btn btn-outline" (click)="cancelOpenTable()">Annuler</button>
+      </div>
+    </div>
+  </div>
+}

@@ -18,6 +18,7 @@ export class CategoryForm {
   readonly isEdit = signal(false);
 
   readonly name = signal('');
+  readonly active = signal(true);
   readonly error = signal<string | null>(null);
 
   constructor() {
@@ -28,7 +29,10 @@ export class CategoryForm {
 
       if (this.id !== null) {
         this.categoryService.get(this.id).subscribe({
-          next: (category) => this.name.set(category.name),
+          next: (category) => {
+            this.name.set(category.name);
+            this.active.set(category.active);
+          },
           error: () => this.error.set('Impossible de charger la catégorie.'),
         });
       }
@@ -38,7 +42,7 @@ export class CategoryForm {
   submit(): void {
     this.error.set(null);
 
-    const payload = { name: this.name() };
+    const payload = { name: this.name(), active: this.active() };
     const request =
       this.isEdit() && this.id !== null
         ? this.categoryService.update(this.id, payload)

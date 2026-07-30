@@ -1,0 +1,110 @@
+<div class="kitchen-board">
+  <header class="app-topbar">
+    <div>
+      <h1 class="text-2xl">Kitchen Display</h1>
+      <p class="text-muted text-sm">{{ displayOrders().length }} commande(s) en cours</p>
+    </div>
+    <div style="display: flex; gap: var(--space-3); align-items: center">
+      <button type="button" class="btn btn-ghost btn-icon" (click)="toggleTheme()" [title]="isDark() ? 'Thème clair' : 'Thème sombre'">
+        {{ isDark() ? '☀️' : '🌙' }}
+      </button>
+      <button type="button" class="btn btn-outline" (click)="logout()">Déconnexion</button>
+    </div>
+  </header>
+
+  <div class="kitchen-board__filters">
+    <div class="tab-group kitchen-board__stations">
+      <button type="button" class="tab-pill" [class.is-active]="isAllActive()" (click)="selectAll()">Tout</button>
+    </div>
+
+    <div class="tab-group kitchen-board__stations">
+      <span class="text-muted text-xs kitchen-board__filter-label">Postes</span>
+      <button type="button" class="tab-pill" [class.is-active]="isAllStationsActive()" (click)="selectAllStations()">Tous les postes</button>
+      @for (station of stations(); track station.id) {
+        <button type="button" class="tab-pill" [class.is-active]="isStationActive(station.id)" (click)="selectStation(station.id)">
+          {{ station.name }}
+        </button>
+      }
+    </div>
+
+    <div class="tab-group kitchen-board__stations">
+      <span class="text-muted text-xs kitchen-board__filter-label">Passes</span>
+      <button type="button" class="tab-pill" [class.is-active]="isAllPassesActive()" (click)="selectAllPasses()">Tous les passes</button>
+      @for (passe of passes(); track passe.id) {
+        <button type="button" class="tab-pill" [class.is-active]="isPasseActive(passe.id)" (click)="selectPasse(passe.id)">
+          {{ passe.name }}
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="error-text">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <p class="text-muted">Chargement…</p>
+  } @else if (displayOrders().length === 0) {
+    <p class="text-muted">Aucune commande en attente pour le moment.</p>
+  } @else {
+    <div class="kitchen-board__grid">
+      @for (displayOrder of displayOrders(); track displayOrder.order.id) {
+        <article class="card card-elevated kitchen-card">
+          <div class="card-header">
+            <div>
+              <h2 class="text-lg">Table {{ displayOrder.order.table?.label }}</h2>
+              <span class="text-muted text-xs">{{ displayOrder.order.table?.room?.name }}</span>
+            </div>
+          </div>
+
+          <div class="card-body kitchen-card__sections">
+            @for (displaySection of displayOrder.sections; track displaySection.section.id) {
+              <div class="kitchen-card__section">
+                <div class="kitchen-card__section-header">
+                  <span class="font-medium">{{ displaySection.section.name }}</span>
+                  <span
+                    class="badge"
+                    [class.badge-neutral]="displaySection.section.state === 'en_attente' || displaySection.section.state === 'seed' || displaySection.section.state === 'done'"
+                    [class.badge-info]="displaySection.section.state === 'send'"
+                    [class.badge-warning]="displaySection.section.state === 'ask'"
+                    [class.badge-success]="displaySection.section.state === 'do'"
+                  >
+                    {{ sectionStateLabel(displaySection.section.state) }}
+                  </span>
+                </div>
+
+                @if (displaySection.passe) {
+                  <span class="text-muted text-xs">→ {{ displaySection.passe.name }}</span>
+                }
+
+                <ul class="kitchen-card__lines">
+                  @for (line of displaySection.section.lines; track line.id) {
+                    @if (displaySection.lineIds.has(line.id)) {
+                      <li [class.kitchen-card__line--done]="line.done">
+                        {{ line.quantity }}× {{ line.product?.name }}
+                        @if (line.sent) {
+                          <span aria-hidden="true">✓✓</span>
+                        } @else if (line.done) {
+                          <span aria-hidden="true">✓</span>
+                        }
+                      </li>
+                    }
+                  }
+                </ul>
+
+                @if (canMarkDone(displaySection)) {
+                  <button type="button" class="btn btn-outline btn-sm" (click)="markDone(displaySection)">
+                    👨‍🍳 Marquer prête
+                  </button>
+                }
+                @if (canSend(displaySection)) {
+                  <button type="button" class="btn btn-primary btn-sm" (click)="send(displaySection)">✅ Envoyer</button>
+                }
+              </div>
+            }
+          </div>
+        </article>
+      }
+    </div>
+  }
+</div>

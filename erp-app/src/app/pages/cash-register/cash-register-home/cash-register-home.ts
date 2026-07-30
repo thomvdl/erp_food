@@ -38,6 +38,10 @@ export class CashRegisterHome {
   readonly activeCashierService = inject(ActiveCashierService);
 
   readonly users = signal<User[]>([]);
+  /** "N'afficher que les éléments actifs" (voir Readme.md) — seulement pour choisir QUI ouvre la
+   *  caisse ("Qui êtes-vous ?") ; le filtre d'historique ci-dessous garde `users()` au complet,
+   *  une session passée peut appartenir à un utilisateur depuis désactivé. */
+  readonly activeUsers = computed(() => this.users().filter((user) => user.active));
   readonly selectedUserId = signal<number | null>(null);
   readonly paymentMethods = signal<PaymentMethod[]>([]);
 

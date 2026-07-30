@@ -22,14 +22,6 @@ export class UserList {
     return user.roles.map((role) => role.name).join(', ') || '—';
   }
 
-  remove(user: User): void {
-    if (!confirm(`Supprimer l'utilisateur "${user.username}" ?`)) {
-      return;
-    }
-
-    this.userService.remove(user.id).subscribe(() => this.refresh());
-  }
-
   private refresh(): void {
     this.userService.list().subscribe((users) => this.users.set(users));
   }

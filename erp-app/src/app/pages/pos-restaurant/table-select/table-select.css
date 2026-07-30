@@ -1,0 +1,94 @@
+/* .checkin-canvas/.checkin-table/.legend-dot* — repris tels quels de event-dashboard.css (pas
+   de classes globales, dupliquées à chaque endroit qui affiche un plan de salle en lecture
+   seule ; voir aussi erp_validate_event/event-checkin.css pour la 3ᵉ occurrence). */
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+
+.legend-dot--free {
+  background: var(--color-primary-50);
+  border: 2px solid var(--color-primary-fill);
+}
+
+.legend-dot--taken {
+  background: var(--color-danger-bg);
+  border: 2px solid var(--color-danger-text);
+}
+
+/* Sur /pos-restaurant, .app-main passe en mode "fixe" (voir shell.ts FIXED_LAYOUT_ROUTES) — la
+   carte doit donc occuper l'espace vertical restant plutôt qu'une hauteur en dur, sans quoi le
+   plan de salle déborderait sur un petit écran au lieu de scroller proprement en interne. */
+.table-select__card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-select__card-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.checkin-canvas {
+  position: relative;
+  /* `flex: 1` reste nécessaire pour la LARGEUR : .table-select__card-body est un conteneur flex
+     en ligne (`display:flex` sans flex-direction ⇒ row par défaut), donc flex:1 y gouverne
+     l'axe horizontal du canvas — sans lui la largeur retombe à ~0 (pas de contenu intrinsèque
+     à mesurer, voir plus bas). Mais côté HAUTEUR (axe transversal en row, donc dépend du
+     stretch par défaut de la hauteur du PARENT), flex:1 seul ne suffisait pas : la chaîne
+     d'ancêtres flex (.table-select__card-body → .table-select__card → l'hôte <app-table-select>
+     lui-même, jamais étiré par .app-main--fixed faute de flex:1 posé dessus) ne se redimensionne
+     pas de façon fiable ici. Les tables du plan étant en `position: absolute` (voir
+     .checkin-table), donc hors flux, le canvas n'a de toute façon AUCUNE hauteur de contenu
+     propre à étirer même si le stretch fonctionnait — la hauteur retombait systématiquement sur
+     min-height (confirmé via Playwright : figée à ~318px aussi bien à 800px qu'à 1000px de
+     fenêtre). D'où une hauteur EXPLICITE ancrée sur 100vh (même technique que .pos-grid, voir
+     styles.css), qui prend le pas sur le stretch par défaut sans toucher à la largeur (deux
+     axes indépendants). calc(100vh - 280px) : distance mesurée entre le haut du canvas et le
+     haut de la fenêtre (~218px : padding .app-main + topbar + onglets de salle + card-header
+     légende) + le padding bas de .app-main--fixed (32px) + une marge de sécurité (~30px) si les
+     onglets de salle passent sur 2 lignes (plusieurs salles). */
+  flex: 1;
+  height: calc(100vh - 280px);
+  min-height: 320px;
+  background: var(--surface-card-muted);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: auto;
+  background-image: radial-gradient(var(--border-color-strong) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.checkin-table {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-primary-fill);
+  border-radius: 999px;
+  background: var(--color-primary-50);
+  color: var(--color-primary-fill);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.checkin-table:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.checkin-table.is-taken {
+  border-color: var(--color-danger-text);
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}

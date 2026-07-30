@@ -559,3 +559,538 @@ Revu juste après : les deux boutons ne doivent pas apparaître sur `event-check
 - Bouton déconnexion + bouton thème ajoutés côte à côte sur `event-select` (`ThemeService` injecté directement là, `logout()` déjà présent). `event-checkin` perd son bouton déconnexion et les imports/injections `AuthService`/`Router` devenus inutiles (nettoyés, plus de code mort).
 - `ThemeService` (`core/theme.service.ts`) conservé tel quel — seul son point d'utilisation change.
 - Vérifié par compilation (`docker logs erp_v2_validate_event`, `event-select`/`event-checkin` régénérés sans erreur).
+
+## POS Restaurant — sélection de table + commande multi-sections (2026-07-29/30)
+
+Demandé (portée volontairement limitée aux 4 premières étapes du spec Readme.md — paiement et impression/email restent pour plus tard) :
+1. Plan de salle avec sélecteur de salle (type restaurant uniquement) + ouvrir une table avec le nombre de personnes.
+2. Afficher le POS une fois la table ouverte pour sélectionner des produits.
+3. Séparer les produits en sections, pouvoir ajouter des sections.
+4. Une fois les produits sélectionnés, pouvoir revenir à la sélection des tables (la table reste ouverte).
+
+**Découverte avant d'implémenter** : le backend avait déjà `Order`/`OrderSection`/`OrderLine` (modèles + migrations) scaffoldés depuis une session précédente — visibles via le commentaire de `TicketController` ("Vente directe : encaisse immédiatement, pas de flux Order/cuisine"). **Aucun contrôleur ni route** n'existait encore pour ces modèles — construits maintenant plutôt que recréé de zéro.
+
+### Backend
+- Migration : `orders.number_of_guests` (nullable en base, requis à la validation) — n'existait ni sur `orders` ni sur `tables` (qui n'a aucune notion de capacité physique dans ce schéma).
+- **Une table occupée = une `Order` existe pour son `table_id`** — pas de colonne `closed`/`paid` pour l'instant (le paiement, hors scope ici, s'en chargera plus tard). `OrderController::store` rejette (422) l'ouverture d'une table déjà occupée, et crée automatiquement sa première section ("Section 1") pour que l'écran de commande ait toujours au moins une section à afficher.
+- `OrderSectionController::store` auto-nomme "Section N" si aucun nom fourni (compte les sections existantes + 1) ; `::destroy` refuse de supprimer la **dernière** section d'une commande (422) — une commande sans section n'a nulle part où accrocher un produit.
+- `OrderLineController::store` **incrémente la quantité** si le produit est déjà présent dans la section au lieu de dupliquer la ligne (même logique que le panier de `pos-vente` côté front).
+- `OrderController::destroy` annule la commande et libère la table (cascade DB déjà en place sur `order_sections`/`order_lines`).
+- Routes (`GET|POST orders`, `GET|DELETE orders/{order}`, `POST orders/{order}/sections`, `DELETE order-sections/{order_section}`, `POST order-sections/{order_section}/lines`, `PUT|DELETE order-lines/{order_line}`), toutes derrière `auth:sanctum`.
+- **Vérifié via `curl`** de bout en bout : ouverture d'une table (avec création auto de Section 1) → rejet du doublon (table déjà ouverte) → ajout d'un produit ×2 puis re-ajout (incrémente à 3, ne duplique pas) → ajout d'une 2ᵉ section → suppression de la 1ʳᵉ section (OK, il en reste une) → suppression de la dernière section restante (422 correct) → annulation de la commande (libère la table). Un 2ᵉ passage complet avec un vrai produit du catalogue actif restaurant confirmé également.
+
+### `erp-app`
+- `core/models/order.model.ts`, `core/order.service.ts`, `core/order-section.service.ts`, `core/order-line.service.ts`.
+- **`pages/pos-restaurant/table-select`** (route `/pos-restaurant`, déjà liée dans la nav depuis le début du projet mais menait nulle part jusqu'ici) : sélecteur de salle en pastilles (`rooms().filter(type === 'restaurant')`, première salle sélectionnée par défaut), plan de salle en **lecture seule** réutilisant le pattern `.checkin-canvas`/`.checkin-table`/`.legend-dot*` déjà dupliqué ailleurs dans le projet (`event-dashboard.css`, `erp_validate_event/event-checkin.css`) plutôt que le mode édition drag/resize de `floor-plan-editor`. Clic sur une table libre → modal "nombre de personnes" → ouvre la commande ; clic sur une table occupée → rejoint directement sa commande en cours.
+- **`pages/pos-restaurant/order-builder`** (route `/pos-restaurant/:orderId`) : réutilise le pattern produits/catégories/recherche de `pos-vente` (`.pos-layout`/`.pos-products`/`.pos-grid`/`.pos-product-card`, classes déjà globales) filtré sur `ProductCatalog.active_restaurant` (pas `active_direct_sale`) — même mécanisme "un catalogue actif à la fois par contexte POS" déjà en place côté backend (`activateForRestaurant`). Sections affichées en pastilles cliquables (`tab-group`) avec une section "active" qui reçoit les produits tapés ; bouton "+ Section" et ✕ par section (masqué s'il n'en reste qu'une, cohérent avec le refus du backend). Chaque action (ajout produit/section, +/− quantité, suppression) republie immédiatement au backend puis recharge toute la commande — pas de brouillon local, cohérent avec le reste de l'app. "← Retour aux tables" ramène à `table-select` **sans fermer la commande** (elle reste "occupée") ; "Annuler la commande" (nouveau, pas demandé explicitement mais nécessaire — sans lui, une table ouverte par erreur resterait bloquée occupée indéfiniment) supprime la commande et libère la table.
+- **Piège CSS rencontré** : le premier commentaire CSS écrit dans `order-builder.css` contenait littéralement `card*/.pos-cart*` — la séquence `*/` a fermé le commentaire en plein milieu, cassant le fichier (`Unexpected "*"`, `Unterminated string token`). Reformulé pour ne plus jamais faire suivre un `*` d'un `/` dans un commentaire CSS.
+- **Vérifié via `curl`** (backend ci-dessus) + compilation Angular propre (`docker logs erp_v2_app`, chunks `table-select`/`order-builder` régénérés sans erreur). **Pas de test interactif en navigateur** (même limitation que le reste de cette session — pas d'outil Playwright/screenshot disponible).
+- **Hors scope, pour une prochaine étape** (Readme.md steps 5-6, non demandés cette fois) : paiement (espèces + Bancontact partagés, rendu en espèces affiché), conversion de l'`Order` en `Ticket` payé, impression du ticket de caisse, envoi par email si un client est sélectionné.
+
+### Pages `/pos-restaurant` sans overflow (2026-07-30)
+
+Même traitement que `/pos-vente` en son temps : `shell.ts` avait `FIXED_LAYOUT_ROUTES = ['/pos-vente']`, comparé par **égalité stricte** à `router.url` — ne matchait donc jamais `/pos-restaurant` ni `/pos-restaurant/{orderId}` (route enfant dynamique). Comparaison changée pour un préfixe (`isFixedLayoutUrl()`, `url === route || url.startsWith(route + '/')`), et `/pos-restaurant` ajouté à la liste.
+
+- `order-builder` réutilise déjà la structure `.pos-layout` de `pos-vente` (déjà pensée pour ce mode plein-écran, `flex:1`/`min-height:0` en cascade) — fonctionne sans changement CSS supplémentaire.
+- `table-select` needed un ajustement : son plan de salle (`.checkin-canvas`) avait une hauteur fixe (`60vh`), pensée pour une page qui scrolle normalement (comme `event-dashboard`, d'où vient ce CSS dupliqué). En mode plein-écran, une hauteur figée peut soit déborder sur un petit écran, soit laisser du vide. Remplacé par `.table-select__card`/`.table-select__card-body` en `flex:1; min-height:0` en cascade jusqu'au canvas (`flex:1; min-height:320px; overflow:auto` — scrolle en interne si le plan dépasse plutôt que de déborder sur la page).
+- Vérifié uniquement par compilation (`docker logs erp_v2_app`, chunks `shell`/`table-select` régénérés sans erreur) — pas de test navigateur.
+
+### Bug de fond corrigé : `.pos-grid`/`.pos-cart__body` ne scrollaient pas réellement (2026-07-30)
+
+Signalé après coup ("il faut pouvoir faire défiler le card s'il y a trop de produits") : le `overflow-x: auto` ajouté précédemment sur `.pos-cart__body` ne réglait pas le vrai problème. Les deux zones censées scroller en interne (`.pos-grid`, la grille de produits, et `.pos-cart__body`, la liste de lignes du panier/section) avaient `overflow-y: auto` **mais pas `flex: 1`**. Sans `flex-grow`, un enfant flex ne se laisse pas borner par l'espace restant du parent (il garde `flex-grow: 0` par défaut, donc grandit avec son propre contenu) — `overflow-y: auto` ne se déclenche que si l'élément est effectivement plus petit que son contenu, ce qui n'arrivait jamais ici : c'est le parent (`.pos-products`/`.pos-cart`, puis `.app-main`) qui débordait à la place.
+
+- Fix : `flex: 1;` ajouté sur `.pos-grid` et `.pos-cart__body` (styles.css, classes globales) — les deux scrollent désormais réellement en interne dès que leur contenu dépasse l'espace disponible, sur `pos-vente` **et** `order-builder` (classes partagées par les deux pages).
+- Bug latent probablement présent depuis la mise en place initiale de `pos-vente` — jamais surpris faute d'avoir testé avec assez de produits/lignes pour dépasser la hauteur visible en navigateur.
+- Vérifié uniquement par compilation (`docker logs erp_v2_app`, `styles.css` régénéré sans erreur) — pas de test navigateur.
+
+### Règles sur les sections POS Restaurant (2026-07-30)
+
+Deux garde-fous ajoutés sur `OrderSectionController` (source de vérité backend) + reflétés côté front pour désactiver les actions plutôt que d'attendre une erreur serveur :
+- **Suppression** : refuse (422) si la section contient encore des lignes ("Vide la section avant de la supprimer"), en plus du garde-fou déjà existant sur la dernière section restante. `canRemoveSection(section)` côté front (longueur > 1 **et** section vide) contrôle l'affichage du ✕ sur chaque pastille de section.
+- **Ajout** : refuse (422) si la **dernière** section de la commande (`order->sections()->latest('id')->first()`) n'a encore aucune ligne — évite d'empiler des sections vides jamais remplies. `canAddSection()` côté front désactive le bouton "+ Section" dans ce cas (avec un `title` expliquant pourquoi).
+- **Vérifié via `curl`** de bout en bout : ajout d'une 2ᵉ section refusé tant que la 1ʳᵉ est vide → accepté après ajout d'un produit → suppression de la section non-vide refusée → suppression d'une section vide non-dernière acceptée. Compilation Angular propre (`docker logs erp_v2_app`, chunk `order-builder` régénéré sans erreur) — pas de test navigateur.
+
+### Vraie cause de l'overflow POS Restaurant/Vente directe (2026-07-30)
+
+Le `flex:1` ajouté précédemment sur `.pos-grid`/`.pos-cart__body` ne suffisait pas — l'overflow persistait avec beaucoup de produits. **Cause racine, un cran plus haut** : `.pos-layout` est un conteneur `display:grid` sans `grid-template-rows` défini. Une ligne de grille implicite (`auto`, comportement par défaut) se dimensionne **toujours sur son contenu**, quelle que soit la hauteur bornée du conteneur — contrairement à `flex-grow` en flexbox, CSS Grid ne redistribue pas automatiquement une hauteur définie de conteneur vers ses lignes implicites. Résultat : même avec toute la chaîne `flex:1`/`min-height:0` correctement posée plus bas (`.pos-products`, `.pos-cart`, `.pos-grid`, `.pos-cart__body`), la ligne de grille elle-même grandissait pour englober tout le contenu, et c'est `.pos-layout` (puis `.app-main`) qui débordait.
+
+- Fix : `grid-template-rows: minmax(0, 1fr);` ajouté sur `.pos-layout` — force la ligne unique à occuper l'espace réellement disponible (avec un minimum de 0, pas la hauteur du contenu), ce qui laisse enfin `.pos-grid`/`.pos-cart__body` scroller en interne comme prévu.
+- Piège CSS général à retenir pour ce projet : dans une grille imbriquée dans un contexte "hauteur bornée + scroll interne" (comme `.app-main--fixed`), il ne suffit pas de mettre `min-height:0`/`overflow:auto` sur les éléments profonds — il faut aussi explicitement border les **lignes de la grille elle-même** (`grid-template-rows: minmax(0, 1fr)` ou équivalent), sans quoi le comportement par défaut `auto` propage silencieusement la taille du contenu vers le haut de la chaîne.
+- Vérifié uniquement par compilation (`docker logs erp_v2_app`) — pas de test navigateur, conformément à la consigne des messages précédents sur ce sujet.
+
+### 3ᵉ tentative sur l'overflow POS — restructuration en `.pos-page` (2026-07-30)
+
+Testé en vrai navigateur cette fois (pas de "ne pas tester" sur ce message) : toujours cassé malgré le fix `grid-template-rows: minmax(0, 1fr)` précédent, dont le raisonnement CSS était pourtant correct. Plutôt que de continuer à corriger la même chaîne flex/grid existante par petites touches, restructuration plus explicite :
+
+- Nouveau `.pos-page` : unique enfant flex de `.app-main--fixed` (`flex:1; min-height:0`, cas standard flex-item), qui définit lui-même **explicitement** 2 lignes de grille (`grid-template-rows: auto 1fr` — auto pour `.app-topbar`, 1fr pour le reste). Une ligne `1fr` sur un `grid-template-rows` **explicite** se dimensionne fiablement sur l'espace disponible ; c'est spécifiquement une ligne **implicite** `auto` (ce que `.pos-layout` était pour `.app-main--fixed` avant ce changement) qui pose problème en se dimensionnant sur le contenu.
+- `.pos-layout` n'est plus un enfant flex direct de `.app-main--fixed` mais un enfant grid de `.pos-page` (dans sa ligne `1fr`) — `flex:1` retiré (n'a plus de sens, ce n'est plus un item flex), garde `min-height:0` et sa propre grille imbriquée (colonnes produits/panier) inchangée.
+- `pos-vente.html` et `order-builder.html` enveloppent désormais tout leur contenu (topbar + zone produits/panier, modal de paiement exclue chez `pos-vente` car `position:fixed`, s'en moque) dans `<div class="pos-page">`.
+- **Bouton "💳 Paiement"** ajouté dans `order-builder` (pied du panier, sous le total) — **volontairement sans `(click)`, ne fait rien pour l'instant** (stub explicitement demandé, en attendant l'implémentation du paiement — steps 5-6 du spec Readme.md POS Restaurant, toujours hors scope). Désactivé si le total est à 0.
+- Vérifié par compilation uniquement (`docker logs erp_v2_app`, chunks `pos-vente`/`order-builder` régénérés sans erreur) — la vérification visuelle réelle reste à faire par l'utilisateur, aucun outil de test navigateur disponible ici.
+
+### 4ᵉ tentative, cette fois avec une vraie capture d'écran — CSS Grid abandonné pour flexbox pur (2026-07-30)
+
+Toujours cassé après la restructuration `.pos-page`. L'utilisateur a fourni une **capture d'écran réelle (Safari)** : le panneau "Sections" déborde nettement en bas, au point que le total et le bouton Paiement ne sont même plus visibles — confirme que `.pos-cart__body` ne scrolle pas du tout, il grandit avec son contenu.
+
+- **Piste retenue** : Safari/WebKit a des bugs documentés sur `minmax(0, 1fr)` dans des grilles CSS imbriquées combinées à `min-height:0` — exactement la technique utilisée dans les 2 tentatives précédentes (`.pos-layout`/`.pos-page` en `display:grid`). Le raisonnement CSS était correct en théorie (et fonctionnerait probablement sous Chrome/Firefox) mais WebKit ne le respecte pas de façon fiable dans ce cas précis.
+- **Fix** : toute la chaîne verticale critique (`.pos-page` → `.pos-layout` → `.pos-products`/`.pos-cart`) repassée en **flexbox pur** (`display:flex`, plus aucun `display:grid` sur cet axe) — `flex:1`/`min-height:0` en cascade à chaque niveau, `.pos-cart` devient `flex: 0 0 400px` (remplace l'ancienne colonne de grille fixe). Seul `.pos-grid` reste `display:grid` (légitime : c'est lui-même la zone de scroll final pour les cartes produit, pas un ancêtre d'un autre scrollable — pas concerné par le bug WebKit ci-dessus). Flexbox est le pattern le plus éprouvé cross-navigateur pour "colonnes avec scroll interne" (utilisé par la quasi-totalité des apps web de ce type), plus fiable que CSS Grid pour cet usage précis.
+- Media query `@media (max-width: 960px)` mise à jour en cohérence (`flex-direction: column` au lieu de `grid-template-columns: 1fr`).
+- **Vérifié** : CSS compilé confirmé propre (`docker logs erp_v2_app`) **et** confirmé réellement servi par le serveur de dev via `curl http://localhost:19002/styles.css` (pour écarter tout doute de cache/build après 3 échecs successifs) — la règle `.pos-cart { flex: 0 0 400px; ... }` est bien celle qui sera chargée par le navigateur. Vérification visuelle définitive toujours à faire par l'utilisateur (Safari, éventuellement Chromium en comparaison).
+
+### 5ᵉ tentative — `flex:1` remplacé par `max-height` calculé, vérifié empiriquement au Playwright (2026-07-30)
+
+Le flexbox pur (tentative précédente) n'a toujours pas suffi. L'utilisateur a directement diagnostiqué la piste et donné l'instruction précise : retirer `flex: 1` de `.pos-cart__body` et le remplacer par un `max-height`. Raisonnement a posteriori : `flex: 1` ne borne pas activement une hauteur, il ne fait que réclamer l'espace libre du parent — si un ancêtre plus haut dans la chaîne ne redistribue pas correctement cette hauteur (ce qui semble être le cas ici, cohérent avec le comportement erratique observé sous WebKit dans les tentatives précédentes), `.pos-cart__body` se contente de grandir avec son contenu. Un `max-height` explicite borne l'élément indépendamment du comportement du parent — plus robuste, quitte à être moins "élégant" en pur flexbox.
+
+- Un outil Playwright déjà présent dans le scratchpad de session (Chromium réel installé, scripts de test déjà écrits pour ce projet lors d'une session précédente) a permis de **mesurer empiriquement** la géométrie réelle plutôt que de deviner : connexion UI → `/pos-restaurant` → ouverture/réutilisation d'une table → mesure `getBoundingClientRect()`/`getComputedStyle()` de chaque élément de la chaîne, à vide puis après ajout de ~15 produits pour forcer le débordement.
+- Mesures à vide (avant tout clic, sans artefact de scroll-into-view) : `.pos-cart__body` commence à `top:233px` (padding `.app-main` 32px + topbar 56px + gap 24px + `card-header` 63px + `tab-group` sections 34px + marges), `.card-footer` fait `149px` de haut, padding vertical de `.app-main` confirmé à `32px` haut/bas via `getComputedStyle`.
+- Fix appliqué (styles.css, classes globales, communes à `pos-vente` et `order-builder`) :
+  ```css
+  .pos-grid { max-height: calc(100vh - 340px); /* + flex:1 retiré, reste inchangé */ }
+  .pos-cart__body { max-height: calc(100vh - 450px); /* + flex:1 retiré, reste inchangé */ }
+  ```
+  Les deux valeurs incluent une marge de sécurité au-delà du minimum mesuré, pour tolérer un retour à la ligne de la rangée d'onglets de sections (beaucoup de sections) ou une légère variation de hauteur de topbar.
+- **Vérifié empiriquement au Playwright/Chromium réel** (pas seulement compilation) : après avoir cliqué sur 15 produits différents pour remplir `.pos-cart__body` bien au-delà de sa hauteur naturelle, mesure finale : `docScrollHeight`/`bodyScrollHeight` = `900px` = `viewportHeight` exactement (**zéro débordement de page**), `.pos-cart__body` capé à `450px` pile (= `calc(100vh - 450px)` pour un viewport de 900px), `.card-footer` (total + bouton Paiement) intégralement visible entre `683px` et `832px` — bien dans les 900px du viewport. Capture d'écran (`shots/order-builder-overflow.png`) confirmée visuellement : 8 lignes de produits affichées dans la section, total "448.00 €" et bouton "💳 Paiement" pleinement visibles et non coupés, aucun signe de débordement.
+- **Nuance** : cette vérification a eu lieu sous Chromium (Playwright), pas directement dans le Safari réel de l'utilisateur où les échecs précédents avaient été constatés — reste à confirmer par un test réel en navigateur, même si le passage à un `max-height` explicite en `calc()` élimine la dépendance aux subtilités de redistribution flex/grid qui semblaient être en cause sous WebKit.
+
+## Kitchen display + workflow cuisine (`erp_kitchen_display`, Reverb, sections/commandes) (2026-07-30)
+
+Nouvelle app (voir Readme.md : "on va créer une app erp_ditchen_display pour afficher les commandes à préparer en cuisine, synchronisée (Laravel Echo) avec l'app et le kitchen display") + workflow de section/commande côté POS - Restaurant.
+
+**Découverte avant d'implémenter** : le backend avait déjà bien plus de scaffolding que prévu — `Station` (modèle + migration + `StationController` + CRUD complet côté `erp-app/parametres/stations`, y compris le sélecteur de station sur le formulaire produit), `Passe` (modèle `belongsTo(Station)`, migration, mais **aucun** contrôleur/route/UI), et surtout `orders.state` avec un commentaire de migration déjà confirmé par l'utilisateur lors d'une session antérieure : cycle `send` (envoyée en cuisine) → `ask` (appelée/relancée) → `do` (en préparation) → `seed` (envoyée en salle) → `done` (servie). Toute la conception ci-dessous part de ces fondations déjà posées plutôt que de les redéfinir.
+
+### Modèle d'état retenu
+
+Deux niveaux d'état, volontairement distincts :
+- **`order_sections.state`** (nouveau, migration `add_state_to_order_sections_table`) : `en_attente` (par défaut) → `demande` → `fait`. C'est le cycle "une section à la fois" décrit dans Readme.md ("valider une section puis la demander", "les postes peuvent la marquer comme faite").
+- **`orders.state`** (déjà existant, 5 valeurs) : reste le cycle global de la commande, piloté automatiquement par les transitions de sections plutôt que par une action dédiée :
+  - `send` → `ask` : dès que la **première** section de la commande passe à `demande` (`OrderSectionController::demander`).
+  - `ask` → `do` : dès que **toutes** les sections de la commande sont `fait` (`OrderSectionController::marquerFait` vérifie `sections()->where('state','!=','fait')->doesntExist()`).
+  - `do` → `seed` : seule transition **manuelle**, via `OrderController::envoyer` — "le passe peut marquer la commande en Envoyé". Refuse (422) si `state !== 'do'`, impose donc que toutes les sections soient prêtes avant de pouvoir envoyer.
+  - `done` : non utilisé par cette implémentation (aucun endpoint ne l'atteint) — laissé disponible pour une étape future (ex. "commande physiquement servie", hors kitchen display).
+- **Visibilité kitchen display** : une commande reste affichée tant que son `state` n'est pas `seed`/`done` — "Quand la commande est envoyée elle disparaît de kitchen display".
+
+### Backend (`erp-api`)
+
+- `OrderSectionController::demander` : refuse (422) une section vide (même règle que `::store`) ou déjà demandée/faite. Diffuse `OrderKitchenUpdated`.
+- `OrderSectionController::marquerFait` : refuse (422) une section pas encore demandée. Diffuse `OrderKitchenUpdated`.
+- `OrderController::envoyer` : refuse (422) si la commande n'est pas à `do`. Diffuse `OrderKitchenUpdated`.
+- `OrderLineController::assertEditable` (nouveau, appelé par `store`/`update`/`destroy`) : refuse (422) de modifier une ligne dont la section n'est plus `en_attente` — une section "demandée" est déjà partie en cuisine, la modifier après coup désynchroniserait ce que la cuisine prépare de la commande réelle. Pour ajouter des articles après avoir demandé une section, il faut ouvrir une nouvelle section (règle déjà existante : "on peut ajouter une section que si la précédente contient au moins un article").
+- **"Le bon passe"** (Readme.md) : `Passe` (modèle `belongsTo(Station)`) existe déjà en base mais reste **hors scope ici** — aucune UI/route ajoutée pour gérer explicitement "quel passe pour quelle commande". À la place, l'action "Envoyer" (rôle du passe) n'est proposée que dans la vue **"Tous les postes"** du kitchen display (jamais en vue filtrée par poste) : le passe a par nature besoin de voir l'ensemble des postes d'une commande avant de l'expédier, ce qui capture le comportement attendu sans construire une gestion d'affectation passe↔station non spécifiée par la demande.
+- **Laravel Reverb** (`composer require laravel/reverb`, `php artisan reverb:install`) : ajouté comme driver de broadcasting self-hosted (pas de dépendance cloud comme Pusher — cohérent avec le reste du projet, entièrement en Docker Compose local). Nécessite l'extension PHP `pcntl` (ajoutée au `Dockerfile` d'`erp-api`, absente par défaut — sans elle `reverb:start` plante immédiatement sur `Undefined constant SIGINT`).
+- `App\Events\OrderKitchenUpdated` : `ShouldBroadcastNow` (pas `ShouldBroadcast` — aucun worker de queue actif dans ce projet, `QUEUE_CONNECTION=database` sans process `queue:work` dédié, donc la diffusion doit être synchrone). Canal **public** `kitchen` (pas de scope par utilisateur, salle et cuisine partagent la même vue), événement nommé `order.updated`, payload minimal (`orderId`) — les clients rechargent la commande/liste complète, cohérent avec le reste de l'app (jamais d'état dérivé local, toujours un refetch après mutation). Diffusé sur : ouverture de table, annulation de commande, `demander`, `marquerFait`, `envoyer`.
+- Nouvelles routes (`auth:sanctum`) : `POST order-sections/{id}/demander`, `POST order-sections/{id}/marquer-fait`, `POST orders/{id}/envoyer`.
+- **Service `reverb` dans `docker-compose.yml`** : même image que `api` (même code/vendor) mais **`entrypoint` remplacé** (`php artisan reverb:start --host=0.0.0.0 --port=8080`, sans passer par `docker/entrypoint.sh`) — volontaire, pour éviter que les deux conteneurs (`api` et `reverb`) ne relancent chacun `migrate --force && db:seed --force` au démarrage (course possible + risque de doublons si un seeder n'est pas strictement idempotent). Port hôte `19004` (`REVERB_PORT_HOST`) → port conteneur `8080`.
+- **`.env`/`.env.example`** : nouvelles variables `BROADCAST_CONNECTION=reverb`, `REVERB_APP_ID/KEY/SECRET`, `REVERB_HOST=reverb` + `REVERB_PORT=8080` + `REVERB_SCHEME=http` (utilisées **côté serveur**, par le conteneur `api` pour joindre `reverb` sur le réseau Docker interne — different de ce que le navigateur utilise), `REVERB_SERVER_HOST`/`REVERB_SERVER_PORT` (écoute du process `reverb:start`).
+- **Vérifié de bout en bout** : `curl` complet du cycle (section vide → 422 sur `demander` → ligne ajoutée → `demander` → 200, `order.state=ask` → re-`demander` → 422 → `envoyer` avant `fait` → 422 → `marquerFait` → `order.state=do` → `envoyer` → `order.state=seed`) — **et** un vrai client WebSocket (`ws`, script Node dans le scratchpad) abonné au canal `kitchen` a reçu l'événement `order.updated` en temps réel lors d'une mutation, confirmant que le pipeline `event() → Reverb → navigateur` fonctionne réellement, pas seulement en théorie.
+
+### `erp-app` (POS - Restaurant)
+
+- `OrderSection.state` ajouté au modèle front, badge d'état sur chaque pastille de section (`badge-neutral`/`badge-warning`/`badge-success` — classes déjà existantes, pas de nouvelles créées).
+- Bouton "🔔 Demander en cuisine" dans le pied du panier, visible seulement si la section active est `en_attente` et non vide.
+- Une fois une section `demande`/`fait` : grille produits, +/-, suppression de ligne tous désactivés pour cette section (`activeSectionEditable` computed) — reflète côté UI la règle backend `OrderLineController::assertEditable`.
+- `core/kitchen-echo.service.ts` (nouveau) : connexion Laravel Echo/Reverb, écoute `kitchen` → `order.updated`, `order-builder` rafraîchit la commande courante si l'id correspond (`takeUntilDestroyed()` pour éviter les abonnements qui s'accumulent en revisitant la page).
+- `core/reverb-config.ts` : mêmes conventions que `api-config.ts` (host dérivé de `window.location.hostname`, pas de "localhost" en dur — accessible depuis un iPad/tablette sur le même réseau).
+- `npm install laravel-echo pusher-js` (Reverb parle le protocole Pusher, `pusher-js` reste le client utilisé même sans compte Pusher).
+
+### `erp_kitchen_display/` — nouvelle app Angular (2026-07-30, pas testée en navigateur par moi — l'utilisateur l'a déjà ouverte de son côté, requêtes réelles visibles dans les logs api)
+
+Scaffoldée à partir d'une copie de `erp_validate_event/` (même structure kiosque : login QR/mot de passe, garde d'auth, thème clair/sombre, token Sanctum dupliqué plutôt que partagé — deux workspaces Angular séparés, même convention que `erp_validate_event` vis-à-vis d'`erp-app`) — pages événement retirées, remplacées par une seule page `kitchen-board`.
+
+- **`pages/kitchen-board`** : pastilles "Tous les postes" + une par `Station` (voir `core/station.service.ts`). Grille de cartes, une carte par commande ouverte (table + salle en en-tête), chaque carte listant ses sections avec badge d'état et leurs lignes.
+  - **Filtre par poste** : filtre les **lignes** de chaque section (pas des sections entières) sur `product.station_id === posteSélectionné` — un même section peut mélanger des produits de postes différents (ex. "Entrées" avec un plat froid et un plat chaud). Une section sans aucune ligne du poste sélectionné est masquée ; une commande sans aucune section restante est masquée.
+  - Bouton "👨‍🍳 Marquer prête" par section, actif seulement si `state === 'demande'`.
+  - Bouton "✅ Envoyer" par commande, actif seulement si `order.state === 'do'` **et** vue "Tous les postes" (voir plus haut, rôle du passe).
+  - `core/kitchen-echo.service.ts` : même mécanisme que côté `erp-app`, mais recharge toute la liste des commandes à chaque événement (pas de ciblage par id, la vue kitchen display affiche déjà tout).
+- **Docker** : service `kitchen_display` dans `docker-compose.yml`, même pattern que `app`/`validate_event` (bind mount + volume nommé pour `node_modules`, `ng serve --poll` en dev). Port hôte `19005` (`KITCHEN_DISPLAY_PORT`).
+- **Vérifié** : build Angular propre dans les logs du conteneur (`docker logs erp_v2_kitchen_display`, chunks `kitchen-board`/`login` générés sans erreur), `curl` de la page racine (200), et un scénario `curl` complet (ouverture de table → ajout produit → `demander`) confirmant que la forme JSON retournée par `GET /orders` correspond exactement à ce que consomme `kitchen-board.ts` (states de section, `product.station_id` présent pour le filtrage par poste). Pas de test interactif en navigateur de mon côté (pas d'outil Playwright invoqué cette fois) — mais les logs `erp_v2_api` montrent déjà des requêtes réelles depuis `http://localhost:19005/` avec un User-Agent Safari, donc l'app a été ouverte et fonctionne au moins jusqu'au chargement de la liste des commandes.
+
+### Hors scope, pour une prochaine étape
+
+- Gestion explicite des `Passe` (assigner un passe à une ou plusieurs stations, choisir "le bon passe" pour une commande donnée) — contournée pour l'instant via la vue "Tous les postes" (voir plus haut).
+- `orders.state = 'done'` ("servie") — valeur du cycle déjà réservée en base mais qu'aucun endpoint n'atteint actuellement.
+- Authentification/autorisation par rôle sur les actions cuisine (aujourd'hui, n'importe quel utilisateur connecté à `erp_kitchen_display` peut marquer n'importe quelle section faite ou envoyer n'importe quelle commande — cohérent avec le reste du projet où les rôles existent mais ne sont pas encore appliqués finement, voir "Définir ce qui est disponible de faire avec les differant role user" dans Readme.md).
+
+## Correction : envoi section par section + routage par passe (2026-07-30)
+
+Retour utilisateur après la première version du kitchen display : "il faut envoyer section par section quand la section est marquée comme prête" et "il faut qu'elle passe par son passe correspondant dans kitchen display". Deux corrections distinctes sur le design initial (voir section précédente) :
+
+1. **L'envoi devient une action par section, pas par commande.** La version précédente gatait "Envoyer" au niveau de la commande entière (`orders.state === 'do'`, c'est-à-dire toutes les sections `fait`) — ce qui forçait à attendre que toute la commande soit prête avant de pouvoir en expédier ne serait-ce qu'une section. Corrigé : `OrderController::envoyer` **supprimé**, remplacé par `OrderSectionController::envoyer(OrderSection)` — refuse (422) si la section n'est pas `fait`, sinon passe à un 4ᵉ état `envoye`. Une fois **toutes** les sections d'une commande à `envoye`, la commande passe automatiquement à `seed` et disparaît du kitchen display (le comportement de disparition annoncé dès la première version reste vrai, juste atteint différemment — agrégation des envois individuels plutôt qu'une action manuelle unique). `OrderSectionController::marquerFait` ajusté en conséquence : la transition `ask` → `do` de la commande vérifie désormais "toutes les sections sont `fait` **ou** `envoye`" (`whereNotIn('state', ['fait','envoye'])`) — nécessaire car avec un envoi section par section, une section peut atteindre `envoye` avant qu'une autre section de la même commande atteigne seulement `fait`.
+2. **Routage par passe.** Question posée à l'utilisateur sur la règle de correspondance section → passe (le modèle `Passe belongsTo Station` existait déjà mais n'était câblé nulle part) : **réponse retenue — 1 station = 1 passe, dérivé automatiquement** (pas de choix manuel). Règle implémentée côté front (`kitchen-board.ts`) : le passe correspondant d'une section = le `Passe` dont `station_id` correspond à la station du produit de la **première ligne** de la section. Affiché à titre indicatif (`→ Passe Cuisine`) à côté du badge d'état. **Le bouton "Envoyer" reste disponible depuis n'importe quelle vue** (Tous ou poste filtré), pas seulement dans la vue du passe correspondant — volontaire : `PasseSeeder` ne couvre que 2 des 5 stations ("Passe Cuisine"→Viande, "Passe Bar"→Bar ; Poisson/Froid/Dessert n'ont aucun passe dédié), donc gater strictement l'envoi au passe correspondant aurait rendu certaines sections définitivement impossibles à envoyer — même piège que la version précédente que cette correction visait justement à corriger.
+
+### Backend
+
+- `App\Http\Controllers\Api\PasseController` (nouveau, CRUD complet façon `StationController`) + `Route::apiResource('passes', ...)`. `index()` eager-load `station`.
+- `OrderSectionController::envoyer` (nouveau) : voir logique ci-dessus. `OrderController::envoyer` supprimé (route `POST orders/{order}/envoyer` remplacée par `POST order-sections/{order_section}/envoyer`).
+- **Vérifié via `curl`** : `envoyer` avant `fait` → 422 ; `marquer-fait` sur une commande à une seule section → `order.state` passe directement à `do` (toutes ses sections sont `fait`) ; `envoyer` cette section → `order.state` passe à `seed` (toutes ses sections sont `envoye`) ; `GET /passes` retourne bien `Passe Bar`→station Bar et `Passe Cuisine`→station Viande avec la relation `station` chargée.
+
+### `erp_kitchen_display`
+
+- `core/models/order.model.ts` : `OrderSection.state` étendu avec `'envoye'` ; nouveau type `Passe`.
+- `core/passe.service.ts` (nouveau, `GET /passes`).
+- `core/order-section.service.ts` : ajout de `envoyer(sectionId)`. `core/order.service.ts` : `envoyer(orderId)` retiré (endpoint supprimé côté API).
+- `kitchen-board.ts` : `DisplaySection` porte désormais aussi son `passe` calculé (station de la première ligne → `Passe` correspondant, ou `null` si la station n'a pas de passe dédié). `canSend`/`send` opèrent maintenant sur une `OrderSection`, plus sur un `Order`. Le bouton "✅ Envoyer" est descendu du `card-header` (commande) vers chaque `.kitchen-card__section` (section), à côté de "👨‍🍳 Marquer prête". Badge `envoye` ajouté (`badge-info`, classe déjà existante).
+- **Vérifié** : build Angular propre dans les logs du conteneur après la modification (une erreur TS transitoire est apparue entre les deux sauvegardes `kitchen-board.ts`/`.html`, résolue par le rebuild suivant — normal avec `ng serve --poll`, pas un vrai problème).
+
+### Hors scope, toujours en attente
+
+- `Passe` reste sans UI de gestion dans `erp-app/parametres` (créé/modifié seulement via `PasseSeeder` ou directement en API) — pas demandé explicitement, seul le routage automatique dans le kitchen display l'était.
+- Stations sans passe dédié (Poisson, Froid, Dessert) : leurs sections n'affichent aucun `→ Passe X` (juste le badge d'état) mais restent envoyables normalement depuis la vue "Tous" ou leur poste filtré.
+
+## Correction : cycle de section aligné sur Send/Ask/Do/Seed/Done + filtre par Passe (2026-07-30)
+
+Nouveau retour utilisateur, encore plus précis que les deux précédents : "donc la order section (Send -> Ask -> Do -> Seed -> Done)" avec le mapping explicite action→état→effet pour chacune des 4 transitions, plus "afficher tous les passes et les différents passes" dans le kitchen display. Question posée pour lever l'ambiguïté restante ("valider" et "demander en cuisine" sont-ils une seule action ou deux ?) — **réponse : deux actions séparées**, ce qui change réellement le flux POS - Restaurant (pas juste un renommage).
+
+### Nouveau cycle `order_sections.state` (aligné sur `orders.state`)
+
+```
+en_attente (défaut, pas encore validée)
+  --[valider]--> send (verrouillée, visible sur le kitchen display, pas encore en file active)
+  --[demander en cuisine]--> ask (appelée, les postes doivent la préparer)
+  --[marquer faite]--> do (le poste correspondant l'a préparée)
+  --[envoyer]--> seed (le passe correspondant l'a expédiée, section par section)
+  done (non atteint par cette implémentation, comme orders.state — voir plus bas)
+```
+
+`en_attente` reste hors du cycle "officiel" nommé — c'est l'état "en cours de composition, rien à faire ni à afficher côté cuisine", pas une valeur de `(Send -> Ask -> Do -> Seed -> Done)`.
+
+### Backend
+
+- Migration `remap_order_sections_state_values` : remappe les données existantes (demande→ask, fait→do, envoye→seed) — pas de changement de schéma (toujours une colonne `string`), juste une correction du vocabulaire déjà en base.
+- `OrderSectionController::valider` (nouveau) : `en_attente` → `send`, mêmes gardes que l'ancien `demander` (refuse une section vide ou déjà validée). C'est cette action qui broadcast `OrderKitchenUpdated` en premier — la section "apparaît" sur le kitchen display à ce moment, avant même d'être activement demandée.
+- `OrderSectionController::demander` : gardé (refuse maintenant si `state !== 'send'`, donc si pas encore validée), `send` → `ask`. Fait toujours passer `orders.state` de `send` à `ask` à la première section demandée.
+- `OrderSectionController::marquerFait` : `ask` → `do` (guard mis à jour). `orders.state` passe à `do` une fois toutes les sections à `do` ou `seed`.
+- `OrderSectionController::envoyer` : `do` → `seed` (guard mis à jour), toujours section par section (voir correction précédente). `orders.state` passe à `seed` une fois toutes les sections à `seed`.
+- Route ajoutée : `POST order-sections/{order_section}/valider`.
+- **Vérifié via `curl` + un vrai client WebSocket abonné au canal `kitchen`** : `valider` sur une section vide → 422 ; `demander` avant `valider` → 422 ; `valider` → `send` (order reste `send`) ; `demander` → `ask` (order passe à `ask`) ; `marquer-fait` → `do` (order passe à `do`) ; `envoyer` → `seed` (order passe à `seed`) — **chacune des 4 transitions a bien déclenché un événement `order.updated` reçu en temps réel** par le client WebSocket de test.
+
+### `erp-app` (POS - Restaurant)
+
+- `OrderSection.state` étendu au cycle complet (`en_attente | send | ask | do | seed | done`).
+- `order-section.service.ts` : `valider()` ajouté (nouveau endpoint), `demander()` conservé mais pointe maintenant vers la transition `send → ask`.
+- `order-builder.ts`/`.html` : **deux boutons désormais**, affichés selon l'état de la section active — "✅ Valider la section" (visible si `en_attente`, appelle `validerSection()`) puis "🔔 Demander en cuisine" (visible seulement une fois `send`, appelle `demanderSection()`). Chacun a sa propre confirmation (`confirm()`). Badge d'état mis à jour (`sectionStateLabel`) avec les 6 valeurs, `activeSectionEditable` inchangé (toujours verrouillé dès que l'état quitte `en_attente`).
+
+### `erp_kitchen_display`
+
+- `OrderSection.state` étendu au même cycle complet.
+- **Filtre par Passe, pas par Station** : "afficher tous les passes et les différents passes" — les pastilles de filtre (`kitchen-board.html`) sont passées de "Tous les postes + une par Station" à "Tous les passes + une par `Passe`" (`selectPasse`/`selectedPasseId`, remplace `selectStation`/`selectedStationId`). Le filtrage des lignes reste techniquement basé sur `product.station_id`, mais comparé à `passe.station_id` du passe sélectionné plutôt qu'à une station brute — `core/station.service.ts` n'étant plus utilisé nulle part, supprimé.
+- `canMarkDone`/`canSend` mis à jour sur les nouveaux noms (`ask`→`do` pour marquer fait, `do`→`seed` pour envoyer).
+- **Vérifié** : build Angular propre (`docker logs erp_v2_kitchen_display`), et le scénario `curl` ci-dessus couvre aussi les endpoints consommés par cette app (`marquer-fait`, `envoyer`, `/passes`).
+
+### Toujours hors scope
+
+- `done` reste un état non atteint par un quelconque endpoint (ni sur `orders`, ni sur `order_sections`) — réservé pour une étape future (ex. "physiquement servie en salle"), cohérent avec l'historique de `orders.state`.
+- Gestion CRUD des `Passe` dans `erp-app/parametres` — toujours pas demandée, `PasseSeeder` reste la seule source (Viande→Passe Cuisine, Bar→Passe Bar).
+
+## Kitchen display : filtre à deux dimensions (Postes + Passes) (2026-07-30)
+
+Retour utilisateur : "on doit voir les stations et les passes" — la correction précédente avait remplacé le filtre par Station par un filtre par Passe ; l'utilisateur veut en réalité **les deux dimensions présentes en même temps**, pas l'une à la place de l'autre : "Tout - toutes les stations, chacune des différentes stations - tous les passes, chacun des passes".
+
+- `core/station.service.ts` réintroduit (supprimé par erreur lors de la correction précédente, en pensant le filtre Station entièrement remplacé par le filtre Passe).
+- `kitchen-board.ts` : nouveau type `BoardFilter = { kind: 'station'; id } | { kind: 'passe'; id } | null` — un seul filtre actif à la fois, sélectionner un poste désactive visuellement le passe sélectionné et inversement (`isStationActive`/`isPasseActive`). `filterStationId` (computed) résout le filtre actif vers une station_id unique quel que soit son type (directe pour un poste, via `Passe.station_id` pour un passe) — le filtrage des lignes reste inchangé (toujours sur `product.station_id`).
+- **Trois rangées de pastilles** dans `kitchen-board.html` : "Tout" (seule, remet le filtre à `null`), "Postes" (+ "Toutes les stations", qui remet aussi à `null`, + une pastille par `Station`), "Passes" (+ "Tous les passes", idem, + une pastille par `Passe`) — reflète littéralement la structure à 3 groupes décrite par l'utilisateur.
+- **Vérifié** : build Angular propre (`docker logs erp_v2_kitchen_display`), `GET /stations` confirmé retourner les 5 stations seedées (Bar, Dessert, Froid, Poisson, Viande) pour peupler la rangée "Postes".
+
+## Correction : le transfert vers kitchen display ne part qu'à la validation (2026-07-30)
+
+Retour utilisateur : "on met la section en attente que quand on valide la section et on transfère la section dans kitchen display avec reverb". Bug réel identifié : `OrderController::store` (ouverture d'une table) diffusait déjà `OrderKitchenUpdated` à la création — la section auto-créée ("Section 1"), encore `en_attente`, apparaissait donc immédiatement sur le kitchen display avant même d'avoir été composée ou validée.
+
+- `OrderController::store` : broadcast retiré. Ouvrir une table ne notifie plus la cuisine — le premier événement pertinent reste `OrderSectionController::valider`.
+- `erp_kitchen_display/kitchen-board.ts` : filtre défensif ajouté sur `displayOrders` (`section.state !== 'en_attente'`) — une section non validée ne s'affiche jamais sur le board, même si un futur changement réintroduisait un broadcast prématuré ailleurs.
+- Hosts `erp_kitchen_display` et `erp-app` : `node_modules` local (utilisé par l'éditeur pour le TS, distinct du volume Docker) manquait des paquets récemment ajoutés (`@angular/*` entièrement absent côté `erp_kitchen_display` — jamais eu de `npm install` sur l'hôte depuis le scaffolding par copie de `erp_validate_event`) — réinstallé.
+- **Vérifié via `curl` + un vrai client WebSocket** : ouverture de table + ajout d'une ligne → aucun événement `order.updated` reçu ; `valider` → un seul événement, avec l'id de la commande concernée.
+
+## Kitchen display : une section "prête" quitte la vue Poste, reste dans la vue Passe (2026-07-30)
+
+Retour utilisateur : "une fois la section marquée comme prête, la section doit passer sur le bon passe correspondant". Jusqu'ici, une section `do` restait affichée indéfiniment dans toutes les vues (Tout, n'importe quel Poste, n'importe quel Passe) — pas de vrai geste de "passation" entre la cuisine et l'expédition.
+
+- `kitchen-board.ts` (`displayOrders`) : filtre ajouté, actif **seulement en vue Poste filtrée** (`filter().kind === 'station'`) — une section `do`/`seed`/`done` y disparaît (le poste a fini son travail dessus, elle bascule sous la responsabilité du passe). Vues "Tout" et "Passes" inchangées, continuent de l'afficher (c'est là que le passe la retrouve pour cliquer "Envoyer").
+- Reproduit le comportement d'un vrai KDS professionnel : les items disparaissent de l'écran du poste de cuisine dès qu'ils sont prêts, pour ne plus encombrer sa file, et n'apparaissent que côté expo/passe.
+- Vérifié par compilation (`docker logs erp_v2_kitchen_display`) — logique de filtrage pure côté client, données déjà vérifiées de bout en bout dans les corrections précédentes.
+
+## Kitchen display : filtre à 5 états mutuellement exclusifs, plus de pastilles actives en double (2026-07-30)
+
+Retour utilisateur : "les sélecteurs filtre ne fonctionnent pas bien. On doit pouvoir sélectionner Tout ou Tous les postes ou Toutes les stations". Cause : `BoardFilter` ne distinguait que 3 états (`null`/station/passe) — "Tout", "Toutes les stations" et "Tous les passes" pointaient tous les trois vers le même `null`, donc les 3 pastilles de reset s'allumaient **simultanément** dès qu'aucun poste/passe précis n'était sélectionné, même si l'utilisateur n'avait cliqué que sur l'une d'entre elles — source de confusion ("on dirait que ça ne marche pas").
+
+- `BoardFilter` étendu à 5 variantes explicites et mutuellement exclusives : `null` ("Tout"), `{kind:'all-stations'}`, `{kind:'station',id}`, `{kind:'all-passes'}`, `{kind:'passe',id}`. Chaque pastille de reset a maintenant son propre état distinct — une seule pastille active à la fois, quel que soit le groupe.
+- `isStationPerspective` (nouveau computed) : vrai pour `station` ET `all-stations` — la règle "une section prête quitte la vue Poste" (voir correction précédente) s'applique désormais aussi en "Tous les postes", pas seulement sur un poste précis.
+- `filterStationId` réécrit en if/else par discriminant `kind` plutôt qu'un `||` combinant égalité stricte et accès de propriété — la version précédente ne se resserrait pas correctement en TypeScript (l'IDE remontait une erreur de type sur `current.id`, `'all-stations'`/`'all-passes'` n'étaient pas exclus après le premier `if`).
+- Nouvelles méthodes `selectAllStations`/`selectAllPasses`/`isAllActive`/`isAllStationsActive`/`isAllPassesActive`, template mis à jour ("Toutes les stations" renommé "Tous les postes" pour matcher le vocabulaire de Readme.md).
+- Vérifié par compilation (`docker logs erp_v2_kitchen_display`) — logique de filtrage pure côté client.
+
+## POS Restaurant — paiement, conversion en Ticket, email (2026-07-30)
+
+Dernière étape du spec POS Restaurant du Readme.md, jusqu'ici volontairement hors scope : "quand toutes les sections sont envoyées on peut payer", split espèces/Bancontact avec rendu, "quand une order est payée elle devient un ticket", impression + email si client sélectionné. Construit en réutilisant fidèlement le pattern déjà établi par POS Vente directe (`pos-vente.ts`/`TicketController::store`) plutôt qu'en inventant un nouveau flux.
+
+### Backend
+
+- **`OrderController::pay(Order $order)`** (nouveau, `POST orders/{order}/pay`) :
+  - Refuse (422) tant qu'une section n'est pas `seed` ("quand toutes les sections sont envoyées on peut payer") — même règle recalculée côté serveur que le front (`allSectionsSent`), source de vérité.
+  - Même validation "somme des paiements == total" que `TicketController::store` (vente directe) — total toujours recalculé depuis `Product::price` au moment du paiement, jamais fait confiance au payload.
+  - **Order → Ticket** : chaque `OrderSection` devient une `TicketSection` (même `name`, l'état n'a plus de sens une fois payé donc pas reporté — `TicketSection` n'a pas de colonne `state`), chaque `OrderLine` devient une `TicketLine` avec le prix figé (`unit_price`). `client_id` et `send_email` viennent du payload (pas de l'Order, qui n'a jamais de client attaché avant cet instant — sélectionné à l'écran de paiement, même UX que pos-vente). `table_id` de l'Order reporté sur le Ticket (`tickets.table_id` existait déjà en base mais n'était utilisé par aucun endpoint jusqu'ici).
+  - La commande est ensuite supprimée (`$order->delete()`, cascade sections/lignes) — libère la table, même mécanisme que `::destroy` (annulation).
+  - `event(new OrderKitchenUpdated(...))` rediffusé après paiement (l'ordre devrait déjà être filtré du kitchen display à ce stade puisque `seed`, mais garantit la cohérence si un client KDS avait une vue périmée).
+  - Email : si `send_email` et que le client a un email, `Mail::to(...)->send(new TicketMail($ticket))` — synchrone (pas de queue déployée, même raison que partout ailleurs dans ce projet).
+- **`App\Mail\TicketMail`** + `resources/views/emails/ticket.blade.php` (nouveaux) : reçu email par sections/lignes/total/paiements, même style visuel que `EventTicketsMail`/`emails/event-tickets.blade.php` (couleurs/mise en page identiques, cohérence de marque).
+- **Vérifié via `curl`** de bout en bout : refus avant envoi (422), refus si le total des paiements ne correspond pas (422), commande à 2 sections indépendantes (chacune son propre cycle complet valider→demander→fait→envoyer) payée en un seul appel avec split espèces/carte + client + email → ticket avec 2 sections et 2 lignes de paiement, table effectivement libérée (`GET /orders/{id}` → 404, absente de `GET /orders`).
+
+### `erp-app` (order-builder)
+
+- **Bouton Paiement** : `allSectionsSent` (computed : au moins une section, toutes à `seed`) remplace le stub `[disabled]="orderTotal() === 0"` — affiche le total dans le libellé (`💳 Paiement — {{ total }}`), plus de `title="Pas encore implémenté"`. Message discret sous le bouton tant que ce n'est pas activé.
+- **Modal de paiement** : copie quasi à l'identique du modal `pos-vente.html`/`.ts` (sélecteur client avec recherche/création rapide, pastilles de moyens de paiement, clavier visuel pour les espèces avec calcul du rendu en direct — `changeDue`/`appliedAmount`, jamais persistés, purement un affichage caissier comme dans pos-vente). Ajout par rapport à pos-vente : case à cocher "Envoyer le ticket par email à {{ email }}" (`sendEmailOnPay`), visible seulement si le client sélectionné a un email.
+- **Après paiement réussi** : la commande n'existe plus côté backend (supprimée) — au lieu de rafraîchir l'`Order` (qui 404 désormais), le composant bascule sur un signal `paidTicket` qui remplace tout l'affichage par un écran de confirmation (numéro de ticket, table, détail sections/lignes/paiements) avec deux actions : "🖨️ Imprimer" et "Retour aux tables".
+- **Impression** (`printTicket()` → `window.print()`) : nouveau pattern CSS global dans `styles.css` (`@media print`, classe `.ticket-print`) — masque tout le reste de la page à l'impression, ne laisse que le bloc reçu. Réutilisable tel quel si `pos-vente` reçoit un jour la même fonctionnalité (pas fait maintenant, hors scope de cette demande qui ciblait spécifiquement POS Restaurant).
+- `core/order.service.ts` : `pay()` ajouté. `core/models/order.model.ts` : `PayOrderPayload`. `core/models/ticket.model.ts` : `Ticket.table_id`/`table` ajoutés (le type ne les portait pas encore, la vente directe ne les utilisant jamais).
+- Vérifié par compilation (`docker logs erp_v2_app`, chunk `order-builder` régénéré sans erreur, `styles.css` idem) — pas de test interactif en navigateur cette fois (pas demandé explicitement, backend + build suffisent pour ce tour).
+
+### Hors scope
+
+- Aucune modification de `pos-vente` (impression/email n'existaient nulle part avant cette session — construits ici uniquement pour POS Restaurant, mais de façon assez générique pour être branchés sur la vente directe plus tard si demandé).
+- `TicketSection`/`TicketLine` n'ont toujours pas de notion de "poste"/"passe" — un ticket est un instantané figé post-paiement, le workflow cuisine (kitchen display) s'arrête à `orders`/`order_sections`.
+
+## Paramètres : CRUD Passe + bug de binding de route corrigé (2026-07-30)
+
+`PasseController` avait déjà un CRUD complet (construit lors du câblage du kitchen display), mais aucune UI dans `erp-app/parametres` pour le piloter — comblé maintenant, même pattern que Stations (liste + formulaire, station choisie via `<select>`).
+
+- `core/models/reference.model.ts` : `Passe` ajouté (`{id, name, slug, station_id, station?}`).
+- `core/passe.service.ts` (nouveau) : `PasseService extends CachedResourceService<Passe>`, une ligne, même pattern que `PaymentMethodService`.
+- `pages/parametres/passes/passe-list` + `passe-form` (nouveaux) : copie quasi identique de `pages/parametres/stations/*`, le formulaire ajoute un `<select>` Station (première station sélectionnée par défaut à la création).
+- Routes (`app.routes.ts`) + carte "📣 Passes" ajoutée au hub `parametres-home.ts`.
+
+### Bug réel découvert en vérifiant le CRUD : `update`/`show`/`destroy` cassés en silence
+
+`Route::apiResource('passes', PasseController::class)` génère par défaut un paramètre de route `{pass}` — Laravel singularise "passes" en anglais ("a pass"), pas en français ("un passe"). `PasseController` type-hint `Passe $passe` (nom différent) : le binding implicite de route ne trouve alors aucun paramètre de route nommé `passe`, et Laravel injecte une instance `Passe` **vide, non liée à la base**, au lieu d'échouer bruyamment.
+
+Conséquences concrètes, aucune ne renvoyant d'erreur :
+- `PUT /passes/{id}` → `200` avec `{"station":null}` — `Model::update()` sur un modèle `exists=false` retourne silencieusement `false` sans rien modifier (aucune ligne en base changée).
+- `DELETE /passes/{id}` → `204` sans rien supprimer — `Model::delete()` sur un modèle `exists=false` est un no-op silencieux.
+- `GET /passes/{id}` aurait eu le même problème (jamais remarqué car `index()` — sans binding — était le seul endpoint testé jusqu'ici).
+
+`StationController` n'a pas ce problème (le singulier anglais de "stations" est bien "station", pas de divergence).
+
+- **Fix** : `Route::apiResource('passes', PasseController::class)->parameters(['passes' => 'passe'])` — force le paramètre de route à `{passe}`, aligné sur le controller.
+- **Nettoyage** : deux lignes fantômes créées pendant le diagnostic (des `PUT` qui, faute de binding, tombaient dans la branche `update()` no-op — mais les `POST`/`store()` de test, eux, avaient bien fonctionné et laissé de vraies lignes) supprimées manuellement en tinker.
+- **Revérifié** intégralement après le fix : `create` → `show` → `update` (renvoie bien le bon enregistrement modifié) → `destroy` (confirmé absent de la liste ensuite) — cycle complet correct cette fois.
+
+## Relation Passe/Station inversée : le choix se fait depuis Station (2026-07-30)
+
+Retour utilisateur : "c'est dans station qu'on doit pouvoir choisir dans quelle passe ça doit aller". Le schéma `passes.station_id` (un passe = une seule station, choix délibéré documenté plus haut dans ce fichier) est abandonné au profit du schéma de `ERP/` (le projet original, jamais suivi jusqu'ici malgré la note explicite dans `PasseSeeder`) : **`stations.passe_id`** — plusieurs stations peuvent désormais partager un même passe, ce qui correspond mieux à une vraie cuisine (un même point d'expédition dessert souvent plusieurs postes).
+
+### Backend
+
+- Migration `invert_passe_station_relationship` : ajoute `stations.passe_id` (nullable, `nullOnDelete`), reporte les données existantes (`passes.station_id` → `stations.passe_id` pour chaque ligne) avant de supprimer l'ancienne colonne `passes.station_id`. `down()` symétrique pour un rollback propre.
+- `Station` : `passe_id` ajouté au `#[Fillable]`, nouvelle relation `passe(): BelongsTo`.
+- `Passe` : `station_id` retiré du `#[Fillable]`, `station(): BelongsTo` remplacé par `stations(): HasMany`.
+- `StationController` : `store`/`update` acceptent maintenant `passe_id` (nullable), `index`/`show` eager-load `passe`.
+- `PasseController` : `store`/`update` ne prennent plus que `name` (le lien se fait côté Station), `index`/`show` eager-load `stations` (pluriel).
+- `PasseSeeder` réécrit : crée d'abord les passes (sans lien), puis assigne `passe_id` aux stations correspondantes (`Viande`→Passe Cuisine, `Bar`→Passe Bar) — inverse de l'ancien seeder qui créait le passe directement avec sa station.
+
+### `erp-app` (Paramètres)
+
+- `core/models/reference.model.ts` : `Station.passe_id`/`passe?` ajoutés, `Passe.station_id`/`station?` retirés, `Passe.stations?` ajouté.
+- **`station-form`** : nouveau `<select>` "Passe" (optionnel, "— Aucun —" par défaut) — c'est ICI que le choix se fait maintenant, comme demandé.
+- **`passe-form`** : le `<select>` Station retiré, remplacé par un texte explicatif renvoyant vers Stations pour faire le lien.
+- **`station-list`**/**`passe-list`** : colonnes mises à jour en conséquence (Station affiche son Passe ; Passe affiche la liste de ses Stations, jointes par virgule).
+
+### `erp_kitchen_display`
+
+- `core/models/order.model.ts` : mêmes changements de forme que `reference.model.ts` côté erp-app.
+- `kitchen-board.ts` : le filtre par passe devait auparavant résoudre un `station_id` UNIQUE (`passe.station_id`) ; il résout maintenant un **`Set<number>`** de stations (`filterStationIds`, toutes les stations dont `passe_id` correspond) — une ligne de section matche le filtre si sa station fait partie de cet ensemble. Le calcul du "passe correspondant" d'une section (affiché à titre indicatif) passe par la station de sa première ligne → `station.passe_id` → `Passe` — plus par `passe.station_id` qui n'existe plus.
+- `core/station.service.ts` réintroduit dans erp-app n'était pas concerné (déjà générique) ; `erp_kitchen_display/core/station.service.ts` inchangé (déjà juste un GET liste).
+
+### Vérifié
+
+- Backend via `curl` : `stations.passe_id` correctement peuplé après migration (Viande/Bar conservent leur lien d'origine) ; assignation de `Froid` au même passe que `Viande` (`Passe Cuisine`) confirmée des deux côtés (`GET /stations/{id}` et `GET /passes/{id}.stations[]`) ; suppression du lien (`passe_id: null`) confirmée.
+- Build Angular propre des deux côtés (`erp-app`, `erp_kitchen_display`).
+- **Confirmation en conditions réelles** : en cours de vérification, la base montrait déjà `Poisson`, `Froid` et `Dessert` tous rattachés à `Passe Cuisine` (aux côtés de `Viande`) avec des timestamps très récents — cohérent avec un test en direct du nouveau formulaire Station par l'utilisateur pendant cette même session, confirmant que le partage d'un passe entre plusieurs stations fonctionne de bout en bout via la vraie UI, pas seulement en théorie.
+
+## Bug de connexion : le clavier visuel ne tapait qu'en majuscules (2026-07-30)
+
+Signalé sur `erp_kitchen_display` et `erp_validate_event` : impossible de se connecter par nom d'utilisateur/mot de passe. Cause confirmée par l'utilisateur — le clavier visuel du mode "⌨️ Mot de passe" (`KEYBOARD_ROWS = ['AZERTYUIOP', ...]`) n'affichait QUE des lettres majuscules, et `pressKey()` poussait la touche telle quelle : taper "admin"/"password" (les identifiants seedés, en minuscules) produisait en réalité "ADMIN"/"PASSWORD" — jamais les bons identifiants, aucune touche pour basculer en minuscule.
+
+- `login.ts` (identique dans les deux apps, dupliqué comme tout le reste de ce composant) : nouveau signal `shiftOn` (faux par défaut), `pressKey()` applique `.toLowerCase()` sauf si `shiftOn()` est vrai. Minuscule par défaut plutôt que majuscule — correspond aux identifiants seedés réels (`admin`/`password`).
+- `login.html` : les touches affichent maintenant `{{ shiftOn() ? key : key.toLowerCase() }}` (le clavier reflète visuellement ce qu'il va réellement taper, pas juste des majuscules figées) ; nouveau bouton "⇧ Maj" (façon verrouillage majuscule, pas une vraie touche Shift à relâcher) dans la rangée d'actions, à côté de "Effacer"/"⌫".
+- `.btn-outline.is-active` ajouté aux deux `styles.css` (n'existait pas encore) pour indiquer visuellement l'état actif du bouton Maj.
+- **Vérifié** : `POST /auth/login` avec `admin`/`password` (minuscules) confirmé `200` — c'est bien ce que le clavier produit désormais par défaut. Build Angular propre des deux apps.
+- `erp-app` non concerné : son `/login` n'utilise pas ce clavier visuel (poste admin, clavier physique supposé).
+
+## Audit responsive des 3 apps (2026-07-30)
+
+Demande large : "rendre les apps responsive et vérifie les styles, vois si tu peux les améliorer". Plutôt qu'une refonte, audit ciblé sur les vrais points de rupture — vérifiés empiriquement via Playwright/Chromium (captures à 1440/820/375px), pas juste en théorie, après plusieurs corrections CSS ratées "en aveugle" plus tôt dans le projet (voir la saga overflow POS plus haut dans ce fichier).
+
+### `erp-app` — sidebar auto-réduite sous 900px
+
+La sidebar (`.app-sidebar`, 260px fixes) n'avait qu'une bascule **manuelle** vers le mode icônes (`.is-collapsed`, 76px) — sur tablette/petit écran, personne ne pense à cliquer "Réduire", et 260px de sidebar fixe laisse trop peu de place au contenu.
+
+- Nouveau `@media (max-width: 900px)` : reprend telles quelles les déclarations déjà utilisées pour `.is-collapsed` (largeur 76px, labels masqués, nav centrée) — pas de nouvelle logique, juste appliquée inconditionnellement sous ce seuil. Le bouton "Réduire/Étendre" est masqué à cette largeur : en dessous de 900px la largeur est imposée par la mise en page, un bouton qui ne changerait plus rien serait juste source de confusion.
+- **Vérifié par capture d'écran à 820px** : sidebar bien réduite en icônes, tableau de bord lisible avec beaucoup plus de place.
+
+### Grilles CSS à colonnes fixes qui débordaient sur mobile
+
+Repéré **par une vraie capture d'écran à 375px** (pas en théorie) : le tableau de bord (`dashboard.html`) utilisait `grid-template-columns: repeat(4, 1fr)` pour les tuiles stat et `repeat(auto-fit, minmax(320px, 1fr))` pour les cartes réservations/événements/tickets — sur un écran étroit, `auto-fit`/`minmax()` ne peut pas descendre en dessous du minimum indiqué (320px), donc la grille déborde au lieu de passer en une colonne. Même défaut trouvé par grep sur 3 autres pages (`cash-session-detail.html`, `booking-form.html`, `event-detail.html`).
+
+- Fix générique : `minmax(320px, 1fr)` → `minmax(min(320px, 100%), 1fr)` (le `min()` plafonne le minimum à la largeur réelle du conteneur — la grille peut donc toujours descendre à une seule colonne, quelle que soit l'étroitesse de l'écran, sans avoir besoin d'un breakpoint dédié). Appliqué à `dashboard.html` (tuiles stat + cartes), `cash-session-detail.html` (tuiles stat). `booking-form.html` (2 champs côte à côte) passé en `auto-fit, minmax(min(220px, 100%), 1fr)`. `event-detail.html` (ligne Date/Heure/Supprimer, 2 colonnes flexibles + 1 colonne `auto` pour le bouton) : `minmax(min(160px, 100%), 1fr)` explicite sur les 2 premières colonnes plutôt que `auto-fit` (le `auto-fit` ne cohabite pas bien avec une piste `auto` de taille fixe en fin de grille).
+- **Vérifié à 375px** (capture d'écran + `document.documentElement.scrollWidth > clientWidth` évalué à `false` dans la page réelle) : plus aucun débordement horizontal de page. Chaque carte contenant un tableau plus large qu'elle scrolle désormais **en interne** (voir filet de sécurité ci-dessous) plutôt que de casser la mise en page — comportement voulu, pas un défaut résiduel.
+
+### Filet de sécurité générique : tables + `.card-header`
+
+- `.card-body:has(> .table) { overflow-x: auto; }` (erp-app uniquement, seule app à utiliser `<table>`) — toute table plus large que sa carte scrolle horizontalement à l'intérieur de la carte au lieu de déborder de la page.
+- `.card-header { flex-wrap: wrap; }` sous 640px, dans les 3 apps — un titre long + un bouton ne se chevauchent/débordent plus sur mobile.
+
+### Clavier de connexion (`erp_kitchen_display` + `erp_validate_event`) : 4 boutons sur téléphone étroit
+
+Après l'ajout du bouton "⇧ Maj" (voir plus haut, correction du bug majuscules), la rangée d'actions (Maj/Effacer/⌫/Se connecter) comptait 4 boutons `flex:1` sur une seule ligne — "Se connecter" se serait retrouvé écrasé sur un téléphone étroit (~70px par bouton à 375px de large). `@media (max-width: 480px)` : passe les 4 boutons en grille 2×2 (`flex: 1 1 calc(50% - gap/2)`). **Vérifié par capture d'écran à 375px** : les 4 boutons tiennent confortablement en 2×2, clavier bien en minuscules (cohérent avec la correction précédente).
+
+### Méthode
+
+Toutes les corrections de ce tour ont été vérifiées **empiriquement** (Playwright/Chromium réel, captures à plusieurs largeurs + vérification programmatique de l'absence de débordement horizontal), pas seulement par compilation — leçon tirée de la saga overflow POS plus haut dans ce fichier, où plusieurs corrections "correctes en théorie" avaient échoué en pratique.
+
+### Hors scope de ce tour
+
+- Pas de menu hamburger / sidebar en tiroir plein écran pour `erp-app` sous ~480px (téléphone) — la sidebar reste en mode icônes (76px) à toutes les largeurs sous 900px plutôt que de se masquer entièrement. Fonctionnel mais pas optimal sur un vrai téléphone ; un vrai menu "off-canvas" serait une fonctionnalité à part entière (nouvel état, animation, overlay), pas juste un ajustement de style.
+- Pas d'audit exhaustif page par page des 3 apps (des dizaines de pages) — priorité donnée aux patterns **globaux** (styles.css partagé, grilles inline répétées) qui se répercutent automatiquement partout, plutôt qu'à une revue composant par composant.
+
+## Ticket de caisse imprimable : refonte façon "vrai" reçu (2026-07-30)
+
+Demande accompagnée d'une image de référence (un vrai ticket de caisse "MYKOMELA") pour inspirer la mise en page — structure reprise, **pas le contenu** : pas de logo/enseigne/adresse inventés, ce projet n'a aucune donnée de configuration "restaurant" (nom, adresse, siège) à afficher honnêtement sur un document qui ressemble à une pièce commerciale réelle.
+
+- `order-builder.html` (écran de confirmation post-paiement, `.ticket-print`) réécrit : en-tête "ERPv2" centré, "Ticket n°{id} du {date} - {heure}", table, "CLIENT : {nom}" ou "CLIENT COMPTANT" si aucun client. Tableau Article/Qté/Prix (colonnes alignées à droite, `.ticket-receipt__row` en `display:grid`). "Nombre d'articles" + "Total TTC". "Règlement" avec le détail par moyen de paiement. **Nouveau** : tableau de répartition HT/Taux/TVA/TTC en pied de ticket, un ligne par taux de TVA distinct parmi les produits vendus.
+- `order-builder.ts` : `ticketArticleCount()` (somme des quantités), `ticketTaxBreakdown()` (regroupe les lignes par taux de TVA du produit, calcule HT = TTC / (1 + taux/100) — même principe d'extraction que `pos-vente.ts::vatTotal`, le prix produit est TTC, la TVA s'en extrait plutôt que de s'y ajouter), `formatTicketDate()` (format `JJ/MM/AAAA - HH:MM`).
+- `OrderController::pay` : eager-load étendu de `sections.lines.product` à `sections.lines.product.tax` — nécessaire pour calculer la répartition, absent jusqu'ici (jamais utilisé par l'ancienne vue ticket, plus basique).
+- `order-builder.css` : nouvelles classes `.ticket-receipt__*` scopées au composant (pas globales — `pos-vente` n'a pas encore d'écran de confirmation post-paiement équivalent, voir "hors scope" plus haut dans ce fichier).
+- **Vérifié en conditions réelles** (pas juste en théorie) : commande créée et payée de bout en bout via un vrai navigateur (Playwright), capture d'écran confirmant le rendu — en-tête, ticket n°/date/table, tableau articles, total, règlement, et répartition HT/TVA correcte (18.18 € HT + 1.82 € TVA = 20.00 € TTC à 10%, calcul exact).
+
+## Correction : "marquer prête" ne concerne plus que les produits du poste/passe filtré (2026-07-30)
+
+Retour utilisateur : "quand il y a une table avec plusieurs produits, uniquement les produits de son propre poste et de son propre passe [doivent être concernés] ; là quand on marque comme fait, ça le fait pour tous les produits de la table/section". Bug réel : `OrderSectionController::marquerFait` marquait toute la SECTION comme faite (`state: 'do'`), alors qu'une section peut mélanger des produits de plusieurs stations (ex. une entrée froide + un plat chaud dans la même section) — un poste qui finissait son propre produit marquait à tort le produit d'un AUTRE poste, pas encore préparé, comme faite lui aussi.
+
+### Backend
+
+- Migration `add_done_to_order_lines_table` : nouvelle colonne `order_lines.done` (booléen, défaut `false`) — le suivi de préparation passe de la section entière à la ligne individuelle.
+- `OrderLine` : `done` volontairement **hors** `#[Fillable]` — ne se modifie que via `forceFill()` dans `OrderSectionController::marquerFait`, jamais par mass-assignment générique depuis `OrderLineController` (POS - Restaurant, sélection de produits — aucun rapport avec le suivi cuisine).
+- `OrderSectionController::marquerFait(Request $request, OrderSection $orderSection)` : accepte désormais un `line_ids` optionnel. Fourni → ne marque `done=true` que ces lignes précises. Omis (vue "Tout") → marque toutes les lignes de la section, comportement équivalent à avant pour une section mono-poste. La section elle-même ne passe à `'do'` (état affiché "Prête") que lorsque **toutes** ses lignes sont `done=true`, indépendamment de l'appel qui vient d'avoir lieu.
+- **Vérifié via `curl`** : section à 2 lignes (Viande + Poisson), `marquer-fait` avec `line_ids=[ligne Viande]` → section reste `ask` (Demandée), ligne Viande `done=true`, ligne Poisson `done=false` ; second appel avec `line_ids=[ligne Poisson]` → section passe à `do` (toutes les lignes faites).
+
+### `erp_kitchen_display`
+
+- `OrderLine.done` ajouté au modèle front.
+- `OrderSectionService::marquerFait(sectionId, lineIds?)` — transmet `line_ids` au backend.
+- `kitchen-board.ts` : `canMarkDone`/`markDone` opèrent maintenant sur la `DisplaySection` (lignes déjà filtrées par le poste/passe actif dans `displayOrders`), plus sur l'`OrderSection` brute — envoient systématiquement `Array.from(displaySection.lineIds)` (dans la vue "Tout", cet ensemble contient déjà toutes les lignes, donc aucune branche séparée nécessaire). Le bouton "Marquer prête" ne reste actif que s'il reste, **parmi les lignes visibles dans le filtre courant**, au moins une ligne pas encore faite.
+- Affichage : une ligne déjà marquée faite s'affiche barrée avec un ✓ (`.kitchen-card__line--done`), pour un retour visuel immédiat sur la progression partielle d'une section multi-postes.
+- **Vérifié en conditions réelles** (Playwright, pas juste en théorie) : section à 2 produits (Viande + Poisson) → filtre "Viande" → "Marquer prête" ne coche que le Burger (Viande), le bouton disparaît de cette vue (plus rien à y faire), la section reste "Demandée" → vue "Tout" confirme que le Saumon (Poisson) est toujours en attente avec son propre bouton "Marquer prête" disponible.
+
+## Correction : "Envoyer" ne concerne plus que les produits du passe filtré (2026-07-30)
+
+Même bug que la correction précédente ("marquer prête"), signalé cette fois pour "Envoyer" : "pour les passes aussi, quand je valide dans un passe ça valide dans les deux pour la même table et la même section". Une section peut avoir des lignes réparties sur deux passes différents (stations différentes partageant chacune un passe distinct, voir `stations.passe_id`) — "Envoyer" depuis un passe marquait toute la section comme expédiée, y compris les produits destinés à l'AUTRE passe.
+
+### Backend
+
+- Migration `add_sent_to_order_lines_table` : nouvelle colonne `order_lines.sent` (booléen, défaut `false`) — même principe que `done` (voir correction précédente), suivi par ligne plutôt que par section entière. `sent` également hors `#[Fillable]`, ne se modifie que via `forceFill()`.
+- `OrderSectionController::envoyer(Request $request, OrderSection $orderSection)` : accepte désormais `line_ids` (même contrat que `marquerFait`). Fourni → ne marque `sent=true` que ces lignes. Omis → toutes les lignes. La section ne passe à `'seed'` que lorsque **toutes** ses lignes sont envoyées. Le garde-fou `state !== 'do'` reste inchangé (la section entière doit déjà être entièrement préparée avant que quiconque puisse commencer à l'envoyer — cohérent, puisque `'do'` lui-même n'est atteint qu'une fois toutes les lignes `done`, donc par construction déjà prêtes pour les deux passes au moment où "Envoyer" devient possible).
+- **Vérifié via `curl`** : section à 2 lignes (Viande→Passe Cuisine, Bar→Passe Bar), toutes deux `done`, section `do`. `envoyer` avec `line_ids=[ligne Viande]` → section reste `do`, ligne Viande `sent=true`, ligne Bar `sent=false`. Second appel avec `line_ids=[ligne Bar]` → section passe à `seed`.
+
+### `erp_kitchen_display`
+
+- `OrderLine.sent` ajouté au modèle front.
+- `OrderSectionService::envoyer(sectionId, lineIds?)` — transmet `line_ids`.
+- `kitchen-board.ts` : `canSend`/`send` opèrent maintenant sur la `DisplaySection` (lignes déjà filtrées par le passe actif), même principe que `canMarkDone`/`markDone` — le bouton "Envoyer" ne reste actif que s'il reste, parmi les lignes visibles dans le filtre courant, au moins une ligne pas encore envoyée.
+- Affichage : une ligne envoyée affiche `✓✓` (double coche, distinct du simple `✓` de "faite" mais pas encore envoyée).
+- **Vérifié en conditions réelles** (Playwright) : section à 2 produits (Viande→Passe Cuisine, Bar→Passe Bar) → filtre "Passe Cuisine" → "Envoyer" n'expédie que le Burger, le bouton disparaît de cette vue, la section reste "Prête" → vue "Tout" confirme que la Bière (Passe Bar) reste à envoyer avec son propre bouton "Envoyer" disponible.
+
+## Séparation stricte des rôles : postes ↔ "Marquer prête", passes ↔ "Envoyer" (2026-07-30)
+
+Retour utilisateur : "il n'y a que les stations qui peuvent marquer prête, pas les passes ; les passes ne peuvent qu'envoyer". Jusqu'ici, `canMarkDone`/`canSend` ne dépendaient que de l'état de la section et des lignes visibles dans le filtre courant — les deux boutons pouvaient apparaître quel que soit le type de filtre actif (poste, passe, ou même "Tout"), sans respecter de séparation des rôles.
+
+- `kitchen-board.ts` : nouveau `isPassePerspective` (computed, symétrique de `isStationPerspective` déjà existant) — vrai pour un passe précis ou "Tous les passes".
+- `canMarkDone` : ajoute `!this.isStationPerspective()` en garde — n'apparaît plus que depuis la perspective "Postes".
+- `canSend` : ajoute `!this.isPassePerspective()` en garde — n'apparaît plus que depuis la perspective "Passes".
+- Conséquence assumée : depuis "Tout" (supervision globale, aucune perspective précise), **aucune des deux actions n'est proposée** — un écran de vue d'ensemble n'est pas un poste de travail, l'action se prend depuis l'écran du rôle concerné (poste ou passe).
+- **Vérifié en conditions réelles** (Playwright) : filtre "Passe Bar" → seul "Envoyer" est proposé, jamais "Marquer prête", même sur une section entièrement prête. Filtre "Bar" (poste) sur cette même section déjà `do` → aucune carte affichée (cohérent avec la règle déjà en place "section prête retirée de la vue Poste", rien à y faire une fois le poste terminé).
+
+## Bug corrigé : nouvelle section invisible sur le kitchen display après qu'une commande soit déjà "seed" (2026-07-30)
+
+Signalé dans Readme.md : "quand j'ajoute une section dans POS - Restaurant et que je valide, ça n'envoie pas dans kitchen display". Cause confirmée avec de vraies données de session (l'utilisateur avait justement cette situation en base au moment du diagnostic) : la visibilité d'une commande sur le kitchen display se basait sur `order.state !== 'seed'` — or `orders.state` passe à `'seed'` une fois que **toutes les sections existantes au moment de l'envoi** sont envoyées, mais rien ne "rouvre" cet état si on ajoute une **nouvelle** section après coup (la table reste occupée, une commande peut recevoir de nouvelles sections à tout moment, ex. un dessert commandé après l'envoi du plat principal). Résultat : la commande entière — nouvelle section comprise — restait invisible sur le kitchen display.
+
+- `kitchen-board.ts` (`displayOrders`) : suppression complète de la dépendance à `order.state` pour la visibilité. La logique se base désormais uniquement sur les **sections** elles-mêmes : une section `'seed'`/`'done'` a fini tout son cycle kitchen display et disparaît de **toutes** les vues (pas seulement "Postes" comme avant) ; une commande disparaît simplement parce qu'il ne lui reste plus aucune section à afficher (dernier `.filter` de la chaîne, déjà existant). Le computed `openOrders` (devenu inutile) est supprimé.
+- **Vérifié en conditions réelles** : reproduit le bug exact via `curl` (commande avec une 1ʳᵉ section envoyée intégralement → `order.state` reste `'seed'` → ajout et validation d'une 2ᵉ section → `order.state` toujours `'seed'`, comme avant la correction), puis confirmé via un vrai navigateur que le kitchen display affiche désormais correctement la nouvelle section ("Table 2 / Section 2 / Validée"), tout en gardant la section déjà envoyée cachée comme prévu.
+
+## Nouvelle section "Gestion des tickets" — historique + réimpression (2026-07-30)
+
+Demandé dans Readme.md : "ajout d'une section -> gestion des tickets, historique des tickets -> possibilité de réimpression de ticket (pas de modification et de suppression)". Un ticket payé est une pièce comptable figée — page volontairement en lecture seule : ni édition, ni suppression, uniquement consultation et réimpression.
+
+- **Refactor préalable** : la logique du reçu (total, répartition HT/Taux/TVA/TTC, formatage date, nombre d'articles), jusqu'ici propre à `order-builder.ts` (écran de confirmation post-paiement POS - Restaurant), extraite dans `core/ticket-print.util.ts` (fonctions pures, pas de service Angular) — maintenant réutilisée par les deux écrans plutôt que dupliquée. Les méthodes de `order-builder.ts` sont remplacées par des propriétés `readonly` pointant directement vers les fonctions importées (`readonly formatMoney = formatMoney;` etc.) — évite de réécrire des méthodes wrapper, le template n'a pas eu besoin de changer.
+- Les classes CSS `.ticket-receipt__*` (mise en page du reçu) déplacées de `order-builder.css` (scopé) vers `styles.css` global, pour la même raison — deux composants les utilisent désormais.
+- **Backend** : `TicketController::WITH` étendu (`sections.lines.product.tax`, `table`) — nécessaire pour la répartition TVA et l'affichage de la table, absent jusqu'ici car la vue ticket d'origine était plus sommaire.
+- **`pages/tickets/ticket-list`** (nouveau, route `/tickets`, nav "🧾 Gestion des tickets" entre Fond de caisse et Gestion des produits) : liste tous les tickets (`TicketService.list(1000)` — pas de pagination côté backend, comme les autres listes de ce projet), avec filtre par jour (`<app-date-picker>`, même pattern que `cash-register-home`) et par nom de client. Chaque ligne affiche ticket #, date/heure, table (si POS Restaurant), client (ou "Client comptant"), moyens de paiement, total, et un seul bouton **"🖨️ Réimprimer"** — aucune action de modification ou suppression, conformément à la demande.
+- Réimpression : clique sur une ligne → affiche le même bloc `.ticket-print.ticket-receipt` que l'écran de paiement POS Restaurant (section/lignes/total/règlement/TVA) → déclenche `window.print()` après un court délai (laisse Angular peindre le bloc avant l'ouverture de la boîte de dialogue).
+- **Vérifié en conditions réelles** : liste chargée avec 36 tickets réels (accumulés pendant cette session, POS Vente directe et POS Restaurant confondus) correctement affichés avec toutes leurs colonnes ; réimpression testée sur un vrai ticket à 2 sections/2 taux de TVA différents/paiement split espèces+carte — répartition HT/TVA affichée correctement (8.18€ HT + 0.82€ TVA = 9.00€ à 10% ; 10.00€ HT + 2.00€ TVA = 12.00€ à 20%). Build Angular propre (`docker logs erp_v2_app`).
+
+## Ajout : détail d'un ticket, `/tickets/:id` (2026-07-30)
+
+Suite à "Gestion des tickets" ci-dessus : "tu peux ajouter voir le detail du ticket /ticket". Même principe de lecture seule — un ticket payé ne s'édite ni ne se supprime, uniquement consultation et réimpression depuis l'écran de détail lui-même.
+
+- **Backend** : `TicketController::show(Ticket $ticket)` + route `GET tickets/{ticket}`, réutilise le même eager-loading (`WITH`) que `index()`.
+- `TicketService.get(id)` ajouté (`core/ticket.service.ts`).
+- **`pages/tickets/ticket-detail`** (nouveau, route enfant `tickets/:id` — la route `tickets` est passée d'une entrée simple à un `children: [{path:'', ...TicketList}, {path:':id', ...TicketDetail}]`) : résumé (date, table, client, moyen de paiement, total) + le même reçu `<app-ticket-receipt>` que les autres écrans, toujours visible (pas seulement à l'impression) avec un bouton "🖨️ Réimprimer" qui appelle directement `window.print()`. `ticket-list.html` : la colonne `#id` et un nouveau bouton "Voir" pointent vers `[routerLink]="[ticket.id]"`.
+- **Troisième consommateur du composant partagé `TicketReceipt`** (après `order-builder` et `ticket-list`) → **bug réel trouvé et corrigé à cette occasion** : l'élément custom `<app-ticket-receipt>` n'a par défaut aucun `display` (donc `inline` — comportement standard des custom elements non stylés), ce qui rendait `max-width`/`margin` posés par chaque consommateur silencieusement sans effet (un élément inline ignore `max-width`). Invisible en `ticket-list`/`order-builder` car le bloc n'y est affiché que pendant l'impression (jamais vu à l'écran), mais flagrant en `ticket-detail` où le reçu est affiché en continu — repéré via Playwright (`getComputedStyle` : `display: inline`, largeur réelle 956px au lieu des 380px demandés). Corrigé une fois pour toutes dans le composant partagé (`host: { style: 'display: block' }` sur `TicketReceipt`) plutôt que dans chaque consommateur — élimine le bug pour les 3 usages, y compris les 2 qui ne l'avaient pas encore remarqué visuellement.
+- **Vérifié en conditions réelles** (Playwright, connecté en admin) : navigation `/tickets` → clic "Voir" → `/tickets/36` → reçu affiché à la bonne largeur (380px, capturé avant/après le fix `display: block`), aucune erreur console/page. Liste et réimpression toujours correctes après le fix. `npx tsc --noEmit` propre, build Angular propre.
+
+## Synchronisation temps réel entre instances de POS - Restaurant (2026-07-30)
+
+Demandé dans Readme.md : "synchroniser les différentes instances de POS - Restaurant quand une table est ouverte ou payée (fait via Laravel Echo/Reverb, même mécanisme que kitchen display). Quand on ouvre une table et à chaque modification de table, de paiement, ajout de produit, tout synchroniser." Jusqu'ici le canal Reverb "kitchen"/`OrderKitchenUpdated` n'était diffusé que pour les transitions pertinentes à la cuisine (section validée/demandée/faite/envoyée, commande payée/annulée) — table-select.ts n'écoutait rien du tout, et order-builder.ts ne réagissait qu'aux événements cuisine.
+
+### Backend
+
+- **`OrderKitchenUpdated`** (docblock mis à jour) : diffusé désormais à chaque mutation d'une Order, pas seulement les transitions cuisine — deux familles d'abonnés distinctes sur le même canal public "kitchen" (kitchen-board.ts ne lit que les transitions qui le concernent en pratique, mais tolère très bien de recevoir aussi les autres puisqu'il ne fait qu'un refetch générique sans lire le payload).
+- Nouveaux points de diffusion ajoutés : `OrderController::store` (table ouverte), `OrderLineController::store/update/destroy` (produit ajouté/quantité modifiée/retiré), `OrderSectionController::store/destroy` (section créée/supprimée). Déjà existants et inchangés : `valider`/`demander`/`marquerFait`/`envoyer` (section), `OrderController::pay`/`destroy`.
+- **Piège rencontré** : contrairement aux 3 apps front (`erp-app`, `erp_kitchen_display`, `erp_validate_event`) qui sont bind-mountées (`ng serve --poll` recharge à chaud), `erp-api` n'a **aucun bind mount** dans `docker-compose.yml` — le code est cuit dans l'image au `docker build`. Toutes les modifications PHP de cette session sont restées sans effet dans le conteneur tournant jusqu'à `docker compose build api reverb && docker compose up -d api reverb` (les deux services partagent la même image). Auto-détecté car un premier test Playwright "réussissait" un scénario qui n'aurait pas dû fonctionner avec l'ancien code — indice qu'il fallait vérifier la propagation réelle du changement avant de faire confiance au résultat du test (voir plus bas).
+
+### `erp-app`
+
+- **`table-select.ts`** : nouvel abonnement au canal "kitchen" (`KitchenEchoService`, déjà utilisé par order-builder.ts) — sur TOUT événement reçu (ignore le payload `orderId`), refetch de la liste complète des commandes (`refreshOrders()`), même pattern que kitchen-board.ts côté erp_kitchen_display. Une table ouverte/libérée depuis une AUTRE instance se reflète donc immédiatement, sans rechargement manuel.
+- **`order-builder.ts`** : le filtre existant (`orderId === this.orderId`) suffisait déjà pour bénéficier des nouveaux points de diffusion sans changement de logique — mais **bug réel découvert et corrigé pendant la vérification** (race condition) :
+  - Un premier garde-fou (`!this.paidTicket()`) a été ajouté pour éviter qu'une instance qui vient ELLE-MÊME de payer ne se refetch sur son propre broadcast (la commande vient d'être supprimée côté serveur → 404 → sans garde-fou, `refreshOrder()` échouait et (après le fix suivant) quittait l'écran de reçu avant même qu'il ait pu s'afficher).
+  - **Insuffisant en pratique** : `ShouldBroadcastNow` diffuse de façon synchrone PENDANT le traitement de la requête HTTP de paiement côté serveur — le message WebSocket peut donc concrètement arriver au navigateur AVANT la réponse HTTP de ce même paiement (deux allers-retours réseau distincts, sans garantie d'ordre). À ce moment-là, `paidTicket()` n'est pas encore posé (il ne l'est que dans le callback `next` de la réponse HTTP), donc le garde-fou seul laissait passer un refetch intempestif qui faisait quitter l'écran de reçu juste après un paiement RÉUSSI — reproduit à 100% en Playwright avant correction. Corrigé en étendant le garde à `!this.paying() && !this.paidTicket()` — `paying` est posé à `true` de façon synchrone dès le tout début de `submitPayment()`, donc couvre toute la fenêtre, y compris avant que la réponse HTTP ne revienne.
+  - `refreshOrder()` : une erreur 404 (commande introuvable — payée ou annulée depuis une AUTRE instance) redirige désormais vers la sélection de table (`goToTableSelect()`) plutôt que d'afficher un message d'erreur bloquant qui n'a plus de sens (la commande n'existe simplement plus).
+- **`KitchenEchoService`** (docblock mis à jour) : décrit désormais les deux usages distincts (table-select vs order-builder) et le fait que le canal porte maintenant toutes les mutations, pas seulement les transitions cuisine.
+
+### Vérifié en conditions réelles (Playwright, plusieurs contextes de navigateur simultanés)
+
+- **Table ouverte** : page1 ouvre une table libre → page2 (déjà sur `/pos-restaurant`, sans rien recharger) voit la table passer à "Occupée" en direct.
+- **Produit ajouté** : page1 et page2 ouvrent la MÊME commande (deux instances sur le même order-builder) → produit ajouté sur page1 → apparaît sur page2 sans rechargement.
+- **Commande annulée** : page1 annule → une page3 déjà sur l'écran de la commande annulée rebascule automatiquement vers la sélection de table (pas de message d'erreur bloquant) ; une autre instance sur table-select voit la table redevenir libre en direct.
+- **Paiement** (scénario complet piloté par `curl` jusqu'à `state=seed`, paiement fait via l'UI réelle) : après correction de la race condition — l'instance qui paie reste sur `/pos-restaurant/{id}` et affiche correctement le reçu ("Ticket #41 payé ✅") ; une seconde instance ouverte sur la même commande rebascule proprement vers la sélection de table, sans erreur affichée.
+- Avant la 1ʳᵉ tentative de vérification, un premier essai avait donné un faux positif sur "produit ajouté" — dû à un rebuild concurrent d'`erp-app` (`ng serve --poll`) qui a déclenché un rechargement complet de la page de test (HMR "Page reload sent to client(s)"), masquant le fait que le code backend n'était pourtant pas encore rebuild. Levé en s'assurant qu'aucun rebuild front n'était en cours pendant la vérification, et en confirmant d'abord par `docker exec` que le code PHP dans le conteneur correspondait bien au fichier source avant de refaire tourner les tests.
+
+## Suppression remplacée par une désactivation (`active`) — rooms/tables/catégories/catalogues/utilisateurs/rôles/stations/taxes/passes (2026-07-30)
+
+Demandé dans Readme.md : "ne plus avoir la possibilité de supprimer, juste supprimer les boutons supprimer (trop compliqué pour le delete on cascade), mais ajouter un champ active (default true), possibilité de l'activer ou non ; mettre à jour les composants pour n'afficher que les éléments actifs" — pour Tables et Salles, Catégories, Catalogues, Utilisateurs, Rôles, Stations et Taxes (Produits et Passes hors périmètre initial ; Passes ajouté ensuite sur demande explicite du même jour, même traitement). Produits avait déjà exactement ce pattern (`products.active`, ajouté avant cette session) — servi de référence directe.
+
+### Backend
+
+- 9 migrations `add_active_to_*_table` (rooms, tables, product_categories, product_catalogs, users, roles, stations, taxes, passes) : `$table->boolean('active')->default(true)`. Toutes les lignes existantes deviennent `active=true` par défaut (backfill implicite du `default`), aucune ne se retrouve masquée après coup.
+- `product_catalogs.active` est **distinct** de `active_restaurant`/`active_direct_sale` déjà existants (voir migration `create_product_catalogs_table`) : ceux-là choisissent lequel des catalogues actifs est affiché par contexte POS, `active` détermine juste si le catalogue existe/est utilisable du tout.
+- 9 modèles : `active` ajouté au `#[Fillable]` + `casts()` (`'active' => 'boolean'`).
+- 9 contrôleurs (`RoomController`, `TableElementController`, `ProductCategoryController`, `ProductCatalogController`, `UserController`, `RoleController`, `StationController`, `TaxController`, `PasseController`) : méthode `destroy()` retirée entièrement, `active` ajouté aux règles de validation `store`/`update`.
+- `routes/api.php` : `->except(['destroy'])` ajouté sur les `Route::apiResource(...)` correspondantes (y compris `rooms.tables` malgré le `->shallow()`). Vérifié via `php artisan route:list` : les routes `DELETE` ont bien disparu (ex. `stations` passe de 5 routes à 4).
+- **Piège rencontré** : `erp-api` (contrairement aux 3 apps Angular) n'a **aucun bind mount** dans `docker-compose.yml` — modifier les fichiers PHP ne suffit pas, il faut `docker compose build api reverb && docker compose up -d api reverb` pour que le code tourne réellement dans le conteneur (déjà rencontré et documenté dans la section "Synchronisation temps réel" ci-dessus, reconfirmé ici). `php artisan migrate` derrière renvoie "Nothing to migrate" car `docker/entrypoint.sh` l'exécute déjà automatiquement au démarrage du conteneur — c'est normal, pas un signe d'échec.
+
+### Frontend — pages `Paramètres`
+
+- 8 interfaces TS (`Room`, `TableElement`, `ProductCategory`, `ProductCatalog`, `Station`, `Tax`, `Role`, `User`, `Passe`) : `active: boolean` ajouté. Dupliqué aussi dans `erp_validate_event/core/models/event.model.ts` (`TableElement`) — cette app a sa propre copie du modèle, pas de code partagé entre apps Angular dans ce projet.
+- 8 pages de liste (`room-list`, `category-list`, `catalog-list`, `user-list`, `role-list`, `station-list`, `tax-list`, `passe-list`) : bouton "Supprimer" retiré, remplacé par une colonne "Statut" avec badge `Actif`/`Inactif` — **même pattern visuel que `product-list.html`**, qui avait déjà ce badge (mais pas de toggle direct dans la liste : le statut se change depuis le formulaire, pas la liste, cohérent avec l'existant).
+- `floor-plan-editor` (édition des tables d'une salle) : bouton "Supprimer" remplacé par une case "Table active" dans le panneau de propriétés de la table sélectionnée (`toggleActive()`, persiste immédiatement). Une table inactive reste visible et éditable sur le plan mais s'affiche estompée (`opacity: 0.4`, bordure en pointillés, classe `.is-inactive`) pour signaler qu'elle a disparu des écrans de consultation (POS - Restaurant, event-checkin, event-dashboard).
+- 8 pages de formulaire (`room-form`, `category-form`, `catalog-form`, `user-form`, `role-form`, `station-form`, `tax-form`, `passe-form`) : case à cocher "Actif" ajoutée (signal `active`, défaut `true` pour une création, chargé depuis l'entité en édition), incluse dans le payload `submit()`.
+
+### Frontend — composants consommateurs filtrés sur `active`
+
+"Mettre à jour les composants pour n'afficher que les éléments actifs" — chaque endroit qui liste ou propose ces entités à la sélection a été revu :
+- `table-select.ts` (POS - Restaurant) : `restaurantRooms`/`tables` filtrent désormais aussi sur `.active` (en plus du filtre `type === 'restaurant'` déjà existant).
+- `event-dashboard.ts` (erp-app) et `event-checkin.ts` (erp_validate_event) : `tables` filtre sur `.active`.
+- `event-detail.ts` : `eventRooms` (sélecteur de salle à la création/édition d'une date d'événement) filtre sur `.active` en plus de `type === 'event'`.
+- `event-list.ts` : **volontairement non filtré** — son usage de `rooms()` sert à faire correspondre un nom de salle importé (CSV) à un id, pas à peupler un `<select>` ; filtrer aurait cassé la résolution d'imports référençant une salle par ailleurs désactivée.
+- `product-form.ts` : `selectableCategories`/`selectableCatalogs`/`selectableStations`/`selectableTaxes` (nouveaux `computed`) remplacent les signaux bruts dans le template — filtrent sur `.active`, **sauf** l'option déjà sélectionnée sur CE produit (`|| x.id === selectedId()`, ou `|| ids().includes(x.id)` pour les catalogues en multi-sélection) : évite qu'enregistrer un produit existant sans y toucher ne détache silencieusement une catégorie/catalogue/station/taxe désactivée entretemps (le `<select>` ne montrerait plus l'option correspondante, donc plus rien coché).
+- `user-form.ts` : même principe pour `selectableRoles` (checkboxes multi-sélection) — un rôle déjà attribué reste visible même désactivé.
+- `station-form.ts` : `selectablePasses`, même principe pour le passe déjà choisi.
+- `cash-register-home.ts` : **deux usages distincts de la liste d'utilisateurs, traités différemment** — `activeUsers` (nouveau, filtré) pour "Qui êtes-vous ?" (ouvrir la caisse : un utilisateur désactivé ne doit plus pouvoir ouvrir de session) ; `users()` **non filtré** conservé pour le filtre de l'historique des sessions (une session passée peut légitimement appartenir à un utilisateur depuis désactivé — le masquer casserait le filtre sur les données historiques).
+- **Vérifié en conditions réelles** (Playwright) : les 8 pages de liste Paramètres n'affichent plus aucun bouton "Supprimer" et affichent bien le badge de statut (aucune erreur console). Désactivation de la station "Dessert" depuis son formulaire → liste des stations la montre "Inactif" → dropdown "Station" de `product-form` (nouveau produit) ne propose plus que Bar/Froid/Poisson/Viande (Dessert bien absent) → réactivée pour ne pas laisser de données de test dans un état modifié.
+- `npx tsc --noEmit` propre sur `erp-app` et `erp_validate_event`, build Angular propre (les deux apps sont bind-mountées, contrairement à `erp-api`).

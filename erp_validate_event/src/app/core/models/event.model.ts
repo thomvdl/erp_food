@@ -7,6 +7,8 @@ export interface TableElement {
   pos_top: number;
   width: number;
   height: number;
+  /** "Ne plus avoir la possibilité de supprimer... ajouter un champ active" (voir Readme.md). */
+  active: boolean;
 }
 
 export interface Room {

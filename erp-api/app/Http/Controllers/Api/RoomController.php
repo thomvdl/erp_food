@@ -34,13 +34,6 @@ class RoomController extends Controller
         return $room;
     }
 
-    public function destroy(Room $room)
-    {
-        $room->delete();
-
-        return response()->noContent();
-    }
-
     /**
      * @return array<string, mixed>
      */
@@ -49,6 +42,7 @@ class RoomController extends Controller
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', 'string', 'in:restaurant,event'],
+            'active' => ['boolean'],
         ]);
     }
 }

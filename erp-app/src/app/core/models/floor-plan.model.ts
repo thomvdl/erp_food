@@ -7,6 +7,8 @@ export interface TableElement {
   pos_top: number;
   width: number;
   height: number;
+  /** "Ne plus avoir la possibilité de supprimer... ajouter un champ active" (voir Readme.md). */
+  active: boolean;
 }
 
 export type RoomType = 'restaurant' | 'event';
@@ -16,5 +18,7 @@ export interface Room {
   name: string;
   slug: string;
   type: RoomType;
+  /** "Ne plus avoir la possibilité de supprimer... ajouter un champ active" (voir Readme.md). */
+  active: boolean;
   tables?: TableElement[];
 }

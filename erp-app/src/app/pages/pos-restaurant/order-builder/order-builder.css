@@ -1,0 +1,4 @@
+/* pos-layout, pos-products, pos-grid, pos-product-card, pos-cart (et sous-classes) sont globaux
+   (styles.css), déjà utilisés tels quels par pos-vente qui n'a pas de CSS scopé — rien à
+   redéfinir ici. .ticket-receipt* (ticket imprimable) est également global — voir styles.css,
+   réutilisé par ticket-list.ts (réimpression, historique des tickets). */

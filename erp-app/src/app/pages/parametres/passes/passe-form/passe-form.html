@@ -1,0 +1,28 @@
+<a routerLink="/parametres/passes" class="back-link">← Passes</a>
+
+<h1 class="text-2xl">{{ isEdit() ? 'Modifier le passe' : 'Nouveau passe' }}</h1>
+
+<form class="form" (ngSubmit)="submit()">
+  <label class="field">
+    Nom
+    <input class="input" type="text" name="name" [ngModel]="name()" (ngModelChange)="name.set($event)" required />
+  </label>
+
+  <label class="checkbox-field">
+    <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
+    Actif
+  </label>
+
+  <p class="text-muted text-sm">
+    Les stations qui envoient vers ce passe se choisissent depuis <a routerLink="/parametres/stations">Stations</a>.
+  </p>
+
+  @if (error()) {
+    <p class="error-text">{{ error() }}</p>
+  }
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+    <a class="btn btn-outline" routerLink="/parametres/passes">Annuler</a>
+  </div>
+</form>

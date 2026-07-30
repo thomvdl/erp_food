@@ -54,13 +54,6 @@ class UserController extends Controller
         return $user->load('roles');
     }
 
-    public function destroy(User $user)
-    {
-        $user->delete();
-
-        return response()->noContent();
-    }
-
     /**
      * "Possibilité de créer un QR code par user" (voir Readme.md) : (re)génère le secret encodé
      * dans le QR de connexion de cet utilisateur — réutilise `barcode` (colonne déjà présente,
@@ -114,6 +107,7 @@ class UserController extends Controller
             'username' => ['required', 'string', 'max:255', Rule::unique('users', 'username')->ignore($user?->id)],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user?->id)],
             'password' => [$user ? 'nullable' : 'required', 'string', 'min:8'],
+            'active' => ['boolean'],
             'role_ids' => ['array'],
             'role_ids.*' => ['integer', 'exists:roles,id'],
         ]);

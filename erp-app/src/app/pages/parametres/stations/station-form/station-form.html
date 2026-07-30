@@ -8,6 +8,21 @@
     <input class="input" type="text" name="name" [ngModel]="name()" (ngModelChange)="name.set($event)" required />
   </label>
 
+  <label class="field">
+    Passe
+    <select class="select" name="passe" [ngModel]="passeId()" (ngModelChange)="passeId.set($event)">
+      <option [ngValue]="null">— Aucun —</option>
+      @for (passe of selectablePasses(); track passe.id) {
+        <option [ngValue]="passe.id">{{ passe.name }}</option>
+      }
+    </select>
+  </label>
+
+  <label class="checkbox-field">
+    <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
+    Actif
+  </label>
+
   @if (error()) {
     <p class="error-text">{{ error() }}</p>
   }

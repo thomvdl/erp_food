@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'order_id'])]
+#[Fillable(['name', 'order_id', 'state'])]
 class OrderSection extends Model
 {
     public function order(): BelongsTo

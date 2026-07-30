@@ -20,6 +20,7 @@ export class RoomForm {
 
   readonly name = signal('');
   readonly type = signal<RoomType>('restaurant');
+  readonly active = signal(true);
   readonly error = signal<string | null>(null);
 
   constructor() {
@@ -33,6 +34,7 @@ export class RoomForm {
           next: (room) => {
             this.name.set(room.name);
             this.type.set(room.type);
+            this.active.set(room.active);
           },
           error: () => this.error.set('Impossible de charger la salle.'),
         });
@@ -43,7 +45,7 @@ export class RoomForm {
   submit(): void {
     this.error.set(null);
 
-    const payload = { name: this.name(), type: this.type() };
+    const payload = { name: this.name(), type: this.type(), active: this.active() };
     const request =
       this.isEdit() && this.id !== null
         ? this.roomService.update(this.id, payload)

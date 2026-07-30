@@ -14,7 +14,7 @@
         Utilisateur
         <select class="select" [ngModel]="selectedUserId()" (ngModelChange)="selectedUserId.set($event)">
           <option [ngValue]="null">— Sélectionner —</option>
-          @for (user of users(); track user.id) {
+          @for (user of activeUsers(); track user.id) {
             <option [ngValue]="user.id">{{ user.username }}</option>
           }
         </select>

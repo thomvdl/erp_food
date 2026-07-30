@@ -73,7 +73,7 @@
     }
   </div>
 
-  <div class="form-section" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4)">
+  <div class="form-section" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--space-4)">
     <label class="field">
       Type
       <select class="select" [ngModel]="type()" (ngModelChange)="type.set($event)" name="type" required>

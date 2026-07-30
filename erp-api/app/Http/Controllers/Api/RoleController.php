@@ -19,6 +19,7 @@ class RoleController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'active' => ['boolean'],
         ]);
 
         return response()->json(Role::query()->create($data), 201);
@@ -33,17 +34,11 @@ class RoleController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'active' => ['boolean'],
         ]);
 
         $role->update($data);
 
         return $role;
-    }
-
-    public function destroy(Role $role)
-    {
-        $role->delete();
-
-        return response()->noContent();
     }
 }
