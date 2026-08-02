@@ -21,10 +21,6 @@ export class OrderService {
     return this.http.post<Order>(`${API_URL}/orders`, payload);
   }
 
-  cancel(id: number): Observable<void> {
-    return this.http.delete<void>(`${API_URL}/orders/${id}`);
-  }
-
   /** "Quand une order est payée elle devient un ticket" (voir Readme.md) — la commande est supprimée côté backend, la table libérée. */
   pay(id: number, payload: PayOrderPayload): Observable<Ticket> {
     return this.http.post<Ticket>(`${API_URL}/orders/${id}/pay`, payload);

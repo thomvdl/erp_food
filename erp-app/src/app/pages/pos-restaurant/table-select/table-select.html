@@ -28,19 +28,30 @@
       </div>
     </div>
     <div class="card-body table-select__card-body">
-      <div class="checkin-canvas">
-        @for (table of tables(); track table.id) {
+      <div class="checkin-canvas" #canvas>
+        @if (selectedRoom(); as room) {
           <div
-            class="checkin-table"
-            [class.is-taken]="orderForTable(table)"
-            [style.left.px]="table.pos_left"
-            [style.top.px]="table.pos_top"
-            [style.width.px]="table.width"
-            [style.height.px]="table.height"
-            [title]="orderForTable(table) ? (orderForTable(table)!.number_of_guests + ' pers. — cliquer pour reprendre la commande') : 'Libre — cliquer pour ouvrir'"
-            (click)="clickTable(table)"
+            class="checkin-stage"
+            [style.width.px]="room.width"
+            [style.height.px]="room.height"
+            [style.transform]="'translate(-50%, -50%) scale(' + scale() + ')'"
           >
-            {{ table.label }}
+            @for (table of planElements(); track table.id) {
+              <div
+                class="checkin-table"
+                [class.checkin-table--wall]="table.type === 'wall'"
+                [class.checkin-table--text]="table.type === 'text'"
+                [class.is-taken]="table.type === 'table' && orderForTable(table)"
+                [style.left.px]="table.pos_left"
+                [style.top.px]="table.pos_top"
+                [style.width.px]="table.width"
+                [style.height.px]="table.height"
+                [title]="table.type !== 'table' ? '' : (orderForTable(table) ? (orderForTable(table)!.number_of_guests + ' pers. — cliquer pour reprendre la commande') : 'Libre — cliquer pour ouvrir')"
+                (click)="clickTable(table)"
+              >
+                {{ table.label }}
+              </div>
+            }
           </div>
         }
       </div>
@@ -55,10 +66,14 @@
         <h2 class="text-lg">Ouvrir la table {{ table.label }}</h2>
       </div>
       <div class="card-body">
-        <label class="field">
+        <div class="field">
           Nombre de personnes
-          <input class="input" type="number" min="1" [ngModel]="guestCount()" (ngModelChange)="guestCount.set($event)" />
-        </label>
+          <div class="guest-stepper">
+            <button type="button" class="guest-stepper__btn" [disabled]="guestCount() <= 1" (click)="decrementGuestCount()">−</button>
+            <span class="guest-stepper__value">{{ guestCount() }}</span>
+            <button type="button" class="guest-stepper__btn" (click)="incrementGuestCount()">+</button>
+          </div>
+        </div>
         @if (error()) {
           <p class="error-text">{{ error() }}</p>
         }

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -21,6 +21,7 @@ import { Client, PaymentMethod, Ticket } from '../../../core/models/ticket.model
 import { KitchenEchoService } from '../../../core/kitchen-echo.service';
 import { formatMoney } from '../../../core/ticket-print.util';
 import { TicketReceipt } from '../../../shared/ticket-receipt/ticket-receipt';
+import { computeFitScale } from '../../../core/utils/fit-scale';
 
 interface CategoryFilter {
   id: number | null;
@@ -49,7 +50,7 @@ const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜
   templateUrl: './order-builder.html',
   styleUrl: './order-builder.css',
 })
-export class OrderBuilder {
+export class OrderBuilder implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly orderService = inject(OrderService);
@@ -96,7 +97,24 @@ export class OrderBuilder {
   readonly transferSelectedRoom = computed(
     () => this.transferRestaurantRooms().find((room) => room.id === this.transferSelectedRoomId()) ?? null,
   );
-  readonly transferTables = computed<TableElement[]>(() => (this.transferSelectedRoom()?.tables ?? []).filter((table) => table.active));
+  /** Tout élément actif du plan (tables + murs/textes décoratifs, voir floor-plan-editor.ts) —
+   *  pour un rendu visuel identique à l'éditeur. Murs/textes restent affichés mais ne sont
+   *  jamais des cibles de transfert valides, voir isTransferTableFree(). */
+  readonly transferPlanElements = computed<TableElement[]>(
+    () => (this.transferSelectedRoom()?.tables ?? []).filter((table) => table.active),
+  );
+
+  @ViewChild('transferCanvas') private readonly transferCanvasRef?: ElementRef<HTMLDivElement>;
+  private transferResizeObserver?: ResizeObserver;
+  private readonly transferContainerSize = signal({ width: 0, height: 0 });
+
+  /** Échelle du plan de transfert pour qu'il tienne toujours dans la modale sans barre de
+   *  défilement — voir computeFitScale() et table-select.ts (même principe). */
+  readonly transferScale = computed(() => {
+    const room = this.transferSelectedRoom();
+    const { width, height } = this.transferContainerSize();
+    return room ? computeFitScale(width, height, room.width, room.height) : 1;
+  });
 
   private readonly transferOccupiedTableIds = computed(() => {
     const set = new Set<number>();
@@ -569,15 +587,6 @@ export class OrderBuilder {
     window.print();
   }
 
-  cancelOrder(): void {
-    const order = this.order();
-    if (!order || !confirm('Annuler cette commande et libérer la table ?')) {
-      return;
-    }
-
-    this.orderService.cancel(order.id).subscribe(() => this.goToTableSelect());
-  }
-
   goToTableSelect(): void {
     this.router.navigateByUrl('/pos-restaurant');
   }
@@ -594,20 +603,38 @@ export class OrderBuilder {
       }
     });
     this.orderService.list().subscribe((orders) => this.transferOrders.set(orders));
+
+    // Le canvas n'existe dans le DOM qu'une fois la modale ouverte (@if) — laisser Angular
+    // rendre avant d'y attacher le ResizeObserver (même pattern que startScan() côté caméra).
+    setTimeout(() => this.observeTransferCanvas());
   }
 
   closeTransferModal(): void {
     this.showTransferModal.set(false);
+    this.transferResizeObserver?.disconnect();
+  }
+
+  private observeTransferCanvas(): void {
+    const el = this.transferCanvasRef?.nativeElement;
+    if (!el) {
+      return;
+    }
+
+    this.transferResizeObserver?.disconnect();
+    this.transferResizeObserver = new ResizeObserver(() => {
+      this.transferContainerSize.set({ width: el.clientWidth, height: el.clientHeight });
+    });
+    this.transferResizeObserver.observe(el);
   }
 
   selectTransferRoom(id: number): void {
     this.transferSelectedRoomId.set(id);
   }
 
-  /** Libre = pas occupée par une autre commande, et différente de la table actuelle. */
+  /** Libre = une vraie table, pas occupée par une autre commande, et différente de la table actuelle. */
   isTransferTableFree(table: TableElement): boolean {
     const order = this.order();
-    if (!order || table.id === order.table_id) {
+    if (!order || table.type !== 'table' || table.id === order.table_id) {
       return false;
     }
     return !this.transferOccupiedTableIds().has(table.id);
@@ -669,5 +696,9 @@ export class OrderBuilder {
         this.error.set('Impossible de charger cette commande.');
       },
     });
+  }
+
+  ngOnDestroy(): void {
+    this.transferResizeObserver?.disconnect();
   }
 }

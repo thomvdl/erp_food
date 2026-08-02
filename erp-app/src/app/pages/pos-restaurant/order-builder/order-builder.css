@@ -39,9 +39,19 @@
   background: var(--surface-card-muted);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  overflow: auto;
+  /* Le plan est mis à l'échelle pour toujours tenir dans ce conteneur (voir transferScale() dans
+     le composant) — plus besoin de défilement, hidden en filet de sécurité uniquement. */
+  overflow: hidden;
   background-image: radial-gradient(var(--border-color-strong) 1px, transparent 1px);
   background-size: 20px 20px;
+}
+
+/* Voir table-select.css pour l'explication complète du centrage par transform. */
+.checkin-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;
 }
 
 .checkin-table {
@@ -70,4 +80,31 @@
   background: var(--color-danger-bg);
   color: var(--color-danger-text);
   cursor: not-allowed;
+}
+
+/* Murs/textes du plan (voir floor-plan-editor.ts) — purement décoratifs ici, jamais des cibles
+   de transfert (voir isTransferTableFree()), donc pas de curseur pointeur ni de hover. */
+.checkin-table--wall {
+  border-radius: 4px;
+  border: none;
+  background: var(--text-secondary);
+  cursor: default;
+}
+
+.checkin-table--wall:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.checkin-table--text {
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: default;
+}
+
+.checkin-table--text:hover {
+  transform: none;
+  box-shadow: none;
 }

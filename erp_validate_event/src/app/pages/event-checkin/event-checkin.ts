@@ -5,6 +5,7 @@ import jsQR from 'jsqr';
 import { EventDateService } from '../../core/event-date.service';
 import { EventTicketService } from '../../core/event-ticket.service';
 import { EventDate, EventTicket, TableElement } from '../../core/models/event.model';
+import { computeFitScale } from '../../core/utils/fit-scale';
 
 type Mode = 'scan' | 'clavier';
 type ResultState = 'idle' | 'success' | 'error';
@@ -58,8 +59,10 @@ export class EventCheckin implements OnDestroy {
   private scanFrameId: number | null = null;
   private resultTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** Seules les tables actives (voir Readme.md, "n'afficher que les éléments actifs"). */
-  readonly tables = computed<TableElement[]>(() => (this.eventDate()?.room?.tables ?? []).filter((table) => table.active));
+  /** Tout élément actif du plan (tables + murs/textes décoratifs, voir floor-plan-editor.ts côté
+   *  erp-app) — pour un rendu visuel identique à l'éditeur. Murs/textes restent affichés mais
+   *  jamais sélectionnables/assignables à une place, voir selectTable(). */
+  readonly planElements = computed<TableElement[]>(() => (this.eventDate()?.room?.tables ?? []).filter((table) => table.active));
 
   readonly occupiedByTable = computed(() => {
     const map = new Map<number, EventTicket>();
@@ -72,8 +75,20 @@ export class EventCheckin implements OnDestroy {
   });
 
   readonly selectedTableLabel = computed(
-    () => this.tables().find((t) => t.id === this.selectedTableId())?.label ?? '',
+    () => this.planElements().find((t) => t.id === this.selectedTableId())?.label ?? '',
   );
+
+  @ViewChild('checkinCanvas') private readonly checkinCanvasRef?: ElementRef<HTMLDivElement>;
+  private checkinResizeObserver?: ResizeObserver;
+  private readonly checkinContainerSize = signal({ width: 0, height: 0 });
+
+  /** Échelle du plan pour qu'il tienne toujours dans la modale sans barre de défilement — voir
+   *  computeFitScale() et floor-plan-editor.ts côté erp-app (même principe). */
+  readonly scale = computed(() => {
+    const room = this.eventDate()?.room;
+    const { width, height } = this.checkinContainerSize();
+    return room ? computeFitScale(width, height, room.width, room.height) : 1;
+  });
 
   constructor() {
     this.eventDateService.get(this.eventDateId).subscribe((eventDate) => {
@@ -100,7 +115,7 @@ export class EventCheckin implements OnDestroy {
   }
 
   selectTable(table: TableElement): void {
-    if (this.occupant(table)) {
+    if (table.type !== 'table' || this.occupant(table)) {
       return;
     }
     this.selectedTableId.set(this.selectedTableId() === table.id ? null : table.id);
@@ -235,6 +250,23 @@ export class EventCheckin implements OnDestroy {
     this.pendingTicket.set(ticket);
     this.selectedTableId.set(null);
     this.showSeatModal.set(true);
+
+    // Le canvas n'existe dans le DOM (@if showSeatModal()) qu'une fois la modale ouverte —
+    // laisser Angular rendre avant d'y attacher le ResizeObserver.
+    setTimeout(() => this.observeCheckinCanvas());
+  }
+
+  private observeCheckinCanvas(): void {
+    const el = this.checkinCanvasRef?.nativeElement;
+    if (!el) {
+      return;
+    }
+
+    this.checkinResizeObserver?.disconnect();
+    this.checkinResizeObserver = new ResizeObserver(() => {
+      this.checkinContainerSize.set({ width: el.clientWidth, height: el.clientHeight });
+    });
+    this.checkinResizeObserver.observe(el);
   }
 
   confirmSeat(): void {
@@ -262,6 +294,7 @@ export class EventCheckin implements OnDestroy {
     this.showSeatModal.set(false);
     this.pendingTicket.set(null);
     this.selectedTableId.set(null);
+    this.checkinResizeObserver?.disconnect();
   }
 
   private showResult(state: ResultState, title: string, subtitle: string): void {
@@ -334,5 +367,6 @@ export class EventCheckin implements OnDestroy {
       clearTimeout(this.resultTimer);
     }
     this.audioCtx?.close();
+    this.checkinResizeObserver?.disconnect();
   }
 }

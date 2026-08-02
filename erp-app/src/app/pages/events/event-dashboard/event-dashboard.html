@@ -219,20 +219,31 @@
       </div>
     </div>
     <div class="card-body">
-      <div class="checkin-canvas">
-        @for (table of tables(); track table.id) {
+      <div class="checkin-canvas" #canvas>
+        @if (eventDate()?.room; as room) {
           <div
-            class="checkin-table"
-            [class.is-taken]="occupant(table)"
-            [class.is-selected]="selectedTableId() === table.id"
-            [style.left.px]="table.pos_left"
-            [style.top.px]="table.pos_top"
-            [style.width.px]="table.width"
-            [style.height.px]="table.height"
-            [title]="occupant(table) ? occupant(table)!.client!.firstname + ' ' + occupant(table)!.client!.lastname : 'Libre — cliquer pour sélectionner'"
-            (click)="selectTable(table)"
+            class="checkin-stage"
+            [style.width.px]="room.width"
+            [style.height.px]="room.height"
+            [style.transform]="'translate(-50%, -50%) scale(' + scale() + ')'"
           >
-            {{ table.label }}
+            @for (table of planElements(); track table.id) {
+              <div
+                class="checkin-table"
+                [class.checkin-table--wall]="table.type === 'wall'"
+                [class.checkin-table--text]="table.type === 'text'"
+                [class.is-taken]="table.type === 'table' && occupant(table)"
+                [class.is-selected]="selectedTableId() === table.id"
+                [style.left.px]="table.pos_left"
+                [style.top.px]="table.pos_top"
+                [style.width.px]="table.width"
+                [style.height.px]="table.height"
+                [title]="table.type !== 'table' ? '' : (occupant(table) ? occupant(table)!.client!.firstname + ' ' + occupant(table)!.client!.lastname : 'Libre — cliquer pour sélectionner')"
+                (click)="selectTable(table)"
+              >
+                {{ table.label }}
+              </div>
+            }
           </div>
         }
       </div>

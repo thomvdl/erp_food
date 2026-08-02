@@ -1,28 +1,38 @@
 <a routerLink="/parametres/salles" class="back-link">← Salles</a>
-<h1 class="text-2xl">Plan — {{ roomName() }}</h1>
+<h1 class="text-2xl">Plan — {{ room()?.name }}</h1>
 
 <div class="editor">
   <aside class="toolbox">
     <button type="button" class="btn btn-primary" (click)="addTable()">+ Ajouter une table</button>
+    <button type="button" class="btn btn-outline" (click)="addWall()">+ Ajouter un mur</button>
+    <button type="button" class="btn btn-outline" (click)="addText()">+ Ajouter un texte</button>
 
     @if (selectedTable(); as selected) {
       <div class="card card-body properties">
-        <p class="form-section-title">Table sélectionnée</p>
+        <p class="form-section-title">
+          @switch (selected.type) {
+            @case ('wall') { Mur sélectionné }
+            @case ('text') { Texte sélectionné }
+            @default { Table sélectionnée }
+          }
+        </p>
 
-        <label class="field">
-          Libellé
-          <input
-            class="input"
-            type="text"
-            [ngModel]="selected.label ?? ''"
-            (ngModelChange)="updateLabel($event)"
-            (blur)="saveLabel()"
-          />
-        </label>
+        @if (selected.type !== 'wall') {
+          <label class="field">
+            {{ selected.type === 'text' ? 'Texte' : 'Libellé' }}
+            <input
+              class="input"
+              type="text"
+              [ngModel]="selected.label ?? ''"
+              (ngModelChange)="updateLabel($event)"
+              (blur)="saveLabel()"
+            />
+          </label>
+        }
 
         <label class="checkbox-field">
           <input type="checkbox" [checked]="selected.active" (change)="toggleActive($any($event.target).checked)" />
-          Table active
+          {{ selected.type === 'table' ? 'Table active' : 'Élément visible' }}
         </label>
       </div>
     }
@@ -33,27 +43,38 @@
   </aside>
 
   <div class="canvas" #canvas (pointerdown)="deselect()">
-    @for (table of tables(); track table.id) {
+    @if (room(); as r) {
       <div
-        class="table-element"
-        [class.selected]="selectedId() === table.id"
-        [class.is-inactive]="!table.active"
-        [style.left.px]="table.pos_left"
-        [style.top.px]="table.pos_top"
-        [style.width.px]="table.width"
-        [style.height.px]="table.height"
-        (pointerdown)="onTablePointerDown($event, table)"
-        (pointermove)="onTablePointerMove($event)"
-        (pointerup)="onTablePointerUp($event)"
+        class="canvas-stage"
+        [style.width.px]="r.width"
+        [style.height.px]="r.height"
+        [style.transform]="'translate(-50%, -50%) scale(' + scale() + ')'"
       >
-        <span class="table-element__label">{{ table.label }}</span>
+        @for (table of tables(); track table.id) {
+          <div
+            class="table-element"
+            [class.table-element--wall]="table.type === 'wall'"
+            [class.table-element--text]="table.type === 'text'"
+            [class.selected]="selectedId() === table.id"
+            [class.is-inactive]="!table.active"
+            [style.left.px]="table.pos_left"
+            [style.top.px]="table.pos_top"
+            [style.width.px]="table.width"
+            [style.height.px]="table.height"
+            (pointerdown)="onTablePointerDown($event, table)"
+            (pointermove)="onTablePointerMove($event)"
+            (pointerup)="onTablePointerUp($event)"
+          >
+            <span class="table-element__label">{{ table.label }}</span>
 
-        <span
-          class="resize-handle"
-          (pointerdown)="onResizeHandlePointerDown($event, table)"
-          (pointermove)="onResizeHandlePointerMove($event)"
-          (pointerup)="onResizeHandlePointerUp($event)"
-        ></span>
+            <span
+              class="resize-handle"
+              (pointerdown)="onResizeHandlePointerDown($event, table)"
+              (pointermove)="onResizeHandlePointerMove($event)"
+              (pointerup)="onResizeHandlePointerUp($event)"
+            ></span>
+          </div>
+        }
       </div>
     }
   </div>

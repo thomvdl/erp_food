@@ -34,7 +34,6 @@
       }
       <button type="button" class="btn btn-outline" (click)="goToTableSelect()">← Retour aux tables</button>
       <button type="button" class="btn btn-outline" (click)="openTransferModal()">⇄ Transférer la table</button>
-      <button type="button" class="btn btn-danger" (click)="cancelOrder()">Annuler la commande</button>
     </div>
   </div>
 
@@ -421,19 +420,30 @@
             <span><span class="legend-dot legend-dot--taken"></span> Occupée / table actuelle</span>
           </div>
 
-          <div class="transfer-canvas">
-            @for (table of transferTables(); track table.id) {
+          <div class="transfer-canvas" #transferCanvas>
+            @if (transferSelectedRoom(); as room) {
               <div
-                class="checkin-table"
-                [class.is-taken]="!isTransferTableFree(table)"
-                [style.left.px]="table.pos_left"
-                [style.top.px]="table.pos_top"
-                [style.width.px]="table.width"
-                [style.height.px]="table.height"
-                [title]="isTransferTableFree(table) ? 'Transférer vers ' + table.label : 'Indisponible'"
-                (click)="isTransferTableFree(table) && confirmTransfer(table)"
+                class="checkin-stage"
+                [style.width.px]="room.width"
+                [style.height.px]="room.height"
+                [style.transform]="'translate(-50%, -50%) scale(' + transferScale() + ')'"
               >
-                {{ table.label }}
+                @for (table of transferPlanElements(); track table.id) {
+                  <div
+                    class="checkin-table"
+                    [class.checkin-table--wall]="table.type === 'wall'"
+                    [class.checkin-table--text]="table.type === 'text'"
+                    [class.is-taken]="table.type === 'table' && !isTransferTableFree(table)"
+                    [style.left.px]="table.pos_left"
+                    [style.top.px]="table.pos_top"
+                    [style.width.px]="table.width"
+                    [style.height.px]="table.height"
+                    [title]="table.type !== 'table' ? '' : (isTransferTableFree(table) ? 'Transférer vers ' + table.label : 'Indisponible')"
+                    (click)="isTransferTableFree(table) && confirmTransfer(table)"
+                  >
+                    {{ table.label }}
+                  </div>
+                }
               </div>
             }
           </div>

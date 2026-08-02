@@ -10,6 +10,7 @@ import { ClientService } from '../../../core/client.service';
 import { EventDate, EventTicket } from '../../../core/models/event.model';
 import { Client } from '../../../core/models/ticket.model';
 import { TableElement } from '../../../core/models/floor-plan.model';
+import { computeFitScale } from '../../../core/utils/fit-scale';
 
 /**
  * Dashboard unique par occurrence (event_date) : vendre des places (éventuellement plusieurs
@@ -73,11 +74,25 @@ export class EventDashboard implements OnDestroy {
   private scanStream: MediaStream | null = null;
   private scanFrameId: number | null = null;
 
-  /** Seules les tables actives (voir Readme.md, "n'afficher que les éléments actifs"). */
-  readonly tables = computed<TableElement[]>(() => (this.eventDate()?.room?.tables ?? []).filter((table) => table.active));
+  /** Tout élément actif du plan (tables + murs/textes décoratifs, voir floor-plan-editor.ts) —
+   *  pour un rendu visuel identique à l'éditeur. Murs/textes restent affichés mais jamais
+   *  sélectionnables/assignables à une place, voir selectTable(). */
+  readonly planElements = computed<TableElement[]>(() => (this.eventDate()?.room?.tables ?? []).filter((table) => table.active));
+
+  @ViewChild('canvas') private readonly canvasRef?: ElementRef<HTMLDivElement>;
+  private resizeObserver?: ResizeObserver;
+  private readonly containerSize = signal({ width: 0, height: 0 });
+
+  /** Échelle du plan pour qu'il tienne toujours dans son conteneur sans barre de défilement —
+   *  voir computeFitScale() et table-select.ts (même principe). */
+  readonly scale = computed(() => {
+    const room = this.eventDate()?.room;
+    const { width, height } = this.containerSize();
+    return room ? computeFitScale(width, height, room.width, room.height) : 1;
+  });
 
   readonly selectedTableLabel = computed(
-    () => this.tables().find((table) => table.id === this.selectedTableId())?.label ?? '',
+    () => this.planElements().find((table) => table.id === this.selectedTableId())?.label ?? '',
   );
 
   readonly occupiedByTable = computed(() => {
@@ -96,7 +111,12 @@ export class EventDashboard implements OnDestroy {
   });
 
   constructor() {
-    this.eventDateService.get(this.eventDateId).subscribe((eventDate) => this.eventDate.set(eventDate));
+    this.eventDateService.get(this.eventDateId).subscribe((eventDate) => {
+      this.eventDate.set(eventDate);
+      // Le canvas n'existe dans le DOM (@if eventDate()?.room_id) qu'une fois la salle chargée —
+      // laisser Angular rendre avant d'y attacher le ResizeObserver.
+      setTimeout(() => this.observeCanvas());
+    });
     this.refreshTickets();
 
     this.clientSearch$
@@ -312,7 +332,7 @@ export class EventDashboard implements OnDestroy {
   }
 
   selectTable(table: TableElement): void {
-    if (this.occupant(table)) {
+    if (table.type !== 'table' || this.occupant(table)) {
       return;
     }
     this.selectedTableId.set(this.selectedTableId() === table.id ? null : table.id);
@@ -414,6 +434,20 @@ export class EventDashboard implements OnDestroy {
 
   ngOnDestroy(): void {
     this.stopScan();
+    this.resizeObserver?.disconnect();
+  }
+
+  private observeCanvas(): void {
+    const el = this.canvasRef?.nativeElement;
+    if (!el) {
+      return;
+    }
+
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = new ResizeObserver(() => {
+      this.containerSize.set({ width: el.clientWidth, height: el.clientHeight });
+    });
+    this.resizeObserver.observe(el);
   }
 
   private refreshTickets(): void {

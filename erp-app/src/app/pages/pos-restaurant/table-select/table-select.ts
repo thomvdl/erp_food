@@ -1,12 +1,12 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { OrderService } from '../../../core/order.service';
 import { RoomService } from '../../../core/room.service';
 import { Order } from '../../../core/models/order.model';
 import { Room, TableElement } from '../../../core/models/floor-plan.model';
 import { KitchenEchoService } from '../../../core/kitchen-echo.service';
+import { computeFitScale } from '../../../core/utils/fit-scale';
 
 /**
  * Accueil du POS Restaurant (voir Readme.md) : plan de salle en lecture seule (pas d'édition,
@@ -22,15 +22,30 @@ import { KitchenEchoService } from '../../../core/kitchen-echo.service';
 @Component({
   selector: 'app-table-select',
   standalone: true,
-  imports: [FormsModule],
+  imports: [],
   templateUrl: './table-select.html',
   styleUrl: './table-select.css',
 })
-export class TableSelect {
+export class TableSelect implements AfterViewInit, OnDestroy {
   private readonly roomService = inject(RoomService);
   private readonly orderService = inject(OrderService);
   private readonly router = inject(Router);
   private readonly kitchenEcho = inject(KitchenEchoService);
+
+  @ViewChild('canvas') private readonly canvasRef?: ElementRef<HTMLDivElement>;
+  private resizeObserver?: ResizeObserver;
+
+  /** Taille réelle (px) du conteneur du plan — mise à jour par ResizeObserver, alimente scale(). */
+  private readonly containerSize = signal({ width: 0, height: 0 });
+
+  /** Échelle appliquée au plan (room.width/height) pour qu'il tienne toujours dans son
+   *  conteneur sans barre de défilement, quelle que soit la taille de l'écran — voir
+   *  computeFitScale(). Recalculée automatiquement au changement de salle ou de taille d'écran. */
+  readonly scale = computed(() => {
+    const room = this.selectedRoom();
+    const { width, height } = this.containerSize();
+    return room ? computeFitScale(width, height, room.width, room.height) : 1;
+  });
 
   readonly rooms = signal<Room[]>([]);
   readonly selectedRoomId = signal<number | null>(null);
@@ -48,8 +63,10 @@ export class TableSelect {
 
   readonly selectedRoom = computed(() => this.restaurantRooms().find((room) => room.id === this.selectedRoomId()) ?? null);
 
-  /** Idem pour les tables individuelles d'une salle par ailleurs active. */
-  readonly tables = computed<TableElement[]>(() => (this.selectedRoom()?.tables ?? []).filter((table) => table.active));
+  /** Tout élément actif du plan (tables + murs/textes décoratifs, voir floor-plan-editor.ts) —
+   *  pour un rendu visuel identique à l'éditeur. Murs/textes restent affichés mais jamais
+   *  cliquables/occupables : voir clickTable(), qui les ignore. */
+  readonly planElements = computed<TableElement[]>(() => (this.selectedRoom()?.tables ?? []).filter((table) => table.active));
 
   private readonly orderByTable = computed(() => {
     const map = new Map<number, Order>();
@@ -69,11 +86,37 @@ export class TableSelect {
         this.selectedRoomId.set(restaurantRooms[0].id);
       }
       this.loading.set(false);
+
+      // Le canvas n'existe dans le DOM (@else de loading()) qu'une fois les salles chargées —
+      // ngAfterViewInit() se déclenche bien avant (pendant que loading() est encore true), donc
+      // trop tôt pour trouver #canvas. Laisser Angular rendre avant d'y attacher le ResizeObserver.
+      setTimeout(() => this.observeCanvas());
     });
     this.refreshOrders();
 
     this.kitchenEcho.listen();
     this.kitchenEcho.orderUpdated.pipe(takeUntilDestroyed()).subscribe(() => this.refreshOrders());
+  }
+
+  ngAfterViewInit(): void {
+    this.observeCanvas();
+  }
+
+  private observeCanvas(): void {
+    const el = this.canvasRef?.nativeElement;
+    if (!el) {
+      return;
+    }
+
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = new ResizeObserver(() => {
+      this.containerSize.set({ width: el.clientWidth, height: el.clientHeight });
+    });
+    this.resizeObserver.observe(el);
+  }
+
+  ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
   }
 
   selectRoom(id: number): void {
@@ -85,6 +128,10 @@ export class TableSelect {
   }
 
   clickTable(table: TableElement): void {
+    if (table.type !== 'table') {
+      return;
+    }
+
     const order = this.orderForTable(table);
     if (order) {
       this.router.navigate(['/pos-restaurant', order.id]);
@@ -98,6 +145,14 @@ export class TableSelect {
 
   cancelOpenTable(): void {
     this.openingTable.set(null);
+  }
+
+  incrementGuestCount(): void {
+    this.guestCount.update((n) => n + 1);
+  }
+
+  decrementGuestCount(): void {
+    this.guestCount.update((n) => Math.max(1, n - 1));
   }
 
   confirmOpenTable(): void {

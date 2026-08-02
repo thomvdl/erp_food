@@ -61,9 +61,22 @@
   background: var(--surface-card-muted);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  overflow: auto;
+  /* Le plan est mis à l'échelle pour toujours tenir dans ce conteneur (voir computeFitScale()
+     dans le composant) — plus besoin de défilement, hidden en filet de sécurité uniquement. */
+  overflow: hidden;
   background-image: radial-gradient(var(--border-color-strong) 1px, transparent 1px);
   background-size: 20px 20px;
+}
+
+/* Zone de dessin à taille fixe (room.width × room.height, mêmes unités que les tables) — mise à
+   l'échelle et centrée dans .checkin-canvas via transform, indépendamment de la taille réelle de
+   l'écran. Positionnée en absolute + top/left 50% pour que translate(-50%,-50%) la centre quelle
+   que soit sa taille, sans jamais influer sur les dimensions/le scroll de .checkin-canvas. */
+.checkin-stage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;
 }
 
 .checkin-table {
@@ -91,4 +104,76 @@
   border-color: var(--color-danger-text);
   background: var(--color-danger-bg);
   color: var(--color-danger-text);
+}
+
+/* Murs/textes du plan (voir floor-plan-editor.ts) — purement décoratifs ici, jamais cliquables
+   (voir clickTable() qui les ignore), donc pas de curseur pointeur ni de hover. */
+.checkin-table--wall {
+  border-radius: 4px;
+  border: none;
+  background: var(--text-secondary);
+  cursor: default;
+}
+
+.checkin-table--wall:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.checkin-table--text {
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: default;
+}
+
+.checkin-table--text:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Boutons volontairement grands (48px, au-delà de .qty-stepper__btn/26px utilisé pour le panier)
+   — cette modale s'ouvre en plein service sur un écran tactile, un petit +/- serait pénible à
+   viser vite. */
+.guest-stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.guest-stepper__btn {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-card-muted);
+  border: 1px solid var(--border-color-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.guest-stepper__btn:hover {
+  background: var(--color-primary-100);
+  border-color: var(--color-primary-fill);
+}
+
+.guest-stepper__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.guest-stepper__value {
+  min-width: 3ch;
+  text-align: center;
+  font-size: 1.75rem;
+  font-weight: 700;
 }

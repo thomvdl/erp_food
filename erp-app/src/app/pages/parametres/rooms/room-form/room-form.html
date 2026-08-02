@@ -16,6 +16,22 @@
     </select>
   </label>
 
+  <div style="display: flex; gap: var(--space-3)">
+    <label class="field" style="flex: 1">
+      Largeur du plan (px)
+      <input class="input" type="number" name="width" min="100" [ngModel]="width()" (ngModelChange)="width.set($event)" />
+    </label>
+
+    <label class="field" style="flex: 1">
+      Hauteur du plan (px)
+      <input class="input" type="number" name="height" min="100" [ngModel]="height()" (ngModelChange)="height.set($event)" />
+    </label>
+  </div>
+  <p class="text-muted text-sm">
+    Détermine la taille de la zone où placer les tables (voir Plan) — un plan trop petit pour ses
+    tables déborde, un plan trop grand laisse de l'espace vide autour.
+  </p>
+
   <label class="checkbox-field">
     <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
     Actif

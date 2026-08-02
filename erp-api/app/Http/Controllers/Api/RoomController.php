@@ -42,6 +42,8 @@ class RoomController extends Controller
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', 'string', 'in:restaurant,event'],
+            'width' => ['sometimes', 'integer', 'min:100'],
+            'height' => ['sometimes', 'integer', 'min:100'],
             'active' => ['boolean'],
         ]);
     }

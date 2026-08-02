@@ -15,6 +15,10 @@ export interface Room {
   id: number;
   name: string;
   slug: string;
+  /** Taille de la zone dessinable, même échelle que TableElement.pos_left/width — sert à mettre
+   *  le plan à l'échelle sans barre de défilement (voir event-checkin.ts). */
+  width: number;
+  height: number;
   tables?: TableElement[];
 }
 

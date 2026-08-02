@@ -1,14 +1,22 @@
-import { Component, ElementRef, ViewChild, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { RoomService } from '../../../../core/room.service';
 import { TableElementService } from '../../../../core/table-element.service';
-import { TableElement } from '../../../../core/models/floor-plan.model';
+import { Room, TableElement, TableElementType } from '../../../../core/models/floor-plan.model';
+import { computeFitScale } from '../../../../core/utils/fit-scale';
 
 /** Doit correspondre à la grille visuelle du canvas (voir background-size dans le CSS) —
  *  les tables s'y accrochent lors du déplacement/redimensionnement. */
 const GRID_SIZE = 20;
-const DEFAULT_SIZE = 70;
+
+/** Taille/libellé par défaut à la création, selon le type d'élément — un mur est pensé comme un
+ *  segment allongé plutôt qu'un carré, un texte comme une étiquette large et basse. */
+const ELEMENT_DEFAULTS: Record<TableElementType, { width: number; height: number; label: string | null }> = {
+  table: { width: 50, height: 50, label: null },
+  wall: { width: 120, height: 14, label: null },
+  text: { width: 120, height: 28, label: 'Texte' },
+};
 
 interface DragState {
   tableId: number;
@@ -35,21 +43,34 @@ interface ResizeState {
   templateUrl: './floor-plan-editor.html',
   styleUrl: './floor-plan-editor.css',
 })
-export class FloorPlanEditor {
+export class FloorPlanEditor implements AfterViewInit, OnDestroy {
   private readonly roomService = inject(RoomService);
   private readonly tableElementService = inject(TableElementService);
   private readonly route = inject(ActivatedRoute);
 
   @ViewChild('canvas') private readonly canvasRef?: ElementRef<HTMLDivElement>;
+  private resizeObserver?: ResizeObserver;
+  private readonly containerSize = signal({ width: 0, height: 0 });
 
   private readonly roomId = Number(this.route.snapshot.paramMap.get('id'));
 
-  readonly roomName = signal('');
+  readonly room = signal<Room | null>(null);
   readonly tables = signal<TableElement[]>([]);
   readonly selectedId = signal<number | null>(null);
   readonly error = signal<string | null>(null);
 
   readonly selectedTable = computed(() => this.tables().find((t) => t.id === this.selectedId()) ?? null);
+
+  /** Échelle du plan pour qu'il tienne toujours dans son conteneur sans barre de défilement —
+   *  voir computeFitScale(). Contrairement aux écrans en lecture seule, le drag/resize doit
+   *  diviser ses deltas écran par cette échelle pour rester en unités "room" (voir
+   *  onTablePointerMove/onResizeHandlePointerMove) — sinon déplacer la souris de 10px déplacerait
+   *  la table de 10 unités quelle que soit l'échelle réellement affichée. */
+  readonly scale = computed(() => {
+    const room = this.room();
+    const { width, height } = this.containerSize();
+    return room ? computeFitScale(width, height, room.width, room.height) : 1;
+  });
 
   private dragState: DragState | null = null;
   private resizeState: ResizeState | null = null;
@@ -57,31 +78,60 @@ export class FloorPlanEditor {
   constructor() {
     this.roomService.get(this.roomId).subscribe({
       next: (room) => {
-        this.roomName.set(room.name);
+        this.room.set(room);
         this.tables.set(room.tables ?? []);
       },
       error: () => this.error.set('Impossible de charger la salle.'),
     });
   }
 
+  ngAfterViewInit(): void {
+    const el = this.canvasRef?.nativeElement;
+    if (!el) {
+      return;
+    }
+
+    this.resizeObserver = new ResizeObserver(() => {
+      this.containerSize.set({ width: el.clientWidth, height: el.clientHeight });
+    });
+    this.resizeObserver.observe(el);
+  }
+
+  ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
+  }
+
   addTable(): void {
+    this.addElement('table');
+  }
+
+  addWall(): void {
+    this.addElement('wall');
+  }
+
+  addText(): void {
+    this.addElement('text');
+  }
+
+  private addElement(type: TableElementType): void {
     const offset = (this.tables().length % 8) * GRID_SIZE;
+    const defaults = ELEMENT_DEFAULTS[type];
 
     const payload: Partial<TableElement> = {
-      type: 'table',
-      label: this.nextTableLabel(),
+      type,
+      label: type === 'table' ? this.nextTableLabel() : defaults.label,
       pos_left: 20 + offset,
       pos_top: 20 + offset,
-      width: DEFAULT_SIZE,
-      height: DEFAULT_SIZE,
+      width: defaults.width,
+      height: defaults.height,
     };
 
     this.tableElementService.create(this.roomId, payload).subscribe({
-      next: (table) => {
-        this.tables.set([...this.tables(), table]);
-        this.selectedId.set(table.id);
+      next: (element) => {
+        this.tables.set([...this.tables(), element]);
+        this.selectedId.set(element.id);
       },
-      error: () => this.error.set("Impossible d'ajouter la table."),
+      error: () => this.error.set("Impossible d'ajouter cet élément."),
     });
   }
 
@@ -145,9 +195,10 @@ export class FloorPlanEditor {
       return;
     }
 
-    const bounds = this.canvasBounds();
-    const dx = event.clientX - this.dragState.startX;
-    const dy = event.clientY - this.dragState.startY;
+    const bounds = this.room();
+    const scale = this.scale();
+    const dx = (event.clientX - this.dragState.startX) / scale;
+    const dy = (event.clientY - this.dragState.startY) / scale;
 
     const maxLeft = bounds ? Math.max(0, bounds.width - table.width) : Infinity;
     const maxTop = bounds ? Math.max(0, bounds.height - table.height) : Infinity;
@@ -193,8 +244,9 @@ export class FloorPlanEditor {
       return;
     }
 
-    const dx = event.clientX - this.resizeState.startX;
-    const dy = event.clientY - this.resizeState.startY;
+    const scale = this.scale();
+    const dx = (event.clientX - this.resizeState.startX) / scale;
+    const dy = (event.clientY - this.resizeState.startY) / scale;
 
     this.patchLocal(this.resizeState.tableId, {
       width: Math.max(GRID_SIZE, this.snapToGrid(this.resizeState.startWidth + dx)),
@@ -213,16 +265,12 @@ export class FloorPlanEditor {
   }
 
   private nextTableLabel(): string {
-    return `T${this.tables().length + 1}`;
+    const tableCount = this.tables().filter((t) => t.type === 'table').length;
+    return `T${tableCount + 1}`;
   }
 
   private snapToGrid(value: number): number {
     return Math.round(value / GRID_SIZE) * GRID_SIZE;
-  }
-
-  private canvasBounds(): { width: number; height: number } | null {
-    const el = this.canvasRef?.nativeElement;
-    return el ? { width: el.clientWidth, height: el.clientHeight } : null;
   }
 
   private patchLocal(id: number, patch: Partial<TableElement>): void {
