@@ -46,7 +46,7 @@ class TicketController extends Controller
     {
         $data = $request->validate([
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
-            'cash_session_id' => ['nullable', 'integer', 'exists:cash_sessions,id'],
+            'cash_session_id' => ['required', 'integer', 'exists:cash_sessions,id'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
@@ -55,10 +55,19 @@ class TicketController extends Controller
             'payments.*.value' => ['required', 'numeric', 'min:0.01'],
         ]);
 
-        // Pas d'auth : l'utilisateur qui encaisse est celui qui a ouvert la session de caisse
-        // active (voir CashSessionController). Sans session ouverte, la vente reste possible,
-        // juste sans rattachement utilisateur (voir migration add_cash_session_to_ticket_payments).
-        $cashSession = !empty($data['cash_session_id']) ? CashSession::query()->find($data['cash_session_id']) : null;
+        // L'utilisateur qui encaisse est celui qui a ouvert la session de caisse active (le
+        // "caissier actif" choisi côté front, voir ActiveCashierService — pas forcément le même
+        // que l'utilisateur authentifié sur le poste, plusieurs caissiers pouvant se relayer sur
+        // le même poste partagé). Session obligatoire et doit être encore ouverte : un caissier
+        // actif périmé côté front (sa session a été fermée entre-temps depuis un autre poste) ne
+        // doit pas pouvoir encaisser — voir Readme.md Todo.
+        $cashSession = CashSession::query()->open()->find($data['cash_session_id']);
+
+        if (!$cashSession) {
+            throw ValidationException::withMessages([
+                'cash_session_id' => ["Aucune session de caisse ouverte. Ouvrez une caisse avant d'encaisser."],
+            ]);
+        }
 
         $products = Product::query()->whereIn('id', collect($data['lines'])->pluck('product_id'))->get()->keyBy('id');
 
@@ -99,8 +108,8 @@ class TicketController extends Controller
                     'value' => $payment['value'],
                     'payment_method_id' => $payment['payment_method_id'],
                     'ticket_id' => $ticket->id,
-                    'user_id' => $cashSession?->user_id,
-                    'cash_session_id' => $cashSession?->id,
+                    'user_id' => $cashSession->user_id,
+                    'cash_session_id' => $cashSession->id,
                 ]);
             }
 

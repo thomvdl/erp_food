@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import { OrderService } from '../../../core/order.service';
 import { OrderSectionService } from '../../../core/order-section.service';
@@ -43,7 +43,7 @@ const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜
 @Component({
   selector: 'app-order-builder',
   standalone: true,
-  imports: [FormsModule, TicketReceipt],
+  imports: [FormsModule, RouterLink, TicketReceipt],
   templateUrl: './order-builder.html',
   styleUrl: './order-builder.css',
 })
@@ -57,7 +57,7 @@ export class OrderBuilder {
   private readonly catalogService = inject(ProductCatalogService);
   private readonly paymentMethodService = inject(PaymentMethodService);
   private readonly clientService = inject(ClientService);
-  private readonly activeCashierService = inject(ActiveCashierService);
+  readonly activeCashierService = inject(ActiveCashierService);
   private readonly kitchenEcho = inject(KitchenEchoService);
 
   private readonly orderId = Number(this.route.snapshot.paramMap.get('orderId'));
@@ -162,7 +162,13 @@ export class OrderBuilder {
 
   readonly paidTotal = computed(() => this.paymentLines().reduce((sum, line) => sum + line.value, 0));
   readonly remaining = computed(() => Math.round((this.orderTotal() - this.paidTotal()) * 100) / 100);
-  readonly canSubmitPayment = computed(() => this.paymentLines().length > 0 && Math.abs(this.remaining()) < 0.005 && !this.paying());
+  readonly canSubmitPayment = computed(
+    () =>
+      this.paymentLines().length > 0 &&
+      Math.abs(this.remaining()) < 0.005 &&
+      !this.paying() &&
+      this.activeCashierService.activeSession() !== null,
+  );
 
   readonly keypadValue = computed(() => Number(this.keypadBuffer()) || 0);
   /** Rendu à donner si le montant tapé au clavier dépasse ce qu'il reste à payer. */
@@ -392,6 +398,12 @@ export class OrderBuilder {
     if (!this.allSectionsSent()) {
       return;
     }
+
+    if (!this.activeCashierService.activeSession()) {
+      this.error.set('Aucune caisse ouverte — ouvrez une caisse avant d\'encaisser.');
+      return;
+    }
+
     this.error.set(null);
     this.showPaymentModal.set(true);
   }
@@ -492,7 +504,8 @@ export class OrderBuilder {
         },
         error: (err) => {
           this.paying.set(false);
-          this.error.set(err.error?.message ?? 'Impossible d\'enregistrer le paiement.');
+          const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
+          this.error.set(messages?.length ? messages.join(' ') : err.error?.message ?? "Impossible d'enregistrer le paiement.");
         },
       });
   }

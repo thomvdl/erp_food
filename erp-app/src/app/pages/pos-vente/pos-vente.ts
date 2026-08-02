@@ -135,7 +135,11 @@ export class PosVente {
   readonly remaining = computed(() => Math.round((this.cartTotal() - this.paidTotal()) * 100) / 100);
 
   readonly canSubmit = computed(
-    () => this.cart().length > 0 && Math.abs(this.remaining()) < 0.005 && !this.submitting(),
+    () =>
+      this.cart().length > 0 &&
+      Math.abs(this.remaining()) < 0.005 &&
+      !this.submitting() &&
+      this.activeCashierService.activeSession() !== null,
   );
 
   constructor() {
@@ -347,6 +351,11 @@ export class PosVente {
       return;
     }
 
+    if (!this.activeCashierService.activeSession()) {
+      this.error.set('Aucune caisse ouverte — ouvrez une caisse avant d\'encaisser.');
+      return;
+    }
+
     this.error.set(null);
     this.showPaymentModal.set(true);
   }
@@ -385,7 +394,8 @@ export class PosVente {
         },
         error: (err) => {
           this.submitting.set(false);
-          this.error.set(err.error?.message ?? "Impossible d'enregistrer la vente.");
+          const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
+          this.error.set(messages?.length ? messages.join(' ') : err.error?.message ?? "Impossible d'enregistrer la vente.");
         },
       });
   }

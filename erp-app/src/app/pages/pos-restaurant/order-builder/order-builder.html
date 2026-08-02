@@ -26,7 +26,12 @@
       <h1 class="text-2xl">Table {{ ord.table?.label }} — {{ ord.table?.room?.name }}</h1>
       <p class="text-muted text-sm">{{ ord.number_of_guests }} personne{{ ord.number_of_guests && ord.number_of_guests > 1 ? 's' : '' }}</p>
     </div>
-    <div style="display: flex; gap: var(--space-3)">
+    <div style="display: flex; align-items: center; gap: var(--space-3)">
+      @if (activeCashierService.activeSession(); as session) {
+        <span class="badge badge-success">💶 Caisse ouverte — {{ session.user?.username }}</span>
+      } @else {
+        <a class="badge badge-warning" routerLink="/caisse">💶 Aucune caisse ouverte — Ouvrir</a>
+      }
       <button type="button" class="btn btn-outline" (click)="goToTableSelect()">← Retour aux tables</button>
       <button type="button" class="btn btn-danger" (click)="cancelOrder()">Annuler la commande</button>
     </div>

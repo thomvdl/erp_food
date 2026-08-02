@@ -107,12 +107,22 @@ class OrderController extends Controller
     {
         $data = $request->validate([
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
-            'cash_session_id' => ['nullable', 'integer', 'exists:cash_sessions,id'],
+            'cash_session_id' => ['required', 'integer', 'exists:cash_sessions,id'],
             'send_email' => ['nullable', 'boolean'],
             'payments' => ['required', 'array', 'min:1'],
             'payments.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'payments.*.value' => ['required', 'numeric', 'min:0.01'],
         ]);
+
+        // Session obligatoire et doit être encore ouverte — voir TicketController::store (même
+        // règle, voir Readme.md Todo "pas de paiement possible sans caisse ouverte").
+        $cashSession = CashSession::query()->open()->find($data['cash_session_id']);
+
+        if (!$cashSession) {
+            throw ValidationException::withMessages([
+                'cash_session_id' => ["Aucune session de caisse ouverte. Ouvrez une caisse avant d'encaisser."],
+            ]);
+        }
 
         $order->load('sections.lines.product');
 
@@ -138,8 +148,6 @@ class OrderController extends Controller
             ]);
         }
 
-        $cashSession = !empty($data['cash_session_id']) ? CashSession::query()->find($data['cash_session_id']) : null;
-
         $ticket = DB::transaction(function () use ($order, $data, $cashSession) {
             $ticket = Ticket::query()->create([
                 'paid_at' => now(),
@@ -164,8 +172,8 @@ class OrderController extends Controller
                     'value' => $payment['value'],
                     'payment_method_id' => $payment['payment_method_id'],
                     'ticket_id' => $ticket->id,
-                    'user_id' => $cashSession?->user_id,
-                    'cash_session_id' => $cashSession?->id,
+                    'user_id' => $cashSession->user_id,
+                    'cash_session_id' => $cashSession->id,
                 ]);
             }
 
