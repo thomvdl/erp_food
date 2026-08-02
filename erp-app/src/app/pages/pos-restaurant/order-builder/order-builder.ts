@@ -75,6 +75,11 @@ export class OrderBuilder {
   readonly saving = signal(false);
   readonly error = signal<string | null>(null);
 
+  // --- Note produit (ex. "sans oignon", "bien cuit") — édition sur une ligne déjà dans le panier
+  // plutôt qu'à l'ajout, pour ne pas ralentir la saisie rapide (voir addProduct). ---
+  readonly editingNoteLineId = signal<number | null>(null);
+  readonly noteDraft = signal('');
+
   // --- Paiement (voir Readme.md, POS - Restaurant étapes 4-6) — même pattern que pos-vente.ts ---
   readonly paymentMethods = signal<PaymentMethod[]>([]);
   readonly showPaymentModal = signal(false);
@@ -299,6 +304,28 @@ export class OrderBuilder {
       return;
     }
     this.orderLineService.remove(lineId).subscribe(() => this.refreshOrder());
+  }
+
+  startEditingNote(line: OrderLine): void {
+    if (!this.activeSectionEditable()) {
+      return;
+    }
+    this.editingNoteLineId.set(line.id);
+    this.noteDraft.set(line.note ?? '');
+  }
+
+  cancelEditingNote(): void {
+    this.editingNoteLineId.set(null);
+    this.noteDraft.set('');
+  }
+
+  saveNote(line: OrderLine): void {
+    const note = this.noteDraft().trim() || null;
+    this.orderLineService.updateNote(line.id, note).subscribe(() => {
+      this.editingNoteLineId.set(null);
+      this.noteDraft.set('');
+      this.refreshOrder();
+    });
   }
 
   /**

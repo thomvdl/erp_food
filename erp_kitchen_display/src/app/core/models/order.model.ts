@@ -22,6 +22,7 @@ export interface Product {
 export interface OrderLine {
   id: number;
   quantity: number;
+  note: string | null;
   product_id: number;
   order_section_id: number;
   /** Suivi par ligne, pas par section entière (voir Readme.md : une section peut mélanger des postes différents). */

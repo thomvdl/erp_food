@@ -161,6 +161,7 @@ class OrderController extends Controller
                 foreach ($orderSection->lines as $orderLine) {
                     $ticketSection->lines()->create([
                         'quantity' => $orderLine->quantity,
+                        'note' => $orderLine->note,
                         'unit_price' => $orderLine->product->price,
                         'product_id' => $orderLine->product_id,
                     ]);

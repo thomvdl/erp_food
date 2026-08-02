@@ -5,6 +5,7 @@ import { Room, TableElement } from './floor-plan.model';
 export interface OrderLine {
   id: number;
   quantity: number;
+  note: string | null;
   product_id: number;
   order_section_id: number;
   product?: Product;

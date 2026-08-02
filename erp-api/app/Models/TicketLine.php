@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['quantity', 'unit_price', 'product_id', 'ticket_section_id'])]
+#[Fillable(['quantity', 'note', 'unit_price', 'product_id', 'ticket_section_id'])]
 class TicketLine extends Model
 {
     protected function casts(): array

@@ -17,6 +17,10 @@ export class OrderLineService {
     return this.http.put<OrderLine>(`${API_URL}/order-lines/${id}`, { quantity });
   }
 
+  updateNote(id: number, note: string | null): Observable<OrderLine> {
+    return this.http.put<OrderLine>(`${API_URL}/order-lines/${id}`, { note });
+  }
+
   remove(id: number): Observable<void> {
     return this.http.delete<void>(`${API_URL}/order-lines/${id}`);
   }

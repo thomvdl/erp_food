@@ -87,6 +87,9 @@
                         } @else if (line.done) {
                           <span aria-hidden="true">✓</span>
                         }
+                        @if (line.note) {
+                          <div class="kitchen-card__line-note">📝 {{ line.note }}</div>
+                        }
                       </li>
                     }
                   }

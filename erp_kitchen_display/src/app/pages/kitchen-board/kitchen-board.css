@@ -68,3 +68,16 @@
   color: var(--text-secondary);
   text-decoration: line-through;
 }
+
+/* Note produit (ex. "sans oignon", "bien cuit") — doit sauter aux yeux, pas se fondre dans la
+   ligne, un cuisinier la lit d'un coup d'œil sous pression. */
+.kitchen-card__line-note {
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+  font-weight: 600;
+  font-size: var(--font-size-xs);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  margin-top: 2px;
+  width: fit-content;
+}

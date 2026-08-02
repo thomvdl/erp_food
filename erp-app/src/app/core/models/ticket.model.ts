@@ -19,6 +19,7 @@ export interface PaymentMethod {
 export interface TicketLine {
   id: number;
   quantity: number;
+  note: string | null;
   unit_price: number | string;
   product_id: number;
   product?: Product;
