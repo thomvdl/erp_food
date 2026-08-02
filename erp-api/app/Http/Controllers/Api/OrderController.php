@@ -76,6 +76,40 @@ class OrderController extends Controller
     }
 
     /**
+     * "Le client change de table" — déplace la commande (panier, sections, tout) vers une autre
+     * table, sans rien perdre. La table cible doit être libre, même contrôle qu'à l'ouverture
+     * (::store) — revérifié ici plutôt que fait confiance au front, `table_id` n'a pas de
+     * contrainte unique en base (voir migration create_orders_table), donc rien n'empêche une
+     * race entre deux postes qui transféreraient vers la même table cible en même temps.
+     */
+    public function transfer(Request $request, Order $order)
+    {
+        $data = $request->validate([
+            'table_id' => ['required', 'integer', 'exists:tables,id'],
+        ]);
+
+        if ((int) $data['table_id'] === $order->table_id) {
+            throw ValidationException::withMessages([
+                'table_id' => ['La commande est déjà sur cette table.'],
+            ]);
+        }
+
+        $occupied = Order::query()->where('table_id', $data['table_id'])->exists();
+
+        if ($occupied) {
+            throw ValidationException::withMessages([
+                'table_id' => ['Cette table est déjà ouverte.'],
+            ]);
+        }
+
+        $order->update(['table_id' => $data['table_id']]);
+
+        event(new OrderKitchenUpdated($order->id));
+
+        return $order->load(self::WITH);
+    }
+
+    /**
      * Annule la commande et libère la table — les sections/lignes sont supprimées en cascade
      * (voir migrations order_sections/order_lines, cascadeOnDelete sur order_id/order_section_id).
      */

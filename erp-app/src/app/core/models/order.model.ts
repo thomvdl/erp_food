@@ -42,3 +42,7 @@ export interface PayOrderPayload {
   send_email?: boolean;
   payments: { payment_method_id: number; value: number }[];
 }
+
+export interface TransferOrderPayload {
+  table_id: number;
+}

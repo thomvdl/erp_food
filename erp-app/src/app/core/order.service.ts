@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_URL } from './api-config';
-import { OpenOrderPayload, Order, PayOrderPayload } from './models/order.model';
+import { OpenOrderPayload, Order, PayOrderPayload, TransferOrderPayload } from './models/order.model';
 import { Ticket } from './models/ticket.model';
 
 @Injectable({ providedIn: 'root' })
@@ -28,5 +28,10 @@ export class OrderService {
   /** "Quand une order est payée elle devient un ticket" (voir Readme.md) — la commande est supprimée côté backend, la table libérée. */
   pay(id: number, payload: PayOrderPayload): Observable<Ticket> {
     return this.http.post<Ticket>(`${API_URL}/orders/${id}/pay`, payload);
+  }
+
+  /** Déplace la commande vers une autre table (libre) — le client a changé de place. */
+  transfer(id: number, payload: TransferOrderPayload): Observable<Order> {
+    return this.http.post<Order>(`${API_URL}/orders/${id}/transfer`, payload);
   }
 }

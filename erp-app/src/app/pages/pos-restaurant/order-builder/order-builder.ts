@@ -12,9 +12,11 @@ import { ProductCatalogService } from '../../../core/product-catalog.service';
 import { PaymentMethodService } from '../../../core/payment-method.service';
 import { ClientService } from '../../../core/client.service';
 import { ActiveCashierService } from '../../../core/active-cashier.service';
+import { RoomService } from '../../../core/room.service';
 import { Order, OrderLine, OrderSection } from '../../../core/models/order.model';
 import { Product } from '../../../core/models/product.model';
 import { ProductCategory } from '../../../core/models/catalog.model';
+import { Room, TableElement } from '../../../core/models/floor-plan.model';
 import { Client, PaymentMethod, Ticket } from '../../../core/models/ticket.model';
 import { KitchenEchoService } from '../../../core/kitchen-echo.service';
 import { formatMoney } from '../../../core/ticket-print.util';
@@ -59,6 +61,7 @@ export class OrderBuilder {
   private readonly clientService = inject(ClientService);
   readonly activeCashierService = inject(ActiveCashierService);
   private readonly kitchenEcho = inject(KitchenEchoService);
+  private readonly roomService = inject(RoomService);
 
   private readonly orderId = Number(this.route.snapshot.paramMap.get('orderId'));
 
@@ -79,6 +82,31 @@ export class OrderBuilder {
   // plutôt qu'à l'ajout, pour ne pas ralentir la saisie rapide (voir addProduct). ---
   readonly editingNoteLineId = signal<number | null>(null);
   readonly noteDraft = signal('');
+
+  // --- Transfert de table ("le client change de place") — même pattern de plan de salle en
+  // lecture seule que table-select.ts, mais dans une modale plutôt qu'un écran plein. ---
+  readonly showTransferModal = signal(false);
+  readonly transferRooms = signal<Room[]>([]);
+  readonly transferSelectedRoomId = signal<number | null>(null);
+  readonly transferOrders = signal<Order[]>([]);
+  readonly transferring = signal(false);
+  readonly transferError = signal<string | null>(null);
+
+  readonly transferRestaurantRooms = computed(() => this.transferRooms().filter((room) => room.type === 'restaurant' && room.active));
+  readonly transferSelectedRoom = computed(
+    () => this.transferRestaurantRooms().find((room) => room.id === this.transferSelectedRoomId()) ?? null,
+  );
+  readonly transferTables = computed<TableElement[]>(() => (this.transferSelectedRoom()?.tables ?? []).filter((table) => table.active));
+
+  private readonly transferOccupiedTableIds = computed(() => {
+    const set = new Set<number>();
+    for (const o of this.transferOrders()) {
+      if (o.table_id !== null) {
+        set.add(o.table_id);
+      }
+    }
+    return set;
+  });
 
   // --- Paiement (voir Readme.md, POS - Restaurant étapes 4-6) — même pattern que pos-vente.ts ---
   readonly paymentMethods = signal<PaymentMethod[]>([]);
@@ -552,6 +580,60 @@ export class OrderBuilder {
 
   goToTableSelect(): void {
     this.router.navigateByUrl('/pos-restaurant');
+  }
+
+  openTransferModal(): void {
+    this.transferError.set(null);
+    this.showTransferModal.set(true);
+
+    this.roomService.list().subscribe((rooms) => {
+      this.transferRooms.set(rooms);
+      const restaurantRooms = rooms.filter((room) => room.type === 'restaurant' && room.active);
+      if (restaurantRooms.length > 0 && this.transferSelectedRoomId() === null) {
+        this.transferSelectedRoomId.set(restaurantRooms[0].id);
+      }
+    });
+    this.orderService.list().subscribe((orders) => this.transferOrders.set(orders));
+  }
+
+  closeTransferModal(): void {
+    this.showTransferModal.set(false);
+  }
+
+  selectTransferRoom(id: number): void {
+    this.transferSelectedRoomId.set(id);
+  }
+
+  /** Libre = pas occupée par une autre commande, et différente de la table actuelle. */
+  isTransferTableFree(table: TableElement): boolean {
+    const order = this.order();
+    if (!order || table.id === order.table_id) {
+      return false;
+    }
+    return !this.transferOccupiedTableIds().has(table.id);
+  }
+
+  confirmTransfer(table: TableElement): void {
+    const order = this.order();
+    if (!order || !this.isTransferTableFree(table) || this.transferring()) {
+      return;
+    }
+
+    this.transferring.set(true);
+    this.transferError.set(null);
+
+    this.orderService.transfer(order.id, { table_id: table.id }).subscribe({
+      next: () => {
+        this.transferring.set(false);
+        this.showTransferModal.set(false);
+        this.refreshOrder();
+      },
+      error: (err) => {
+        this.transferring.set(false);
+        const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
+        this.transferError.set(messages?.length ? messages.join(' ') : 'Impossible de transférer cette table.');
+      },
+    });
   }
 
   private refreshOrder(isInitial = false, focusSectionId?: number): void {

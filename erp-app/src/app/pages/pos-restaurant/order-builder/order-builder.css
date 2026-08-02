@@ -2,3 +2,72 @@
    (styles.css), déjà utilisés tels quels par pos-vente qui n'a pas de CSS scopé — rien à
    redéfinir ici. .ticket-receipt* (ticket imprimable) est également global — voir styles.css,
    réutilisé par ticket-list.ts (réimpression, historique des tickets). */
+
+/* .checkin-table/.legend-dot* — repris tels quels de table-select.css (pas de classes globales,
+   dupliquées à chaque endroit qui affiche un plan de salle en lecture seule, voir son propre
+   commentaire). .transfer-canvas est propre à cette modale (hauteur fixe, pas ancrée sur 100vh
+   comme .checkin-canvas — ici on est dans un .modal-panel, pas en plein écran). */
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+
+.legend-dot--free {
+  background: var(--color-primary-50);
+  border: 2px solid var(--color-primary-fill);
+}
+
+.legend-dot--taken {
+  background: var(--color-danger-bg);
+  border: 2px solid var(--color-danger-text);
+}
+
+/* .modal-panel--wide plafonne à 720px (voir styles.css) — trop étroit pour voir tout le plan de
+   salle d'un coup, d'où ce 3ᵉ modificateur propre à cette modale plutôt que d'élargir la classe
+   globale (utilisée ailleurs, ex. import markdown, pas censée être aussi large). */
+.transfer-modal-panel {
+  max-width: min(1100px, 92vw);
+}
+
+.transfer-canvas {
+  position: relative;
+  height: min(70vh, 640px);
+  background: var(--surface-card-muted);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: auto;
+  background-image: radial-gradient(var(--border-color-strong) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.checkin-table {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-primary-fill);
+  border-radius: 999px;
+  background: var(--color-primary-50);
+  color: var(--color-primary-fill);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.checkin-table:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.checkin-table.is-taken {
+  border-color: var(--color-danger-text);
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  cursor: not-allowed;
+}

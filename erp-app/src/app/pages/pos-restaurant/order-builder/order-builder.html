@@ -33,6 +33,7 @@
         <a class="badge badge-warning" routerLink="/caisse">💶 Aucune caisse ouverte — Ouvrir</a>
       }
       <button type="button" class="btn btn-outline" (click)="goToTableSelect()">← Retour aux tables</button>
+      <button type="button" class="btn btn-outline" (click)="openTransferModal()">⇄ Transférer la table</button>
       <button type="button" class="btn btn-danger" (click)="cancelOrder()">Annuler la commande</button>
     </div>
   </div>
@@ -388,6 +389,61 @@
           {{ paying() ? 'Encaissement…' : 'Valider le paiement' }}
         </button>
         <button type="button" class="btn btn-outline" (click)="closePaymentModal()">Annuler</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showTransferModal()) {
+  <div class="modal-overlay" (click)="closeTransferModal()">
+    <div class="modal-panel modal-panel--wide transfer-modal-panel" (click)="$event.stopPropagation()">
+      <div class="card-header">
+        <h2 class="text-lg">Transférer la table</h2>
+        <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="closeTransferModal()">✕</button>
+      </div>
+
+      <div class="card-body">
+        <p class="text-muted text-sm" style="margin-bottom: var(--space-3)">
+          Choisis la table libre vers laquelle déplacer cette commande.
+        </p>
+
+        @if (transferRestaurantRooms().length > 0) {
+          <div class="tab-group" style="margin-bottom: var(--space-3)">
+            @for (room of transferRestaurantRooms(); track room.id) {
+              <button type="button" class="tab-pill" [class.is-active]="transferSelectedRoomId() === room.id" (click)="selectTransferRoom(room.id)">
+                {{ room.name }}
+              </button>
+            }
+          </div>
+
+          <div style="display: flex; gap: 1rem; font-size: var(--font-size-xs); margin-bottom: var(--space-2)">
+            <span><span class="legend-dot legend-dot--free"></span> Libre</span>
+            <span><span class="legend-dot legend-dot--taken"></span> Occupée / table actuelle</span>
+          </div>
+
+          <div class="transfer-canvas">
+            @for (table of transferTables(); track table.id) {
+              <div
+                class="checkin-table"
+                [class.is-taken]="!isTransferTableFree(table)"
+                [style.left.px]="table.pos_left"
+                [style.top.px]="table.pos_top"
+                [style.width.px]="table.width"
+                [style.height.px]="table.height"
+                [title]="isTransferTableFree(table) ? 'Transférer vers ' + table.label : 'Indisponible'"
+                (click)="isTransferTableFree(table) && confirmTransfer(table)"
+              >
+                {{ table.label }}
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="text-muted text-sm">Aucune salle de type "Restaurant" n'existe.</p>
+        }
+
+        @if (transferError()) {
+          <p class="error-text">{{ transferError() }}</p>
+        }
       </div>
     </div>
   </div>
