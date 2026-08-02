@@ -1,0 +1,51 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+  background: var(--surface-page);
+}
+
+.kiosk-page {
+  min-height: 100dvh;
+  padding: var(--space-4);
+  box-sizing: border-box;
+}
+
+.kiosk-state {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+  padding: var(--space-5);
+  overflow-y: auto;
+}
+
+.kiosk-success {
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  margin-top: var(--space-5);
+}
+
+.kiosk-success__icon {
+  font-size: 3rem;
+  margin: 0 0 var(--space-2);
+}
+
+.kiosk-success__number {
+  font-size: 3.5rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-primary-fill);
+  margin: var(--space-3) 0;
+}
+
+/* Le reçu lui-même reste aligné à gauche (colonnes article/qté/prix) — seule la carte
+ *  confirmation au-dessus est centrée. */
+.kiosk-success__receipt {
+  max-width: 380px;
+  width: 100%;
+  text-align: left;
+  margin-bottom: var(--space-5);
+}

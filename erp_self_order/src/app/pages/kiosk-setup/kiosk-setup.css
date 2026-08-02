@@ -1,0 +1,19 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  background: var(--surface-page);
+}
+
+.kiosk-setup {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+}
+
+.kiosk-setup__card {
+  width: 100%;
+  max-width: 420px;
+  margin-top: 0;
+}

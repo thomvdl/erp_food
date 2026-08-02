@@ -1,0 +1,72 @@
+<p class="ticket-receipt__brand">ERP<span>v2</span></p>
+
+<p class="ticket-receipt__center text-xs" style="margin-top: var(--space-4)">
+  Ticket n°{{ ticket.id }} du {{ formatTicketDate(ticket.paid_at) }}
+</p>
+<p class="ticket-receipt__center text-xs">
+  @if (ticket.client) {
+    CLIENT : {{ ticket.client.firstname }} {{ ticket.client.lastname }}
+  } @else {
+    CLIENT COMPTANT
+  }
+</p>
+
+<hr class="divider" />
+
+<div class="ticket-receipt__row ticket-receipt__row--header text-xs text-muted">
+  <span>Article</span>
+  <span>Qté</span>
+  <span>Prix</span>
+</div>
+
+@for (section of ticket.sections; track section.id) {
+  @if (ticket.sections.length > 1) {
+    <p class="text-muted text-xs" style="margin-top: var(--space-2)">{{ section.name }}</p>
+  }
+  @for (line of section.lines; track line.id) {
+    <div class="ticket-receipt__row text-sm">
+      <span>{{ line.product?.name }}</span>
+      <span>{{ line.quantity }}</span>
+      <span>{{ formatMoney(ticketLineTotal(line)) }}</span>
+    </div>
+  }
+}
+
+<hr class="divider" />
+
+<div class="ticket-receipt__row text-sm">
+  <span>Nombre d'articles</span>
+  <span></span>
+  <span>{{ ticketArticleCount(ticket) }}</span>
+</div>
+<div class="ticket-receipt__row" style="font-weight: 700; font-size: var(--font-size-lg)">
+  <span>Total TTC</span>
+  <span></span>
+  <span>{{ formatMoney(ticketTotal(ticket)) }}</span>
+</div>
+
+<p class="font-medium text-sm" style="margin-top: var(--space-3)">Règlement</p>
+@for (payment of ticket.payments; track payment.id) {
+  <div class="ticket-receipt__row text-sm text-muted">
+    <span>{{ payment.payment_method?.name }}</span>
+    <span></span>
+    <span>{{ formatMoney(payment.value) }}</span>
+  </div>
+}
+
+<hr class="divider" />
+
+<div class="ticket-receipt__tax-row ticket-receipt__tax-row--header text-xs text-muted">
+  <span>HT</span>
+  <span>Taux</span>
+  <span>TVA</span>
+  <span>TTC</span>
+</div>
+@for (row of ticketTaxBreakdown(ticket); track row.rate) {
+  <div class="ticket-receipt__tax-row text-xs text-muted">
+    <span>{{ formatMoney(row.ht) }}</span>
+    <span>{{ row.rate }}%</span>
+    <span>{{ formatMoney(row.tva) }}</span>
+    <span>{{ formatMoney(row.ttc) }}</span>
+  </div>
+}

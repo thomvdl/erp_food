@@ -40,6 +40,7 @@ export class Shell {
     { icon: '🎫', label: 'Événements', path: '/evenements' },
     { icon: '📅', label: 'Réservations', path: '/reservations' },
     { icon: '💶', label: 'Fond de caisse', path: '/caisse' },
+    { icon: '📋', label: 'Gestion des commandes', path: '/commandes' },
     { icon: '🧾', label: 'Gestion des tickets', path: '/tickets' },
     { icon: '🍔', label: 'Gestion des produits', path: '/produits' },
     { icon: '⚙️', label: 'Paramètres', path: '/parametres' },

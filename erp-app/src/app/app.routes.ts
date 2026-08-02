@@ -95,6 +95,10 @@ export const routes: Routes = [
               import('./pages/parametres/rooms/floor-plan-editor/floor-plan-editor').then((m) => m.FloorPlanEditor),
           },
           {
+            path: 'salles/:id/tables',
+            loadComponent: () => import('./pages/parametres/rooms/table-list/table-list').then((m) => m.TableList),
+          },
+          {
             path: 'stations',
             loadComponent: () =>
               import('./pages/parametres/stations/station-list/station-list').then((m) => m.StationList),
@@ -151,6 +155,10 @@ export const routes: Routes = [
             loadComponent: () => import('./pages/pos-restaurant/order-builder/order-builder').then((m) => m.OrderBuilder),
           },
         ],
+      },
+      {
+        path: 'commandes',
+        loadComponent: () => import('./pages/orders/order-list/order-list').then((m) => m.OrderList),
       },
       {
         path: 'produits',

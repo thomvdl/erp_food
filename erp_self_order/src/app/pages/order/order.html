@@ -1,0 +1,146 @@
+@if (loading()) {
+  <div class="self-order-state">
+    <p class="text-muted">Chargement du menu…</p>
+  </div>
+} @else if (loadError()) {
+  <div class="self-order-state">
+    <p class="error-text">{{ loadError() }}</p>
+  </div>
+} @else if (confirmedOrderId()) {
+  <div class="self-order-state">
+    <div class="card card-elevated self-order-confirm">
+      <div class="card-body">
+        <p class="self-order-confirm__icon">✅</p>
+        <h1>Commande envoyée !</h1>
+        <p class="text-muted">Un serveur va la valider et l'apporter à votre table.</p>
+        <p class="text-muted text-sm">Référence #{{ confirmedOrderId() }}</p>
+      </div>
+      <div class="card-footer">
+        <button type="button" class="btn btn-primary" (click)="orderAgain()">Commander autre chose</button>
+      </div>
+    </div>
+  </div>
+} @else if (context()?.products?.length === 0) {
+  <div class="self-order-state">
+    <p class="error-text">Aucun menu disponible pour le moment — demandez à un serveur.</p>
+  </div>
+} @else {
+  <div class="self-order-page">
+    <header class="self-order-header">
+      <div>
+        <h1>{{ context()?.table?.label }}</h1>
+        @if (context()?.table?.room_name) {
+          <p class="text-muted text-sm">{{ context()?.table?.room_name }}</p>
+        }
+      </div>
+    </header>
+
+    <div class="tab-group self-order-tabs">
+      <button type="button" class="tab-pill" [class.is-active]="selectedCategoryId() === null" (click)="selectedCategoryId.set(null)">
+        Tout
+        <span class="tab-pill__count">{{ context()?.products?.length }}</span>
+      </button>
+      @for (category of categories(); track category.id) {
+        <button type="button" class="tab-pill" [class.is-active]="selectedCategoryId() === category.id" (click)="selectedCategoryId.set(category.id)">
+          {{ category.name }}
+          <span class="tab-pill__count">{{ category.count }}</span>
+        </button>
+      }
+    </div>
+
+    <div class="pos-grid self-order-grid">
+      @for (product of filteredProducts(); track product.id) {
+        <button type="button" class="pos-product-card" (click)="addToCart(product)">
+          @if (quantityInCart(product) > 0) {
+            <span class="pos-product-card__badge">{{ quantityInCart(product) }}</span>
+          }
+          <span class="pos-product-card__thumb">{{ productEmoji(product) }}</span>
+          <span class="pos-product-card__name">{{ product.name }}</span>
+          @if (product.description) {
+            <span class="text-muted text-xs">{{ product.description }}</span>
+          }
+          <span class="pos-product-card__price">{{ formatMoney(product.price) }}</span>
+        </button>
+      }
+    </div>
+
+    @if (cartCount() > 0) {
+      <button type="button" class="self-order-cart-bar" (click)="showCart.set(true)">
+        <span>🛒 {{ cartCount() }} article{{ cartCount() > 1 ? 's' : '' }}</span>
+        <span>{{ formatMoney(cartTotal()) }}</span>
+        <span>Voir le panier →</span>
+      </button>
+    }
+  </div>
+
+  @if (showCart()) {
+    <div class="modal-overlay" (click)="showCart.set(false)">
+      <div class="modal-panel modal-panel--wide" (click)="$event.stopPropagation()">
+        <div class="card-header">
+          <h2>Votre panier</h2>
+          <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="showCart.set(false)">✕</button>
+        </div>
+        <div class="card-body pos-cart__body">
+          <div class="field">
+            <label>Nombre de convives (optionnel)</label>
+            <input
+              class="input"
+              type="number"
+              min="1"
+              placeholder="Ex : 2"
+              [ngModel]="numberOfGuests()"
+              (ngModelChange)="numberOfGuests.set($event ? +$event : null)"
+            />
+          </div>
+
+          <div class="pos-cart__lines">
+            @for (line of cart(); track line.product.id) {
+              <div class="self-order-cart-line">
+                <div class="pos-cart__line">
+                  <div class="pos-cart__line-info">
+                    <span class="font-medium">{{ line.product.name }}</span>
+                    <span class="text-muted text-xs">{{ formatMoney(line.product.price) }} / unité</span>
+                  </div>
+                  <div class="qty-stepper">
+                    <button type="button" class="qty-stepper__btn" (click)="decrementLine(line.product)">−</button>
+                    <span>{{ line.quantity }}</span>
+                    <button type="button" class="qty-stepper__btn" (click)="addToCart(line.product)">+</button>
+                  </div>
+                  <span class="pos-cart__line-total">{{ formatMoney(lineTotal(line)) }}</span>
+                  <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeLine(line.product)">✕</button>
+                </div>
+                <input
+                  class="input"
+                  type="text"
+                  placeholder="Ajouter une note (ex : sans oignon)"
+                  [ngModel]="line.note"
+                  (ngModelChange)="updateNote(line.product, $event)"
+                />
+              </div>
+            } @empty {
+              <p class="text-muted text-sm">Le panier est vide.</p>
+            }
+          </div>
+
+          <hr class="divider" />
+
+          <div class="pos-cart__totals">
+            <div class="pos-cart__totals-row pos-cart__totals-row--grand">
+              <span>Total</span>
+              <span>{{ formatMoney(cartTotal()) }}</span>
+            </div>
+          </div>
+
+          @if (submitError()) {
+            <p class="error-text">{{ submitError() }}</p>
+          }
+        </div>
+        <div class="card-footer form-actions">
+          <button type="button" class="btn btn-primary btn-lg" [disabled]="cart().length === 0 || submitting()" (click)="submit()">
+            {{ submitting() ? 'Envoi…' : 'Envoyer la commande' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+}

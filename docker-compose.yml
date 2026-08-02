@@ -128,8 +128,22 @@ services:
       - api
       - reverb
 
+  self_order:
+    build:
+      context: ./erp_self_order
+    container_name: erp_v2_self_order
+    restart: unless-stopped
+    ports:
+      - "${SELF_ORDER_PORT:-19006}:4200"
+    volumes:
+      - ./erp_self_order:/app
+      - self_order_node_modules:/app/node_modules
+    depends_on:
+      - api
+
 volumes:
   db_data:
   app_node_modules:
   validate_event_node_modules:
   kitchen_display_node_modules:
+  self_order_node_modules:

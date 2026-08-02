@@ -25,4 +25,11 @@ export class TableElementService {
   remove(tableId: number): Observable<void> {
     return this.http.delete<void>(`${API_URL}/tables/${tableId}`);
   }
+
+  /** PNG du QR self-order de cette table (voir SelfOrderController::qr — route publique, comme
+   *  users/{user}/qr, mais on passe quand même par HttpClient pour rester cohérent avec le reste
+   *  du service plutôt qu'un fetch() nu). */
+  getQrBlob(tableId: number): Observable<Blob> {
+    return this.http.get(`${API_URL}/tables/${tableId}/qr`, { responseType: 'blob' });
+  }
 }

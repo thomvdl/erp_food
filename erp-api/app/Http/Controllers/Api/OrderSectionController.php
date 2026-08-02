@@ -223,6 +223,20 @@ class OrderSectionController extends Controller
         $allSent = $order->sections()->where('state', '!=', 'seed')->doesntExist();
         if ($allSent) {
             $order->update(['state' => 'seed']);
+
+            // Commande kiosque (voir KioskOrderController — Order sans table, déjà payée via un
+            // Ticket créé à part au moment de la commande) : une fois entièrement préparée et
+            // servie, cette Order n'a plus lieu d'exister, contrairement à une table qui reste
+            // ouverte jusqu'à l'encaissement (voir OrderController::pay, qui la supprime lui-même
+            // à ce moment-là). On la supprime donc ici à sa place.
+            if ($order->table_id === null) {
+                $orderId = $order->id;
+                $order->delete();
+
+                event(new OrderKitchenUpdated($orderId));
+
+                return response()->json(['deleted' => true]);
+            }
         }
 
         event(new OrderKitchenUpdated($order->id));

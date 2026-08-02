@@ -25,6 +25,9 @@ export interface Order {
   state: string;
   client_id: number | null;
   table_id: number | null;
+  /** Uniquement pour les commandes kiosque (voir KioskOrderController côté API) — le numéro du
+   *  Ticket déjà encaissé, affiché à la place de la table dans Gestion des commandes. */
+  ticket_id: number | null;
   number_of_guests: number | null;
   client?: Client | null;
   table?: (TableElement & { room?: Room }) | null;

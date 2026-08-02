@@ -234,6 +234,5 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
 - Définir ce qui est disponible de faire avec les différents rôles utilisateur (permissions par
   rôle — actuellement tout utilisateur connecté à `erp-app` a accès à tout)
 
-Amméliore le ticket quand on imprimer le ticket de caisse 
-Affichage du plan sur pos - restaurant 
-Pas avoir la possibiliter de faire des paiment avec l'utilisateur si il n'a pas ouvert ca caisse 
+Mettre à jours le readme 
+et faire un doc complètte du projet 

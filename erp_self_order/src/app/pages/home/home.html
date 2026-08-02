@@ -1,0 +1,25 @@
+@if (scanning()) {
+  <div class="home-scan">
+    <div class="scanner scanner--home">
+      <video #scanVideo class="scanner__video" autoplay playsinline muted></video>
+      <canvas #scanCanvas class="scanner__canvas"></canvas>
+      <div class="scanner__frame"></div>
+    </div>
+    @if (scanError()) {
+      <p class="error-text">{{ scanError() }}</p>
+    }
+    <p class="text-muted text-center">Présentez le QR code de votre table devant la caméra</p>
+    <button type="button" class="btn btn-outline btn-lg" (click)="stopScan()">Annuler</button>
+  </div>
+} @else {
+  <div class="home-state">
+    <p class="home-state__icon">📱</p>
+    <h1>Scannez le QR code de votre table</h1>
+    <p class="text-muted">pour composer votre commande depuis votre téléphone.</p>
+    <button type="button" class="btn btn-primary btn-lg" (click)="startScan()">📷 Scanner le QR code</button>
+    @if (scanError()) {
+      <p class="error-text">{{ scanError() }}</p>
+    }
+    <a class="btn btn-ghost btn-sm home-state__kiosk-link" routerLink="/kiosk/login">Accès personnel (kiosque)</a>
+  </div>
+}

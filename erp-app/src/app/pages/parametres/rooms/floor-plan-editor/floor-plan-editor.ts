@@ -5,6 +5,7 @@ import { RoomService } from '../../../../core/room.service';
 import { TableElementService } from '../../../../core/table-element.service';
 import { Room, TableElement, TableElementType } from '../../../../core/models/floor-plan.model';
 import { computeFitScale } from '../../../../core/utils/fit-scale';
+import { TableQrModal } from '../table-qr-modal/table-qr-modal';
 
 /** Doit correspondre à la grille visuelle du canvas (voir background-size dans le CSS) —
  *  les tables s'y accrochent lors du déplacement/redimensionnement. */
@@ -39,7 +40,7 @@ interface ResizeState {
 @Component({
   selector: 'app-floor-plan-editor',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TableQrModal],
   templateUrl: './floor-plan-editor.html',
   styleUrl: './floor-plan-editor.css',
 })
@@ -60,6 +61,8 @@ export class FloorPlanEditor implements AfterViewInit, OnDestroy {
   readonly error = signal<string | null>(null);
 
   readonly selectedTable = computed(() => this.tables().find((t) => t.id === this.selectedId()) ?? null);
+
+  readonly qrTable = signal<TableElement | null>(null);
 
   /** Échelle du plan pour qu'il tienne toujours dans son conteneur sans barre de défilement —
    *  voir computeFitScale(). Contrairement aux écrans en lecture seule, le drag/resize doit
@@ -99,6 +102,13 @@ export class FloorPlanEditor implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.resizeObserver?.disconnect();
+  }
+
+  /** "Créer des QR code client pour self order" : chaque table a déjà un qr_token (généré à sa
+   *  création, voir TableElement::booted() côté API) — ceci ne fait qu'ouvrir la popup qui
+   *  affiche/imprime le PNG déjà exposé publiquement par SelfOrderController::qr. */
+  openQr(table: TableElement): void {
+    this.qrTable.set(table);
   }
 
   addTable(): void {

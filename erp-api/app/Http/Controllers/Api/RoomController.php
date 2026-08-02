@@ -41,7 +41,9 @@ class RoomController extends Controller
     {
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', 'string', 'in:restaurant,event'],
+            // "self_order" : références génériques pour erp_self_order (chambre d'hôtel, point
+            // kiosque...) — des lignes de `tables` sans plan visuel, voir SelfOrderController.
+            'type' => ['required', 'string', 'in:restaurant,event,self_order'],
             'width' => ['sometimes', 'integer', 'min:100'],
             'height' => ['sometimes', 'integer', 'min:100'],
             'active' => ['boolean'],

@@ -54,6 +54,9 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    // Base publique d'erp_self_order — voir SelfOrderController::qr.
+    'self_order_url' => env('SELF_ORDER_URL', 'http://localhost'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

@@ -22,7 +22,12 @@
           <tr>
             <td>{{ room.name }}</td>
             <td>
-              <span class="badge" [class.badge-info]="room.type === 'event'" [class.badge-neutral]="room.type === 'restaurant'">
+              <span
+                class="badge"
+                [class.badge-info]="room.type === 'event'"
+                [class.badge-neutral]="room.type === 'restaurant'"
+                [class.badge-warning]="room.type === 'self_order'"
+              >
                 {{ typeLabel(room) }}
               </span>
             </td>
@@ -36,6 +41,7 @@
             </td>
             <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
               <a class="btn btn-primary btn-sm" [routerLink]="[room.id, 'plan']">Éditer le plan</a>
+              <a class="btn btn-outline btn-sm" [routerLink]="[room.id, 'tables']">Liste des tables</a>
               <a class="btn btn-outline btn-sm" [routerLink]="[room.id]">Renommer</a>
             </td>
           </tr>

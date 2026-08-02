@@ -70,4 +70,18 @@ class ProductCatalogController extends Controller
 
         return $productCatalog->refresh();
     }
+
+    /**
+     * Même principe, pour erp_self_order (QR et kiosque) — voir SelfOrderController, qui lit
+     * exclusivement ce flag pour savoir quel catalogue exposer publiquement.
+     */
+    public function activateForSelfOrder(ProductCatalog $productCatalog)
+    {
+        DB::transaction(function () use ($productCatalog) {
+            ProductCatalog::query()->where('id', '!=', $productCatalog->id)->update(['active_self_order' => false]);
+            $productCatalog->forceFill(['active_self_order' => true])->save();
+        });
+
+        return $productCatalog->refresh();
+    }
 }

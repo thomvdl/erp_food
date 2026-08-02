@@ -52,8 +52,12 @@
         <article class="card card-elevated kitchen-card">
           <div class="card-header">
             <div>
-              <h2 class="text-lg">Table {{ displayOrder.order.table?.label }}</h2>
-              <span class="text-muted text-xs">{{ displayOrder.order.table?.room?.name }}</span>
+              @if (displayOrder.order.table) {
+                <h2 class="text-lg">Table {{ displayOrder.order.table.label }}</h2>
+                <span class="text-muted text-xs">{{ displayOrder.order.table.room?.name }}</span>
+              } @else {
+                <h2 class="kitchen-card__kiosk-number">🖥️ N° {{ displayOrder.order.ticket_id }}</h2>
+              }
             </div>
           </div>
 

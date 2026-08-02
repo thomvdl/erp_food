@@ -1,0 +1,12 @@
+.qr-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.qr-preview img {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}

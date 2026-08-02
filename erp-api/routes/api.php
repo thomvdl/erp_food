@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\EventDateController;
 use App\Http\Controllers\Api\EventTicketController;
+use App\Http\Controllers\Api\KioskOrderController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderLineController;
 use App\Http\Controllers\Api\OrderSectionController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\Api\ProductCategoryController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\RoomController;
+use App\Http\Controllers\Api\SelfOrderController;
 use App\Http\Controllers\Api\StationController;
 use App\Http\Controllers\Api\TableElementController;
 use App\Http\Controllers\Api\TaxController;
@@ -38,6 +40,15 @@ Route::post('auth/login', [AuthController::class, 'login']);
 // ce que le billet imprimé expose déjà.
 Route::get('event-tickets/{event_ticket}/qr', [EventTicketController::class, 'qr']);
 
+// erp_self_order, mode QR (voir SelfOrderController) : un client anonyme scanne un code lié à
+// une table/référence et compose sa commande depuis son propre téléphone, sans jamais
+// s'authentifier — `qr_token` (aléatoire, non deviné) fait office de capacité scopée à cette
+// seule table, même principe que le PNG ci-dessus. Le mode kiosque, lui, est un appareil
+// authentifié classique (voir routes orders/tickets plus bas), pas concerné ici.
+Route::get('self-order/{qr_token}', [SelfOrderController::class, 'show']);
+Route::post('self-order/{qr_token}/lines', [SelfOrderController::class, 'store']);
+Route::get('tables/{table}/qr', [SelfOrderController::class, 'qr']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('auth/me', [AuthController::class, 'me']);
@@ -51,6 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('product-catalogs', ProductCatalogController::class)->except(['destroy']);
     Route::post('product-catalogs/{product_catalog}/activate-restaurant', [ProductCatalogController::class, 'activateForRestaurant']);
     Route::post('product-catalogs/{product_catalog}/activate-direct-sale', [ProductCatalogController::class, 'activateForDirectSale']);
+    Route::post('product-catalogs/{product_catalog}/activate-self-order', [ProductCatalogController::class, 'activateForSelfOrder']);
     Route::apiResource('roles', RoleController::class)->except(['destroy']);
     Route::apiResource('users', UserController::class)->except(['destroy']);
     Route::post('users/{user}/qr-code', [UserController::class, 'generateQrCode']);
@@ -113,4 +125,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('order-sections/{order_section}/lines', [OrderLineController::class, 'store']);
     Route::put('order-lines/{order_line}', [OrderLineController::class, 'update']);
     Route::delete('order-lines/{order_line}', [OrderLineController::class, 'destroy']);
+
+    // erp_self_order, mode kiosque (voir KioskOrderController) : encaisse immédiatement ET passe
+    // en cuisine — ni orders/{order}/pay (bloque tant que non 'seed') ni tickets (jamais vu en
+    // cuisine) ne suffisent seuls, voir docblock du contrôleur.
+    Route::post('kiosk-orders', [KioskOrderController::class, 'store']);
 });

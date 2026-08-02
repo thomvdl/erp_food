@@ -17,7 +17,7 @@ export interface TableElement {
   active: boolean;
 }
 
-export type RoomType = 'restaurant' | 'event';
+export type RoomType = 'restaurant' | 'event' | 'self_order';
 
 export interface Room {
   id: number;

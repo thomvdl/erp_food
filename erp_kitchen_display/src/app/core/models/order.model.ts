@@ -53,6 +53,10 @@ export interface Order {
   /** Cycle global de la commande (voir Readme.md) : send -> ask -> do -> seed -> done. */
   state: 'send' | 'ask' | 'do' | 'seed' | 'done';
   table_id: number | null;
+  /** Uniquement pour les commandes kiosque (voir KioskOrderController côté API) — le numéro du
+   *  Ticket déjà encaissé/imprimé côté client, à annoncer au comptoir pour remettre la bonne
+   *  commande au bon client. Toujours null pour une commande de table classique. */
+  ticket_id: number | null;
   number_of_guests: number | null;
   table?: TableElement | null;
   sections: OrderSection[];

@@ -13,8 +13,15 @@
     <select class="select" name="type" [ngModel]="type()" (ngModelChange)="type.set($event)">
       <option value="restaurant">Restaurant</option>
       <option value="event">Événement</option>
+      <option value="self_order">Self-order</option>
     </select>
   </label>
+  @if (type() === 'self_order') {
+    <p class="text-muted text-sm">
+      Cette salle n'apparaîtra ni dans le POS Restaurant ni dans les événements — réservée aux
+      références self-order (tables, chambres…), voir erp_self_order.
+    </p>
+  }
 
   <div style="display: flex; gap: var(--space-3)">
     <label class="field" style="flex: 1">

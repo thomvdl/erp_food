@@ -1,0 +1,52 @@
+import { Ticket } from './models/kiosk.model';
+
+/**
+ * Repris tel quel d'erp-app/core/ticket-print.util.ts — mêmes calculs pour le reçu affiché après
+ * paiement au kiosque (voir shared/ticket-receipt), la répartition HT/TVA n'étant pas triviale à
+ * reproduire une deuxième fois.
+ */
+
+export function formatMoney(value: number | string): string {
+  return Number(value).toFixed(2) + ' €';
+}
+
+export function ticketLineTotal(line: Ticket['sections'][number]['lines'][number]): number {
+  return Number(line.unit_price) * line.quantity;
+}
+
+export function ticketSectionTotal(section: Ticket['sections'][number]): number {
+  return section.lines.reduce((sum, line) => sum + ticketLineTotal(line), 0);
+}
+
+export function ticketTotal(ticket: Ticket): number {
+  return ticket.sections.reduce((sum, section) => sum + ticketSectionTotal(section), 0);
+}
+
+export function ticketArticleCount(ticket: Ticket): number {
+  return ticket.sections.reduce((sum, section) => sum + section.lines.reduce((lineSum, line) => lineSum + line.quantity, 0), 0);
+}
+
+/** Le prix produit est TTC — la TVA s'en extrait, elle ne s'ajoute pas dessus. */
+export function ticketTaxBreakdown(ticket: Ticket): { rate: number; ht: number; tva: number; ttc: number }[] {
+  const ttcByRate = new Map<number, number>();
+
+  for (const section of ticket.sections) {
+    for (const line of section.lines) {
+      const rate = Number(line.product?.tax?.value ?? 0);
+      ttcByRate.set(rate, (ttcByRate.get(rate) ?? 0) + ticketLineTotal(line));
+    }
+  }
+
+  return Array.from(ttcByRate.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([rate, ttc]) => {
+      const ht = rate > 0 ? ttc / (1 + rate / 100) : ttc;
+      return { rate, ht, tva: ttc - ht, ttc };
+    });
+}
+
+export function formatTicketDate(paidAt: string): string {
+  const d = new Date(paidAt);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} - ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}

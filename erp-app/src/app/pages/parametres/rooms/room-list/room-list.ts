@@ -19,7 +19,14 @@ export class RoomList {
   }
 
   typeLabel(room: Room): string {
-    return room.type === 'event' ? 'Événement' : 'Restaurant';
+    switch (room.type) {
+      case 'event':
+        return 'Événement';
+      case 'self_order':
+        return 'Self-order';
+      default:
+        return 'Restaurant';
+    }
   }
 
   private refresh(): void {

@@ -1,0 +1,75 @@
+<div class="app-topbar">
+  <div>
+    <h1 class="text-2xl">Gestion des commandes</h1>
+    <p class="text-muted text-sm">Tables actuellement ouvertes (POS - Restaurant), mis à jour en direct.</p>
+  </div>
+</div>
+
+@if (error()) {
+  <p class="error-text">{{ error() }}</p>
+}
+
+<div class="card">
+  <div class="card-body">
+    @if (loading()) {
+      <p class="text-muted">Chargement…</p>
+    } @else {
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Table</th>
+            <th>Salle</th>
+            <th>Couverts</th>
+            <th>Client</th>
+            <th>Sections</th>
+            <th>Total</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (order of orders(); track order.id) {
+            <tr>
+              @if (order.table) {
+                <td class="font-semibold">{{ order.table.label }}</td>
+                <td class="text-muted">{{ order.table.room?.name ?? '—' }}</td>
+              } @else if (order.ticket_id) {
+                <td class="font-semibold">🖥️ N° {{ order.ticket_id }}</td>
+                <td class="text-muted">Kiosque</td>
+              } @else {
+                <td class="font-semibold">—</td>
+                <td class="text-muted">—</td>
+              }
+              <td class="text-muted">{{ order.number_of_guests ?? '—' }}</td>
+              <td class="text-muted">
+                @if (order.client) {
+                  {{ order.client.firstname }} {{ order.client.lastname }}
+                } @else {
+                  —
+                }
+              </td>
+              <td>
+                <span class="badge" [class.badge-success]="allSectionsSent(order)" [class.badge-warning]="!allSectionsSent(order)">
+                  {{ sectionsSummary(order) }}
+                </span>
+              </td>
+              <td class="font-semibold">{{ formatMoney(orderTotal(order)) }}</td>
+              <td style="text-align: right">
+                @if (order.table) {
+                  <a class="btn btn-outline btn-sm" [routerLink]="['/pos-restaurant', order.id]">Ouvrir</a>
+                } @else {
+                  <!-- Commande kiosque : déjà encaissée à la commande (voir KioskOrderController)
+                       — l'ouvrir dans le POS Restaurant permettrait de la payer une 2ᵉ fois. -->
+                  <span class="text-muted text-xs">Déjà encaissée</span>
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7" class="text-muted">Aucune table ouverte pour le moment.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>

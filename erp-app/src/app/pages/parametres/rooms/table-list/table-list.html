@@ -1,0 +1,48 @@
+<a [routerLink]="['/parametres/salles']" class="back-link">← Salles</a>
+
+<div class="app-topbar">
+  <h1 class="text-2xl">Tables — {{ room()?.name }}</h1>
+  <a class="btn btn-outline" [routerLink]="['/parametres/salles', room()?.id, 'plan']">🗺️ Voir le plan</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Libellé</th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (table of tables(); track table.id) {
+          <tr>
+            <td>{{ table.label }}</td>
+            <td>
+              <label class="checkbox-field">
+                <input type="checkbox" [checked]="table.active" (change)="toggleActive(table)" />
+                {{ table.active ? 'Active' : 'Inactive' }}
+              </label>
+            </td>
+            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
+              <button type="button" class="btn btn-outline btn-sm" (click)="openQr(table)">📱 QR self-order</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="3" class="text-muted">Aucune table dans cette salle.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    @if (error()) {
+      <p class="error-text">{{ error() }}</p>
+    }
+  </div>
+</div>
+
+@if (qrTable(); as t) {
+  <app-table-qr-modal [table]="t" (closed)="qrTable.set(null)" />
+}

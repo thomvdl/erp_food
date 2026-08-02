@@ -36,6 +36,15 @@
   gap: var(--space-3);
 }
 
+/* Commande kiosque (pas de table) : le numéro est ce que le personnel doit annoncer au comptoir
+ *  pour remettre la bonne commande au bon client — doit rester lisible de loin, comme le nom de
+ *  table à côté duquel il se substitue. */
+.kitchen-card__kiosk-number {
+  font-size: var(--font-size-xl);
+  font-weight: 800;
+  color: var(--color-accent-600);
+}
+
 .kitchen-card__section {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);

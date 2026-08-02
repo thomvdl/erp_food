@@ -1,0 +1,38 @@
+<div class="kiosk-setup">
+  <div class="card card-elevated kiosk-setup__card">
+    <div class="card-header">
+      <h1>Configuration du kiosque</h1>
+    </div>
+    <div class="card-body">
+      @if (loading()) {
+        <p class="text-muted">Vérification de la caisse…</p>
+      } @else if (session()) {
+        <p class="badge badge-success">Caisse ouverte</p>
+        <p class="text-muted text-sm">Fond de caisse : {{ session()!.opening_amount }} €</p>
+      } @else {
+        <p class="error-text">Aucune caisse ouverte — ouvrez-en une avant de démarrer le kiosque.</p>
+        <div class="field">
+          <label>Fond de caisse (espèces)</label>
+          <input
+            class="input"
+            type="number"
+            min="0"
+            step="0.01"
+            [ngModel]="openingAmount()"
+            (ngModelChange)="openingAmount.set($event === '' ? null : +$event)"
+          />
+        </div>
+        @if (error()) {
+          <p class="error-text">{{ error() }}</p>
+        }
+        <button type="button" class="btn btn-primary" [disabled]="submitting()" (click)="openSession()">
+          {{ submitting() ? 'Ouverture…' : 'Ouvrir la caisse' }}
+        </button>
+      }
+    </div>
+    <div class="card-footer form-actions">
+      <button type="button" class="btn btn-accent btn-lg" [disabled]="!session()" (click)="startKiosk()">Démarrer le kiosque</button>
+      <button type="button" class="btn btn-ghost" (click)="logout()">Déconnexion</button>
+    </div>
+  </div>
+</div>

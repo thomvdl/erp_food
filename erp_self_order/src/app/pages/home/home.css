@@ -1,0 +1,75 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+  background: var(--surface-page);
+}
+
+.home-state {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  text-align: center;
+  padding: var(--space-5);
+}
+
+.home-state__icon {
+  font-size: 3rem;
+  margin: 0;
+}
+
+.home-state__kiosk-link {
+  margin-top: var(--space-5);
+  opacity: 0.6;
+}
+
+.home-scan {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  text-align: center;
+  padding: var(--space-5);
+}
+
+/* .scanner/.scanner__* — même pattern que kiosk-login.css (pas de style global partagé). */
+.scanner {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: #000;
+}
+
+.scanner--home {
+  aspect-ratio: 1 / 1;
+}
+
+.scanner__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.scanner__canvas {
+  display: none;
+}
+
+.scanner__frame {
+  position: absolute;
+  inset: 15%;
+  border: 3px solid var(--color-accent-500);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 0 999px rgb(0 0 0 / 35%);
+  pointer-events: none;
+}
+
+.text-center {
+  text-align: center;
+}
