@@ -3,7 +3,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TicketService } from '../../../core/ticket.service';
 import { Ticket } from '../../../core/models/ticket.model';
 import { TicketReceipt } from '../../../shared/ticket-receipt/ticket-receipt';
-import { formatMoney, formatTicketDate, ticketTotal } from '../../../core/ticket-print.util';
+import { formatMoney, formatTicketDate, ticketSourceLabel, ticketTotal } from '../../../core/ticket-print.util';
 
 /**
  * Détail d'un ticket (voir Readme.md — Gestion des tickets) : consultation et réimpression
@@ -26,6 +26,7 @@ export class TicketDetail {
   readonly formatMoney = formatMoney;
   readonly formatTicketDate = formatTicketDate;
   readonly ticketTotal = ticketTotal;
+  readonly ticketSourceLabel = ticketSourceLabel;
 
   constructor() {
     const id = Number(this.route.snapshot.paramMap.get('id'));

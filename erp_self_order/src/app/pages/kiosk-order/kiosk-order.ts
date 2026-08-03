@@ -18,10 +18,7 @@ interface CategoryFilter {
   count: number;
 }
 
-interface PaymentLine {
-  method: PaymentMethod;
-  value: number;
-}
+type PaymentVariant = 'qr' | 'terminal';
 
 const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜', '🥐', '🍦', '🥙'];
 
@@ -30,9 +27,14 @@ const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜
  * self-service, paiement immédiat au kiosque (contrairement au mode QR, qui n'encaisse jamais).
  * Catalogue utilisé : celui marqué active_self_order (même source que le mode QR, voir
  * ProductCatalogController::activateForSelfOrder) — pas active_direct_sale, pour que le contenu du
- * kiosque et du menu QR restent toujours identiques. Encaissement via POST /tickets, exactement
- * comme erp-app > POS Vente directe, rattaché à la session de caisse ouverte par le membre du
- * personnel qui a configuré ce kiosque (voir kiosk-setup).
+ * kiosque et du menu QR restent toujours identiques.
+ *
+ * "Seulement deux moyens de paiement pour le kiosque : QR code ou terminal Bancontact" (retour
+ * utilisateur) — pas d'espèces (kiosque non surveillé, pas de fond de caisse à gérer) ni de choix
+ * multiple : les deux options renvoient au même payment_method "Bancontact" (aucune distinction
+ * n'existe côté ERP entre payer par carte au terminal ou en scannant un QR avec l'app
+ * Bancontact — ce n'est qu'une différence d'écran de simulation, voir choosePaymentVariant()).
+ * Un seul moyen possible => pas de paiement fractionné, contrairement au POS d'erp-app.
  */
 @Component({
   selector: 'app-kiosk-order',
@@ -54,19 +56,21 @@ export class KioskOrder implements OnInit, OnDestroy {
 
   private readonly allProducts = signal<Product[]>([]);
   private readonly activeCatalogId = signal<number | null>(null);
+  private readonly paymentMethods = signal<PaymentMethod[]>([]);
   private cashSessionId: number | null = null;
 
   readonly cart = signal<CartLine[]>([]);
   readonly selectedCategoryId = signal<number | null>(null);
 
-  readonly paymentMethods = signal<PaymentMethod[]>([]);
   readonly showPaymentModal = signal(false);
-  readonly paymentLines = signal<PaymentLine[]>([]);
-  readonly enteringMethod = signal<PaymentMethod | null>(null);
-  readonly keypadBuffer = signal('');
+  /** Aucun de ces deux "boutons" n'est un vrai moyen de paiement séparé — voir docblock de
+   *  classe — juste quel écran de simulation afficher une fois choisi. */
+  readonly simulatingVariant = signal<PaymentVariant | null>(null);
   readonly submitting = signal(false);
   readonly paymentError = signal<string | null>(null);
   readonly paidTicket = signal<Ticket | null>(null);
+
+  readonly bancontactMethod = computed(() => this.paymentMethods().find((method) => method.slug === 'bancontact') ?? null);
 
   readonly availableProducts = computed(() => {
     const catalogId = this.activeCatalogId();
@@ -92,13 +96,6 @@ export class KioskOrder implements OnInit, OnDestroy {
   });
 
   readonly cartTotal = computed(() => this.cart().reduce((sum, line) => sum + Number(line.product.price) * line.quantity, 0));
-
-  readonly keypadValue = computed(() => Number(this.keypadBuffer()) || 0);
-  readonly paidTotal = computed(() => this.paymentLines().reduce((sum, line) => sum + line.value, 0));
-  readonly remaining = computed(() => Math.round((this.cartTotal() - this.paidTotal()) * 100) / 100);
-  readonly changeDue = computed(() => Math.max(this.keypadValue() - this.remaining(), 0));
-
-  readonly canSubmit = computed(() => this.cart().length > 0 && Math.abs(this.remaining()) < 0.005 && !this.submitting());
 
   ngOnInit(): void {
     const userId = this.authService.currentUser()?.id;
@@ -156,7 +153,6 @@ export class KioskOrder implements OnInit, OnDestroy {
     } else {
       this.cart.set([...current, { product, quantity: 1 }]);
     }
-    this.resetPayments();
   }
 
   decrementCartLine(product: Product): void {
@@ -168,16 +164,10 @@ export class KioskOrder implements OnInit, OnDestroy {
         ? current.filter((line) => line.product.id !== product.id)
         : current.map((line) => (line.product.id === product.id ? { ...line, quantity: line.quantity - 1 } : line)),
     );
-    this.resetPayments();
   }
 
   removeCartLine(product: Product): void {
     this.cart.set(this.cart().filter((line) => line.product.id !== product.id));
-    this.resetPayments();
-  }
-
-  private resetPayments(): void {
-    if (this.paymentLines().length > 0) this.paymentLines.set([]);
   }
 
   openPaymentModal(): void {
@@ -188,66 +178,35 @@ export class KioskOrder implements OnInit, OnDestroy {
 
   closePaymentModal(): void {
     this.showPaymentModal.set(false);
-    this.paymentLines.set([]);
-    this.enteringMethod.set(null);
-    this.keypadBuffer.set('');
+    this.simulatingVariant.set(null);
     this.paymentError.set(null);
   }
 
-  isCash(method: PaymentMethod): boolean {
-    return method.slug === 'especes';
-  }
-
-  selectPaymentMethod(method: PaymentMethod): void {
-    if (this.remaining() <= 0) return;
-    if (!this.isCash(method)) {
-      this.paymentLines.set([...this.paymentLines(), { method, value: this.remaining() }]);
+  choosePaymentVariant(variant: PaymentVariant): void {
+    if (!this.bancontactMethod()) {
+      this.paymentError.set('Aucun moyen de paiement Bancontact configuré — contactez le personnel.');
       return;
     }
-    this.enteringMethod.set(method);
-    this.keypadBuffer.set('');
+    this.paymentError.set(null);
+    this.simulatingVariant.set(variant);
   }
 
-  cancelPaymentEntry(): void {
-    this.enteringMethod.set(null);
-    this.keypadBuffer.set('');
+  cancelSimulatedPayment(): void {
+    this.simulatingVariant.set(null);
   }
 
-  pressDigit(digit: string): void {
-    const current = this.keypadBuffer();
-    if (digit === '.' && current.includes('.')) return;
-    if (current.includes('.') && current.split('.')[1].length >= 2) return;
-    this.keypadBuffer.set(current === '0' && digit !== '.' ? digit : current + digit);
+  terminalMessage(variant: PaymentVariant): string {
+    return variant === 'qr'
+      ? 'Scannez le QR code Bancontact avec votre application bancaire.'
+      : 'Présentez ou insérez votre carte Bancontact sur le terminal.';
   }
 
-  backspace(): void {
-    this.keypadBuffer.set(this.keypadBuffer().slice(0, -1));
-  }
+  /** Valide la simulation ET encaisse dans la foulée — un seul moyen possible, pas de paiement
+   *  fractionné à composer avant de "Valider" (voir docblock de classe). */
+  confirmSimulatedPayment(): void {
+    const method = this.bancontactMethod();
+    if (!method || this.submitting()) return;
 
-  setQuickAmount(value: number): void {
-    this.keypadBuffer.set(value.toFixed(2));
-  }
-
-  setExactRemaining(): void {
-    this.keypadBuffer.set(Math.max(this.remaining(), 0).toFixed(2));
-  }
-
-  confirmPaymentEntry(): void {
-    const method = this.enteringMethod();
-    const typed = this.keypadValue();
-    if (!method || typed <= 0) return;
-    const value = Math.min(typed, this.remaining());
-    this.paymentLines.set([...this.paymentLines(), { method, value }]);
-    this.enteringMethod.set(null);
-    this.keypadBuffer.set('');
-  }
-
-  removePayment(index: number): void {
-    this.paymentLines.set(this.paymentLines().filter((_, i) => i !== index));
-  }
-
-  submit(): void {
-    if (!this.canSubmit()) return;
     this.submitting.set(true);
     this.paymentError.set(null);
 
@@ -256,7 +215,7 @@ export class KioskOrder implements OnInit, OnDestroy {
         client_id: null,
         cash_session_id: this.cashSessionId,
         lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
-        payments: this.paymentLines().map((line) => ({ payment_method_id: line.method.id, value: line.value })),
+        payments: [{ payment_method_id: method.id, value: this.cartTotal() }],
       })
       .subscribe({
         next: (ticket) => {
@@ -279,8 +238,9 @@ export class KioskOrder implements OnInit, OnDestroy {
   }
 
   /** Le client suivant repart d'un panier vide — déclenché soit manuellement, soit
-   *  automatiquement 5s après le paiement (voir submit()). Annule le timer dans les deux cas :
-   *  un clic manuel avant l'échéance ne doit pas redéclencher un second reset derrière. */
+   *  automatiquement 5s après le paiement (voir confirmSimulatedPayment()). Annule le timer dans
+   *  les deux cas : un clic manuel avant l'échéance ne doit pas redéclencher un second reset
+   *  derrière. */
   newOrder(): void {
     if (this.newOrderTimeout !== null) {
       clearTimeout(this.newOrderTimeout);

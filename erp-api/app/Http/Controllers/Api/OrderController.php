@@ -54,6 +54,7 @@ class OrderController extends Controller
             'table_id' => $data['table_id'],
             'number_of_guests' => $data['number_of_guests'],
             'state' => 'send',
+            'source' => 'pos_restaurant',
         ]);
 
         // La section auto-créée ("Section 1") reste 'en_attente' tant qu'elle n'est pas validée —
@@ -187,6 +188,10 @@ class OrderController extends Controller
                 'paid_at' => now(),
                 'client_id' => $data['client_id'] ?? null,
                 'table_id' => $order->table_id,
+                // Recopié depuis l'Order plutôt que fixé à 'pos_restaurant' en dur : une table
+                // peut avoir été ouverte par le personnel OU par un client via QR (voir
+                // SelfOrderController::store), ce ticket doit refléter l'origine réelle.
+                'source' => $order->source,
             ]);
 
             foreach ($order->sections as $orderSection) {

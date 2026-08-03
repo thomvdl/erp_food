@@ -45,6 +45,7 @@
           <tr>
             <th>Ticket</th>
             <th>Date</th>
+            <th>Source</th>
             <th>Table</th>
             <th>Client</th>
             <th>Paiement</th>
@@ -57,6 +58,17 @@
             <tr>
               <td><a [routerLink]="[ticket.id]">#{{ ticket.id }}</a></td>
               <td class="text-muted">{{ formatTicketDate(ticket.paid_at) }}</td>
+              <td>
+                <span
+                  class="badge"
+                  [class.badge-neutral]="ticket.source === 'pos_vente_directe'"
+                  [class.badge-info]="ticket.source === 'pos_restaurant'"
+                  [class.badge-warning]="ticket.source === 'self_order'"
+                  [class.badge-success]="ticket.source === 'kiosk'"
+                >
+                  {{ ticketSourceLabel(ticket) }}
+                </span>
+              </td>
               <td class="text-muted">{{ ticket.table?.label ?? '—' }}</td>
               <td>{{ clientLabel(ticket) }}</td>
               <td class="text-muted">{{ paymentSummary(ticket) }}</td>
@@ -68,7 +80,7 @@
             </tr>
           } @empty {
             <tr>
-              <td colspan="7" class="text-muted">Aucun ticket pour le moment.</td>
+              <td colspan="8" class="text-muted">Aucun ticket pour le moment.</td>
             </tr>
           }
         </tbody>

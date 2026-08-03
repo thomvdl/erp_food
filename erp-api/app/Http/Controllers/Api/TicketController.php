@@ -88,6 +88,7 @@ class TicketController extends Controller
             $ticket = Ticket::query()->create([
                 'paid_at' => now(),
                 'client_id' => $data['client_id'] ?? null,
+                'source' => 'pos_vente_directe',
             ]);
 
             $section = TicketSection::query()->create([

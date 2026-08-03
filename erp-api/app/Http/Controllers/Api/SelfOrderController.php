@@ -106,6 +106,7 @@ class SelfOrderController extends Controller
                     'table_id' => $table->id,
                     'number_of_guests' => $data['number_of_guests'] ?? null,
                     'state' => 'send',
+                    'source' => 'self_order',
                 ]);
             }
 

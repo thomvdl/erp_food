@@ -5,7 +5,7 @@ import { TicketService } from '../../../core/ticket.service';
 import { Ticket } from '../../../core/models/ticket.model';
 import { DatePicker } from '../../../shared/date-picker/date-picker';
 import { TicketReceipt } from '../../../shared/ticket-receipt/ticket-receipt';
-import { formatMoney, formatTicketDate, ticketTotal } from '../../../core/ticket-print.util';
+import { formatMoney, formatTicketDate, ticketSourceLabel, ticketTotal } from '../../../core/ticket-print.util';
 
 /** Combien de tickets rapatrier — pas de pagination côté backend (voir TicketController::index), une grosse limite suffit pour une liste tenue en mémoire côté client (même approche que les autres pages de liste de ce projet). */
 const TICKETS_FETCH_LIMIT = 1000;
@@ -38,6 +38,7 @@ export class TicketList {
   readonly formatMoney = formatMoney;
   readonly formatTicketDate = formatTicketDate;
   readonly ticketTotal = ticketTotal;
+  readonly ticketSourceLabel = ticketSourceLabel;
 
   readonly filteredTickets = computed(() => {
     const day = this.dayFilter();

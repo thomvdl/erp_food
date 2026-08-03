@@ -110,69 +110,59 @@
         </div>
         <div class="card-body pos-payments">
           <div class="pos-cart__totals-row pos-cart__totals-row--grand">
-            <span>Total dû</span>
+            <span>Total à payer</span>
             <span>{{ formatMoney(cartTotal()) }}</span>
           </div>
 
-          @if (paymentLines().length > 0) {
-            <div class="pos-payments__list">
-              @for (line of paymentLines(); track $index) {
-                <div class="pos-payments__line">
-                  <span>{{ line.method.name }}</span>
-                  <span>{{ formatMoney(line.value) }}</span>
-                  <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removePayment($index)">✕</button>
-                </div>
-              }
-            </div>
-          }
-
-          @if (!enteringMethod()) {
-            <div class="tab-group">
-              @for (method of paymentMethods(); track method.id) {
-                <button type="button" class="tab-pill" [disabled]="remaining() <= 0" (click)="selectPaymentMethod(method)">
-                  {{ method.name }}
-                </button>
-              }
+          @if (!simulatingVariant()) {
+            <div class="tab-group kiosk-payment-methods">
+              <button type="button" class="tab-pill" (click)="choosePaymentVariant('qr')">📱 QR code</button>
+              <button type="button" class="tab-pill" (click)="choosePaymentVariant('terminal')">💳 Terminal Bancontact</button>
             </div>
           } @else {
-            <div class="pos-keypad">
+            <div class="kiosk-terminal">
               <div class="pos-keypad__header">
-                <button type="button" class="btn btn-ghost btn-sm" (click)="cancelPaymentEntry()">← Retour</button>
+                <button type="button" class="btn btn-ghost btn-sm" (click)="cancelSimulatedPayment()">← Retour</button>
               </div>
-              <div class="pos-keypad__display">{{ keypadBuffer() || '0' }} €</div>
-              @if (changeDue() > 0) {
-                <div class="pos-keypad__change">Monnaie à rendre : {{ formatMoney(changeDue()) }}</div>
-              }
-              <div class="pos-keypad__quick">
-                <button type="button" class="btn btn-outline" (click)="setExactRemaining()">Montant dû</button>
-                <button type="button" class="btn btn-outline" (click)="setQuickAmount(5)">5 €</button>
-                <button type="button" class="btn btn-outline" (click)="setQuickAmount(10)">10 €</button>
-                <button type="button" class="btn btn-outline" (click)="setQuickAmount(20)">20 €</button>
-                <button type="button" class="btn btn-outline" (click)="setQuickAmount(50)">50 €</button>
-              </div>
-              <div class="pos-keypad__grid">
-                @for (key of ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫']; track key) {
-                  <button type="button" class="pos-keypad__key" (click)="key === '⌫' ? backspace() : pressDigit(key)">{{ key }}</button>
+
+              <div class="kiosk-terminal__device">
+                @if (simulatingVariant() === 'qr') {
+                  <div class="kiosk-terminal__qr">
+                    <span class="kiosk-terminal__qr-corner kiosk-terminal__qr-corner--tl"></span>
+                    <span class="kiosk-terminal__qr-corner kiosk-terminal__qr-corner--tr"></span>
+                    <span class="kiosk-terminal__qr-corner kiosk-terminal__qr-corner--bl"></span>
+                    <span class="kiosk-terminal__qr-corner kiosk-terminal__qr-corner--br"></span>
+                    <span class="kiosk-terminal__qr-icon">▦</span>
+                  </div>
+                } @else {
+                  <p class="kiosk-terminal__card-icon">💳</p>
                 }
+                <p class="kiosk-terminal__amount">{{ formatMoney(cartTotal()) }}</p>
               </div>
-              <button type="button" class="btn btn-primary btn-lg" (click)="confirmPaymentEntry()">Ajouter {{ formatMoney(keypadValue()) }}</button>
+
+              <p class="kiosk-terminal__status">
+                <span class="kiosk-terminal__dot"></span>
+                <span class="kiosk-terminal__dot"></span>
+                <span class="kiosk-terminal__dot"></span>
+                En attente — Bancontact
+              </p>
+              <p class="text-muted text-sm kiosk-terminal__hint">{{ terminalMessage(simulatingVariant()!) }}</p>
+
+              <button type="button" class="btn btn-primary btn-lg" [disabled]="submitting()" (click)="confirmSimulatedPayment()">
+                {{ submitting() ? 'Envoi…' : '✅ Simuler la validation du paiement' }}
+              </button>
             </div>
           }
-
-          <p class="pos-payments__remaining" [class.is-settled]="remaining() <= 0.005">
-            {{ remaining() > 0.005 ? 'Reste à payer : ' + formatMoney(remaining()) : 'Montant réglé ✓' }}
-          </p>
 
           @if (paymentError()) {
             <p class="error-text">{{ paymentError() }}</p>
           }
         </div>
-        <div class="card-footer form-actions">
-          <button type="button" class="btn btn-primary btn-lg" [disabled]="!canSubmit()" (click)="submit()">
-            {{ submitting() ? 'Envoi…' : 'Valider le paiement' }}
-          </button>
-          <button type="button" class="btn btn-outline" (click)="closePaymentModal()">Annuler</button>
-        </div>
+        @if (!simulatingVariant()) {
+          <div class="card-footer form-actions">
+            <button type="button" class="btn btn-outline" (click)="closePaymentModal()">Annuler</button>
+          </div>
+        }
       </div>
     </div>
   }

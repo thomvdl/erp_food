@@ -49,3 +49,164 @@
   text-align: left;
   margin-bottom: var(--space-5);
 }
+
+.kiosk-terminal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+
+/* Seuls choix de paiement du kiosque (QR ou terminal Bancontact, voir Readme.md) — assez grands
+ *  pour rester tapables confortablement sur un écran tactile, contrairement aux .tab-pill
+ *  habituelles (pensées comme des filtres discrets). */
+.kiosk-payment-methods {
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.kiosk-payment-methods .tab-pill {
+  justify-content: center;
+  padding: var(--space-4);
+  font-size: var(--font-size-base);
+  border-radius: var(--radius-md);
+}
+
+/* Écran du "terminal" simulé — fond sombre volontairement fixe (pas dépendant du thème clair/
+ *  sombre de l'app), comme un vrai afficheur de terminal de paiement. */
+.kiosk-terminal__device {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 260px;
+  padding: var(--space-5) var(--space-4);
+  background: #14171a;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.kiosk-terminal__card-icon {
+  font-size: 3.5rem;
+  margin: 0;
+  animation: kiosk-terminal-tap 1.4s ease-in-out infinite;
+}
+
+.kiosk-terminal__qr {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kiosk-terminal__qr-icon {
+  font-size: 2.5rem;
+  color: #fff;
+  opacity: 0.85;
+}
+
+.kiosk-terminal__qr-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--color-accent-500);
+}
+
+.kiosk-terminal__qr-corner--tl {
+  top: 0;
+  left: 0;
+  border-right: none;
+  border-bottom: none;
+  border-radius: 4px 0 0 0;
+}
+
+.kiosk-terminal__qr-corner--tr {
+  top: 0;
+  right: 0;
+  border-left: none;
+  border-bottom: none;
+  border-radius: 0 4px 0 0;
+}
+
+.kiosk-terminal__qr-corner--bl {
+  bottom: 0;
+  left: 0;
+  border-right: none;
+  border-top: none;
+  border-radius: 0 0 0 4px;
+}
+
+.kiosk-terminal__qr-corner--br {
+  bottom: 0;
+  right: 0;
+  border-left: none;
+  border-top: none;
+  border-radius: 0 0 4px 0;
+  animation: kiosk-terminal-scan 1.6s ease-in-out infinite;
+}
+
+.kiosk-terminal__amount {
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+}
+
+.kiosk-terminal__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.kiosk-terminal__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent-500);
+  animation: kiosk-terminal-blink 1.2s ease-in-out infinite;
+}
+
+.kiosk-terminal__dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.kiosk-terminal__dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.kiosk-terminal__hint {
+  max-width: 320px;
+}
+
+@keyframes kiosk-terminal-blink {
+  0%, 80%, 100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+@keyframes kiosk-terminal-tap {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes kiosk-terminal-scan {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}

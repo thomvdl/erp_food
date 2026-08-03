@@ -91,6 +91,7 @@ class KioskOrderController extends Controller
             $ticket = Ticket::query()->create([
                 'paid_at' => now(),
                 'client_id' => $data['client_id'] ?? null,
+                'source' => 'kiosk',
             ]);
 
             $ticketSection = TicketSection::query()->create([
@@ -119,7 +120,7 @@ class KioskOrderController extends Controller
             // ticket_id : voir migration add_ticket_id_to_orders_table — permet au kitchen display
             // d'afficher le même numéro que celui montré/imprimé au client (son Ticket), pas
             // l'id de cette Order (purement interne, sans lien visible pour le client).
-            $order = Order::query()->create(['state' => 'ask', 'ticket_id' => $ticket->id]);
+            $order = Order::query()->create(['state' => 'ask', 'ticket_id' => $ticket->id, 'source' => 'kiosk']);
             $section = $order->sections()->create(['name' => 'Kiosque', 'state' => 'ask']);
 
             foreach ($data['lines'] as $line) {

@@ -44,11 +44,16 @@ export interface TicketPayment {
   ticket?: { id: number };
 }
 
+/** D'où vient le ticket — voir Readme.md. Nullable : les tickets créés avant cette colonne
+ *  (migration add_source_to_orders_and_tickets_tables) n'ont pas de valeur fiable à afficher. */
+export type TicketSource = 'pos_vente_directe' | 'pos_restaurant' | 'self_order' | 'kiosk';
+
 export interface Ticket {
   id: number;
   paid_at: string;
   client_id: number | null;
   table_id?: number | null;
+  source: TicketSource | null;
   client?: Client | null;
   table?: TableElement | null;
   sections: TicketSection[];

@@ -20,6 +20,20 @@
         <p class="font-medium">{{ formatTicketDate(ticket.paid_at) }}</p>
       </div>
       <div style="flex: 1 1 200px">
+        <p class="text-muted text-xs">Source</p>
+        <p class="font-medium">
+          <span
+            class="badge"
+            [class.badge-neutral]="ticket.source === 'pos_vente_directe'"
+            [class.badge-info]="ticket.source === 'pos_restaurant'"
+            [class.badge-warning]="ticket.source === 'self_order'"
+            [class.badge-success]="ticket.source === 'kiosk'"
+          >
+            {{ ticketSourceLabel(ticket) }}
+          </span>
+        </p>
+      </div>
+      <div style="flex: 1 1 200px">
         <p class="text-muted text-xs">Table</p>
         <p class="font-medium">{{ ticket.table?.label ?? '—' }}</p>
       </div>
