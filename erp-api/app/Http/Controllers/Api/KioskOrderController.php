@@ -137,4 +137,24 @@ class KioskOrderController extends Controller
 
         return response()->json($ticket->load(self::TICKET_WITH), 201);
     }
+
+    /**
+     * Écran public "suivi des commandes" (voir erp_self_order > pages/order-status) : le client
+     * regarde ce numéro (celui de son Ticket, voir ticket_id ci-dessus) passer d'"en préparation"
+     * à "prêt" sans avoir à interroger le personnel. Public (pas de auth:sanctum, voir
+     * routes/api.php) — ce n'est qu'une liste de numéros déjà remis au client sur son reçu, rien
+     * de sensible à protéger, même principe que self-order/{qr_token} ou tables/{table}/qr.
+     * 'ask' = en cuisine, en cours de préparation ; 'do' = prête, le client peut venir la
+     * récupérer. Une fois "envoyée" (remise au client), l'Order est supprimée (voir
+     * OrderSectionController::envoyer) et disparaît naturellement d'ici.
+     */
+    public function status()
+    {
+        $orders = Order::query()->whereNull('table_id')->whereIn('state', ['ask', 'do'])->orderBy('created_at')->get(['id', 'state', 'ticket_id']);
+
+        return response()->json([
+            'preparing' => $orders->where('state', 'ask')->pluck('ticket_id')->values(),
+            'ready' => $orders->where('state', 'do')->pluck('ticket_id')->values(),
+        ]);
+    }
 }

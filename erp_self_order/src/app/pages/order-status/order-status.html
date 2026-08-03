@@ -1,0 +1,39 @@
+<div class="status-board">
+  <h1 class="status-board__title">Suivi des commandes</h1>
+
+  @if (error()) {
+    <p class="error-text status-board__error">{{ error() }}</p>
+  }
+
+  <div class="status-board__columns">
+    <section class="status-column status-column--preparing">
+      <h2 class="status-column__title">👨‍🍳 En préparation</h2>
+      <div class="status-column__grid">
+        @if (loading()) {
+          <p class="text-muted">Chargement…</p>
+        } @else {
+          @for (number of preparing(); track number) {
+            <span class="status-tile">{{ number }}</span>
+          } @empty {
+            <p class="status-column__empty">Aucune commande en préparation.</p>
+          }
+        }
+      </div>
+    </section>
+
+    <section class="status-column status-column--ready">
+      <h2 class="status-column__title">✅ Prête — venez la récupérer</h2>
+      <div class="status-column__grid">
+        @if (loading()) {
+          <p class="text-muted">Chargement…</p>
+        } @else {
+          @for (number of ready(); track number) {
+            <span class="status-tile status-tile--ready">{{ number }}</span>
+          } @empty {
+            <p class="status-column__empty">Aucune commande prête pour le moment.</p>
+          }
+        }
+      </div>
+    </section>
+  </div>
+</div>

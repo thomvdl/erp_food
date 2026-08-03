@@ -49,6 +49,10 @@ Route::get('self-order/{qr_token}', [SelfOrderController::class, 'show']);
 Route::post('self-order/{qr_token}/lines', [SelfOrderController::class, 'store']);
 Route::get('tables/{table}/qr', [SelfOrderController::class, 'qr']);
 
+// Écran public "suivi des commandes" du kiosque (voir KioskOrderController::status) — juste des
+// numéros de ticket déjà remis au client, rien à protéger.
+Route::get('kiosk-orders/status', [KioskOrderController::class, 'status']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('auth/me', [AuthController::class, 'me']);

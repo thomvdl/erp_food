@@ -14,6 +14,9 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/kiosk-order/kiosk-order').then((m) => m.KioskOrder),
     canActivate: [authGuard],
   },
+  // Public — écran "suivi des commandes" (voir order-status.ts), pensé pour un moniteur près du
+  // comptoir. Doit rester avant la route générique ci-dessous.
+  { path: 'suivi', loadComponent: () => import('./pages/order-status/order-status').then((m) => m.OrderStatus) },
   // Route générique en dernier : capte tout token de QR de table restant (voir SelfOrderController).
   { path: ':qrToken', loadComponent: () => import('./pages/order/order').then((m) => m.Order) },
 ];

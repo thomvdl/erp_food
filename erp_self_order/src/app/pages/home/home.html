@@ -20,6 +20,9 @@
     @if (scanError()) {
       <p class="error-text">{{ scanError() }}</p>
     }
-    <a class="btn btn-ghost btn-sm home-state__kiosk-link" routerLink="/kiosk/login">Accès personnel (kiosque)</a>
+    <div class="home-state__links">
+      <a class="btn btn-ghost btn-sm" routerLink="/suivi">📺 Suivi des commandes</a>
+      <a class="btn btn-ghost btn-sm" routerLink="/kiosk/login">Accès personnel (kiosque)</a>
+    </div>
   </div>
 }

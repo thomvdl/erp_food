@@ -20,8 +20,10 @@
   margin: 0;
 }
 
-.home-state__kiosk-link {
+.home-state__links {
   margin-top: var(--space-5);
+  display: flex;
+  gap: var(--space-3);
   opacity: 0.6;
 }
 
