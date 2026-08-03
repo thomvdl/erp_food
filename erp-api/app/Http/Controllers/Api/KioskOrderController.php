@@ -121,7 +121,7 @@ class KioskOrderController extends Controller
             // d'afficher le même numéro que celui montré/imprimé au client (son Ticket), pas
             // l'id de cette Order (purement interne, sans lien visible pour le client).
             $order = Order::query()->create(['state' => 'ask', 'ticket_id' => $ticket->id, 'source' => 'kiosk']);
-            $section = $order->sections()->create(['name' => 'Kiosque', 'state' => 'ask']);
+            $section = $order->sections()->create(['name' => 'Kiosque', 'state' => 'ask', 'asked_at' => now()]);
 
             foreach ($data['lines'] as $line) {
                 $section->lines()->create([

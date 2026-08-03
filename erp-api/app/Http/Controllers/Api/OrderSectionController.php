@@ -118,7 +118,7 @@ class OrderSectionController extends Controller
             ]);
         }
 
-        $orderSection->update(['state' => 'ask']);
+        $orderSection->update(['state' => 'ask', 'asked_at' => now()]);
 
         $order = $orderSection->order;
         if ($order->state === 'send') {

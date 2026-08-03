@@ -60,6 +60,7 @@ class ProductController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'price' => ['required', 'numeric', 'min:0'],
+            'preparation_time' => ['nullable', 'integer', 'min:0'],
             'sku' => ['nullable', 'string', 'max:100'],
             'active' => ['boolean'],
             'tax_id' => ['nullable', 'integer', 'exists:taxes,id'],

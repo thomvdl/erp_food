@@ -37,6 +37,7 @@ export class ProductForm {
   readonly name = signal('');
   readonly description = signal('');
   readonly price = signal<number>(0);
+  readonly preparationTime = signal<number | null>(null);
   readonly sku = signal('');
   readonly active = signal(true);
   readonly categoryId = signal<number | null>(null);
@@ -74,6 +75,7 @@ export class ProductForm {
             this.name.set(product.name);
             this.description.set(product.description ?? '');
             this.price.set(Number(product.price));
+            this.preparationTime.set(product.preparation_time);
             this.sku.set(product.sku ?? '');
             this.active.set(product.active);
             this.categoryId.set(product.product_category_id);
@@ -104,6 +106,7 @@ export class ProductForm {
       name: this.name(),
       description: this.description() || null,
       price: this.price(),
+      preparation_time: this.preparationTime(),
       sku: this.sku() || null,
       active: this.active(),
       product_category_id: this.categoryId(),

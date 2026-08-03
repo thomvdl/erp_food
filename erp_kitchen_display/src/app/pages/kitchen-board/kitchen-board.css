@@ -45,6 +45,31 @@
   color: var(--color-accent-600);
 }
 
+/* Minuteur de préparation (voir Readme.md : "afficher un timer quand c'est demandé, avec le
+ *  temps de préparation") — vert tant qu'il reste du temps, rouge clignotant une fois dépassé
+ *  pour attirer l'œil sur un plat qui traîne. */
+.kitchen-card__timer {
+  display: inline-block;
+  width: fit-content;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-success-text);
+}
+
+.kitchen-card__timer--overdue {
+  color: var(--color-danger-text);
+  animation: kitchen-timer-blink 1s ease-in-out infinite;
+}
+
+@keyframes kitchen-timer-blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
 .kitchen-card__section {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);

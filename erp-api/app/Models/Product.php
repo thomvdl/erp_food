@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['name', 'slug', 'description', 'price', 'sku', 'active', 'tax_id', 'station_id', 'product_category_id'])]
+#[Fillable(['name', 'slug', 'description', 'price', 'sku', 'active', 'tax_id', 'station_id', 'product_category_id', 'preparation_time'])]
 class Product extends Model
 {
     use HasSlug;
@@ -18,6 +18,7 @@ class Product extends Model
         return [
             'price' => 'decimal:2',
             'active' => 'boolean',
+            'preparation_time' => 'integer',
         ];
     }
 

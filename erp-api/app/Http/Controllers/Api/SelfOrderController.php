@@ -126,7 +126,7 @@ class SelfOrderController extends Controller
             // doit valider puis demander), une commande client passe directement en 'ask' — même
             // transition que OrderSectionController::valider()+demander() enchaînées, sans
             // attendre d'action du personnel.
-            $section->update(['state' => 'ask']);
+            $section->update(['state' => 'ask', 'asked_at' => now()]);
             if ($order->state === 'send') {
                 $order->update(['state' => 'ask']);
             }

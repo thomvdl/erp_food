@@ -34,6 +34,20 @@
   </label>
 
   <label class="field">
+    Temps de préparation (minutes)
+    <input
+      class="input"
+      type="number"
+      step="1"
+      min="0"
+      name="preparation_time"
+      placeholder="Non renseigné — pas de minuteur en cuisine"
+      [ngModel]="preparationTime()"
+      (ngModelChange)="preparationTime.set($event === '' ? null : +$event)"
+    />
+  </label>
+
+  <label class="field">
     SKU
     <input class="input" type="text" name="sku" [ngModel]="sku()" (ngModelChange)="sku.set($event)" />
   </label>

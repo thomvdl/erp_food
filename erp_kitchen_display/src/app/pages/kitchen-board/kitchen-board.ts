@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
@@ -73,7 +73,7 @@ interface DisplayOrder {
   templateUrl: './kitchen-board.html',
   styleUrl: './kitchen-board.css',
 })
-export class KitchenBoard {
+export class KitchenBoard implements OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly themeService = inject(ThemeService);
   private readonly router = inject(Router);
@@ -91,6 +91,11 @@ export class KitchenBoard {
   readonly filter = signal<BoardFilter>(null);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+
+  /** Tick chaque seconde pour recalculer les minuteurs affichés (voir sectionTimer()) — les
+   *  commandes elles-mêmes ne se rechargent que sur événement Echo, pas chaque seconde. */
+  readonly now = signal(Date.now());
+  private readonly nowInterval = setInterval(() => this.now.set(Date.now()), 1000);
 
   /**
    * Stations couvertes par le filtre actif — null si aucune restriction ("Tout", "Tous les
@@ -123,7 +128,7 @@ export class KitchenBoard {
    * `canMarkDone`/`canSend` plus bas). Depuis "Tout" (aucune perspective précise), aucune des
    * deux actions n'est proposée — un écran de supervision globale n'est pas un poste de travail.
    */
-  private readonly isPassePerspective = computed(() => {
+  readonly isPassePerspective = computed(() => {
     const current = this.filter();
     return current?.kind === 'passe' || current?.kind === 'all-passes';
   });
@@ -231,6 +236,42 @@ export class KitchenBoard {
   }
 
   /**
+   * Minuteur de préparation — "afficher un timer quand c'est demandé, avec le temps de
+   * préparation" (retour utilisateur). N'a de sens que pendant 'ask' (en cours de préparation,
+   * pas encore marquée prête) ; null si la section n'est pas dans cet état, si `asked_at` n'a pas
+   * été renseigné (section créée avant la migration), ou si AUCUNE ligne visible ici n'a de
+   * `preparation_time` configuré. Le temps de réf. est le MAX des temps de préparation des
+   * produits visibles (lignes filtrées par poste/passe actif, voir `displaySection.lineIds`) — on
+   * suppose une préparation en parallèle, prête quand le plus long article l'est.
+   */
+  sectionTimer(displaySection: DisplaySection): { remainingSeconds: number; overdue: boolean } | null {
+    const section = displaySection.section;
+    if (section.state !== 'ask' || !section.asked_at) {
+      return null;
+    }
+
+    const prepMinutes = Math.max(
+      0,
+      ...section.lines.filter((line) => displaySection.lineIds.has(line.id)).map((line) => line.product?.preparation_time ?? 0),
+    );
+    if (prepMinutes <= 0) {
+      return null;
+    }
+
+    const elapsedSeconds = Math.floor((this.now() - new Date(section.asked_at).getTime()) / 1000);
+    const remainingSeconds = prepMinutes * 60 - elapsedSeconds;
+    return { remainingSeconds, overdue: remainingSeconds < 0 };
+  }
+
+  formatTimer(remainingSeconds: number): string {
+    const totalSeconds = Math.abs(remainingSeconds);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    const formatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    return remainingSeconds < 0 ? `+${formatted}` : formatted;
+  }
+
+  /**
    * "Fait" (voir Readme.md) : le poste correspondant au produit marque la section comme
    * préparée — mais "uniquement les produits de son propre poste et de son propre passe ; là
    * quand on marque comme fait, ça le fait pour tous les produits de la section" (retour
@@ -305,5 +346,9 @@ export class KitchenBoard {
         this.error.set('Impossible de charger les commandes.');
       },
     });
+  }
+
+  ngOnDestroy(): void {
+    clearInterval(this.nowInterval);
   }
 }

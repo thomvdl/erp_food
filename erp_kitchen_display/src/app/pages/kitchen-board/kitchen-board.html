@@ -81,10 +81,16 @@
                   <span class="text-muted text-xs">→ {{ displaySection.passe.name }}</span>
                 }
 
+                @if (sectionTimer(displaySection); as timer) {
+                  <span class="kitchen-card__timer" [class.kitchen-card__timer--overdue]="timer.overdue">
+                    ⏱ {{ timer.overdue ? 'En retard ' : '' }}{{ formatTimer(timer.remainingSeconds) }}
+                  </span>
+                }
+
                 <ul class="kitchen-card__lines">
                   @for (line of displaySection.section.lines; track line.id) {
                     @if (displaySection.lineIds.has(line.id)) {
-                      <li [class.kitchen-card__line--done]="line.done">
+                      <li [class.kitchen-card__line--done]="line.done && !isPassePerspective()">
                         {{ line.quantity }}× {{ line.product?.name }}
                         @if (line.sent) {
                           <span aria-hidden="true">✓✓</span>

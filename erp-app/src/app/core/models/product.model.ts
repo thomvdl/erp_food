@@ -8,6 +8,9 @@ export interface Product {
   description: string | null;
   /** Laravel renvoie les decimal:2 en JSON comme des chaînes (ex. "3.50"), pas des nombres. */
   price: number | string;
+  /** Minutes — sert au kitchen display à afficher un minuteur une fois la section demandée en
+   *  cuisine (voir erp_kitchen_display/kitchen-board.ts). Nullable : pas de minuteur affiché si non renseigné. */
+  preparation_time: number | null;
   sku: string | null;
   active: boolean;
   tax_id: number | null;

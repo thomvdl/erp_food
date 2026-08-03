@@ -17,6 +17,8 @@ export interface Product {
   id: number;
   name: string;
   station_id: number | null;
+  /** Minutes — voir erp-app > Produits. Null si non renseigné, pas de minuteur affiché dans ce cas. */
+  preparation_time: number | null;
 }
 
 export interface OrderLine {
@@ -38,6 +40,9 @@ export interface OrderSection {
   order_id: number;
   /** Cycle kitchen display (voir Readme.md, mêmes noms que orders.state) : en_attente -> send (valider) -> ask (demander en cuisine) -> do (fait) -> seed (envoyer, section par section). */
   state: 'en_attente' | 'send' | 'ask' | 'do' | 'seed' | 'done';
+  /** Horodatage de la transition vers 'ask' — sert de départ au minuteur de préparation (voir
+   *  kitchen-board.ts). Null pour une section jamais passée par 'ask' (encore en_attente/send). */
+  asked_at: string | null;
   lines: OrderLine[];
 }
 
