@@ -1,8 +1,13 @@
 # ERP v2
 
+> 📖 Une visite guidée illustrée (captures d'écran de chaque app) est disponible dans
+> [`docs/README.md`](docs/README.md). Ce fichier-ci reste la référence technique brute (schéma
+> de base de données, liste exhaustive des fonctionnalités).
+
 ERP maison pour un établissement qui fait à la fois vente directe (snack/comptoir), restaurant
-avec service à table, et location de salle pour événements. Quatre applications séparées
-partageant une seule base de données et une seule API.
+avec service à table, location de salle pour événements, et commande en libre-service (QR à
+table ou kiosque façon fast-food). Cinq applications séparées partageant une seule base de
+données et une seule API.
 
 ## Architecture
 
@@ -10,14 +15,16 @@ partageant une seule base de données et une seule API.
 |---|---|---|---|
 | `erp-api` | API REST + diffusion temps réel | Laravel 13 / PHP 8.4 / MySQL 8.4 | 19001 |
 | `erp-api` (service `reverb`) | Serveur WebSocket (Laravel Reverb) | même image que `erp-api` | 19004 |
-| `erp-app` | Back-office admin (POS, Paramètres, Événements, Réservations, Caisse, Tickets) | Angular 21 | 19002 |
+| `erp-app` | Back-office admin (POS, Paramètres, Événements, Réservations, Caisse, Tickets) | Angular 22 | 19002 |
 | `erp_validate_event` | Kiosque : validation d'entrée événement par QR code | Angular 22 | 19003 |
 | `erp_kitchen_display` | Kiosque : écran cuisine (postes + passes) | Angular 22 | 19005 |
+| `erp_self_order` | Commande client (QR à table) + kiosque de commande self-service | Angular 22 | 19006 |
 
-Les trois apps Angular sont des **kiosques/écrans dédiés** (pas d'authentification multi-rôle
-fine — voir Todo) qui parlent toutes à la même `erp-api`. `erp-app` et `erp_kitchen_display`
-s'abonnent en plus au serveur `reverb` via Laravel Echo pour se synchroniser en temps réel entre
-eux (voir plus bas).
+Les quatre apps Angular sont des **kiosques/écrans dédiés** (pas d'authentification multi-rôle
+fine — voir Todo) qui parlent toutes à la même `erp-api`, à l'exception du mode QR
+d'`erp_self_order` qui, lui, n'authentifie jamais le client (voir `docs/README.md`). `erp-app`,
+`erp_kitchen_display` et `erp_self_order` (kiosque + écran de suivi) s'abonnent en plus au
+serveur `reverb` via Laravel Echo pour se synchroniser en temps réel entre eux (voir plus bas).
 
 Adminer (client web MySQL) est aussi lancé par `docker-compose.yml`, sur le port 19080 —
 pratique pour inspecter la base pendant le développement.
@@ -33,6 +40,7 @@ docker compose up -d --build
 - Back-office (`erp-app`) : http://localhost:19002
 - Validation événement (`erp_validate_event`) : http://localhost:19003
 - Kitchen display (`erp_kitchen_display`) : http://localhost:19005
+- Self-order (`erp_self_order`) : http://localhost:19006
 - Adminer : http://localhost:19080 (serveur `db`, voir `.env` pour les identifiants)
 
 Au premier démarrage, `docker/entrypoint.sh` du conteneur `api` lance automatiquement
@@ -229,10 +237,20 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
 - ✅ Marquer comme fait dans les postes (uniquement les postes — pas les passes)
 - ✅ Marquer comme envoyé dans les passes (uniquement les passes — pas les postes)
 
+## ✅ ERP Self Order
+
+- ✅ Mode QR : scan du QR code d'une table (ou référence générique, réutilise tables/rooms),
+  compose sa commande sans s'authentifier, jamais de paiement — passe directement en "demandée"
+  en cuisine
+- ✅ Mode kiosque : appareil authentifié (staff), catalogue self-order, paiement immédiat simulé
+  (QR Bancontact ou terminal), ticket + numéro de commande imprimable, visible en cuisine malgré
+  le paiement anticipé (`KioskOrderController`, voir `docs/README.md`)
+- ✅ Génération automatique d'un QR code imprimable par table (`erp-app` > Paramètres > Salles)
+- ✅ Écran public "suivi des commandes" (numéros en préparation / prêts), temps réel via Reverb
+- ✅ Minuteur de préparation par section en cuisine, basé sur `products.preparation_time`
+- ✅ Champ `source` sur les tickets (vente directe / POS Restaurant / self-order / kiosque)
+
 ## Todo
 
 - Définir ce qui est disponible de faire avec les différents rôles utilisateur (permissions par
   rôle — actuellement tout utilisateur connecté à `erp-app` a accès à tout)
-
-Mettre à jours le readme 
-et faire un doc complètte du projet 
