@@ -1,0 +1,186 @@
+# Déploiement production sur un VPS unique, reverse-proxy Caddy devant tout (HTTPS automatique).
+# Fichier autonome (pas un override de docker-compose.yml, qui reste dédié au dev avec bind
+# mounts + ng serve) — voir Readme.md, section "Déploiement en production", pour le process complet.
+#
+# `name:` ci-dessous donne à ce fichier son propre projet Compose ("erp_v2_prod"), distinct de
+# celui du compose dev ("erp_v2", nom par défaut basé sur le dossier) — sans ça, Docker Compose
+# utilise le même nom de projet pour les deux fichiers (juste le nom du dossier), et les
+# `container_name:` fixes ci-dessous entrent en collision directe avec ceux de docker-compose.yml
+# : lancer ce fichier recrée alors les conteneurs dev en place avec la config prod (vécu — Caddy
+# en boucle de crash faute de DOMAIN réel, plus aucun port 19xxx exposé). Avec `name:`, ce fichier
+# tourne dans son propre réseau/volumes, sans jamais toucher à la stack dev.
+#
+# Usage : docker compose -f docker-compose.prod.yml up -d --build
+#
+# Sous-domaines attendus (DNS A vers l'IP du VPS), tous dérivés de DOMAIN (voir .env) :
+# api.$DOMAIN, app.$DOMAIN, kiosk.$DOMAIN, self-order.$DOMAIN, kitchen.$DOMAIN,
+# validate-event.$DOMAIN, ws.$DOMAIN (Reverb).
+
+name: erp_v2_prod
+
+services:
+  db:
+    image: mysql:8.4
+    container_name: erp_v2_prod_db
+    restart: unless-stopped
+    command: >
+      --innodb-buffer-pool-size=256M
+      --innodb-log-buffer-size=16M
+      --key-buffer-size=16M
+      --max-connections=100
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-erp_v2}
+      MYSQL_USER: ${DB_USERNAME:-erp_v2_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD doit être défini dans .env}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD doit être défini dans .env}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Pas de port hôte exposé — seuls les conteneurs du réseau compose y accèdent.
+
+  api:
+    build:
+      context: ./erp-api
+    container_name: erp_v2_prod_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: ./.env
+    environment:
+      # Wiring fixé par ce compose — pas à éditer dans .env (même convention que le compose dev).
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      SESSION_DRIVER: database
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+      LOG_CHANNEL: stack
+      FILESYSTEM_DISK: local
+      APP_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env (voir Readme.md)}
+      SELF_ORDER_URL: https://self-order.${DOMAIN:?DOMAIN doit être défini dans .env}
+      CORS_ALLOWED_ORIGINS: https://app.${DOMAIN:?DOMAIN doit être défini dans .env},https://kiosk.${DOMAIN:?DOMAIN doit être défini dans .env},https://self-order.${DOMAIN:?DOMAIN doit être défini dans .env},https://kitchen.${DOMAIN:?DOMAIN doit être défini dans .env},https://validate-event.${DOMAIN:?DOMAIN doit être défini dans .env}
+    # Pas de port hôte exposé — uniquement joignable via Caddy sur le réseau interne.
+
+  reverb:
+    build:
+      context: ./erp-api
+    container_name: erp_v2_prod_reverb
+    restart: unless-stopped
+    entrypoint: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: ./.env
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      SESSION_DRIVER: database
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+      LOG_CHANNEL: stack
+      FILESYSTEM_DISK: local
+
+  app:
+    build:
+      context: ./erp-app
+      dockerfile: Dockerfile.prod
+    container_name: erp_v2_prod_app
+    restart: unless-stopped
+    environment:
+      API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
+      REVERB_HOST: ws.${DOMAIN:?DOMAIN doit être défini dans .env}
+      REVERB_PORT: 443
+      REVERB_APP_KEY: ${REVERB_APP_KEY}
+    depends_on:
+      - api
+
+  validate_event:
+    build:
+      context: ./erp_validate_event
+      dockerfile: Dockerfile.prod
+    container_name: erp_v2_prod_validate_event
+    restart: unless-stopped
+    environment:
+      API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
+    depends_on:
+      - api
+
+  kitchen_display:
+    build:
+      context: ./erp_kitchen_display
+      dockerfile: Dockerfile.prod
+    container_name: erp_v2_prod_kitchen_display
+    restart: unless-stopped
+    environment:
+      API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
+      REVERB_HOST: ws.${DOMAIN:?DOMAIN doit être défini dans .env}
+      REVERB_PORT: 443
+      REVERB_APP_KEY: ${REVERB_APP_KEY}
+    depends_on:
+      - api
+      - reverb
+
+  self_order:
+    build:
+      context: ./erp_self_order
+      dockerfile: Dockerfile.prod
+    container_name: erp_v2_prod_self_order
+    restart: unless-stopped
+    environment:
+      API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
+    depends_on:
+      - api
+
+  kiosk:
+    build:
+      context: ./erp_kiosk
+      dockerfile: Dockerfile.prod
+    container_name: erp_v2_prod_kiosk
+    restart: unless-stopped
+    environment:
+      API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
+      REVERB_HOST: ws.${DOMAIN:?DOMAIN doit être défini dans .env}
+      REVERB_PORT: 443
+      REVERB_APP_KEY: ${REVERB_APP_KEY}
+    depends_on:
+      - api
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: erp_v2_prod_caddy
+    restart: unless-stopped
+    env_file: ./.env
+    environment:
+      # Force un échec explicite au démarrage plutôt qu'une boucle de crash Caddy silencieuse si
+      # ACME_EMAIL est vide (Let's Encrypt l'exige — voir Caddyfile, bloc `email`).
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL doit être défini dans .env (voir Readme.md)}
+      DOMAIN: ${DOMAIN:?DOMAIN doit être défini dans .env (voir Readme.md)}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - app
+      - kiosk
+      - self_order
+      - kitchen_display
+      - validate_event
+      - reverb
+
+  # Adminer volontairement exclu (pas de client MySQL web exposé publiquement en prod) — voir
+  # Readme.md pour l'alternative (tunnel SSH) si besoin d'inspecter la base ponctuellement.
+
+volumes:
+  db_data:
+  caddy_data:
+  caddy_config:

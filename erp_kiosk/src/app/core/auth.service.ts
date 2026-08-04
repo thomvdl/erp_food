@@ -7,10 +7,8 @@ import { AuthUser, LoginResponse } from './models/auth.model';
 const TOKEN_KEY = 'erp-v2-auth-token';
 
 /**
- * Utilisé uniquement par le mode kiosque (un appareil authentifié comme erp_kitchen_display/
- * erp_validate_event). Le mode QR (routes self-order/{qr_token}) ne passe jamais par ici — voir
- * app.routes.ts, seules /kiosk/* sont derrière authGuard. Même mécanisme que les autres apps erp_v2
- * (token Sanctum en Bearer, pas de cookie), dupliqué ici plutôt que partagé (workspaces séparés).
+ * Authentifie l'appareil kiosque (même mécanisme que erp_kitchen_display/erp_validate_event :
+ * token Sanctum en Bearer, pas de cookie), dupliqué ici plutôt que partagé (workspaces séparés).
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {

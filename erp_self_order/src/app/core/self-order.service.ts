@@ -6,8 +6,8 @@ import { SelfOrderContext, SelfOrderPayload, SelfOrderResponse } from './models/
 
 /**
  * Consommé uniquement par la page Order (mode QR, publique) — voir SelfOrderController côté API.
- * Aucun de ces appels n'attache de Bearer token (le client ne s'authentifie jamais), même sans
- * token présent l'authInterceptor laisse passer la requête telle quelle.
+ * Cette app n'a aucun mécanisme d'authentification : tous les appels partent sans en-tête
+ * Authorization.
  */
 @Injectable({ providedIn: 'root' })
 export class SelfOrderService {

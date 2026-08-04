@@ -141,9 +141,23 @@ services:
     depends_on:
       - api
 
+  kiosk:
+    build:
+      context: ./erp_kiosk
+    container_name: erp_v2_kiosk
+    restart: unless-stopped
+    ports:
+      - "${KIOSK_PORT:-19007}:4200"
+    volumes:
+      - ./erp_kiosk:/app
+      - kiosk_node_modules:/app/node_modules
+    depends_on:
+      - api
+
 volumes:
   db_data:
   app_node_modules:
   validate_event_node_modules:
   kitchen_display_node_modules:
   self_order_node_modules:
+  kiosk_node_modules:

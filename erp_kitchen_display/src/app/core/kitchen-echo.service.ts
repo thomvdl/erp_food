@@ -31,7 +31,7 @@ export class KitchenEchoService implements OnDestroy {
       wsHost: REVERB_HOST,
       wsPort: REVERB_PORT,
       wssPort: REVERB_PORT,
-      forceTLS: false,
+      forceTLS: window.location.protocol === 'https:',
       enabledTransports: ['ws', 'wss'],
     });
 

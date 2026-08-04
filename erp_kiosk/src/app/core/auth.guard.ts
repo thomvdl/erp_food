@@ -12,11 +12,11 @@ export const authGuard: CanActivateFn = () => {
   }
 
   if (!authService.token()) {
-    return router.createUrlTree(['/kiosk/login']);
+    return router.createUrlTree(['/login']);
   }
 
   return authService.fetchMe().pipe(
     map(() => true),
-    catchError(() => of(router.createUrlTree(['/kiosk/login']))),
+    catchError(() => of(router.createUrlTree(['/login']))),
   );
 };

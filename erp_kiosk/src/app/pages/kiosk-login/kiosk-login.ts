@@ -10,9 +10,7 @@ const KEYBOARD_ROWS = ['AZERTYUIOP', 'QSDFGHJKLM', 'WXCVBN', '0123456789'];
 
 /**
  * Écran de connexion du kiosque — même pattern que erp_validate_event/erp_kitchen_display (scan
- * QR du badge personnel par défaut, repli clavier visuel). Le mode QR self-order (routes
- * self-order/{qr_token}, page Order) ne passe jamais par ici, cette page ne sert qu'à
- * l'authentification du kiosque staff (voir app.routes.ts, /kiosk/*).
+ * QR du badge personnel par défaut, repli clavier visuel).
  */
 @Component({
   selector: 'app-kiosk-login',
@@ -90,7 +88,7 @@ export class KioskLogin implements OnDestroy {
     this.submitting.set(true);
 
     this.authService.loginWithPassword(this.username().trim(), this.password()).subscribe({
-      next: () => this.router.navigateByUrl('/kiosk/setup'),
+      next: () => this.router.navigateByUrl('/setup'),
       error: (err) => {
         this.submitting.set(false);
         const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
@@ -167,7 +165,7 @@ export class KioskLogin implements OnDestroy {
     this.authService.loginWithBarcode(barcode).subscribe({
       next: () => {
         this.stopScan();
-        this.router.navigateByUrl('/kiosk/setup');
+        this.router.navigateByUrl('/setup');
       },
       error: (err) => {
         this.submitting.set(false);

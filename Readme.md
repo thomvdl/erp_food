@@ -6,7 +6,7 @@
 
 ERP maison pour un établissement qui fait à la fois vente directe (snack/comptoir), restaurant
 avec service à table, location de salle pour événements, et commande en libre-service (QR à
-table ou kiosque façon fast-food). Cinq applications séparées partageant une seule base de
+table/chambre ou kiosque façon fast-food). Six applications séparées partageant une seule base de
 données et une seule API.
 
 ## Architecture
@@ -18,13 +18,18 @@ données et une seule API.
 | `erp-app` | Back-office admin (POS, Paramètres, Événements, Réservations, Caisse, Tickets) | Angular 22 | 19002 |
 | `erp_validate_event` | Kiosque : validation d'entrée événement par QR code | Angular 22 | 19003 |
 | `erp_kitchen_display` | Kiosque : écran cuisine (postes + passes) | Angular 22 | 19005 |
-| `erp_self_order` | Commande client (QR à table) + kiosque de commande self-service | Angular 22 | 19006 |
+| `erp_self_order` | Commande client (QR à table ou en chambre) — 100% public, aucune authentification | Angular 22 | 19006 |
+| `erp_kiosk` | Kiosque de commande self-service façon fast-food (staff authentifié, encaissement immédiat) + écran de suivi | Angular 22 | 19007 |
 
-Les quatre apps Angular sont des **kiosques/écrans dédiés** (pas d'authentification multi-rôle
-fine — voir Todo) qui parlent toutes à la même `erp-api`, à l'exception du mode QR
-d'`erp_self_order` qui, lui, n'authentifie jamais le client (voir `docs/README.md`). `erp-app`,
-`erp_kitchen_display` et `erp_self_order` (kiosque + écran de suivi) s'abonnent en plus au
-serveur `reverb` via Laravel Echo pour se synchroniser en temps réel entre eux (voir plus bas).
+`erp_self_order` a délibérément été séparé du mode kiosque dans sa propre app : c'est la seule
+surface exposée à un appareil client non maîtrisé (téléphone personnel scannant un QR), elle ne
+doit donc jamais embarquer le moindre code d'authentification/caisse — celui-ci vit uniquement
+dans `erp_kiosk`, avec l'écran de suivi (les numéros affichés y viennent des tickets kiosque, pas
+du mode QR — voir `docs/README.md`). `erp-app`, `erp_validate_event`, `erp_kitchen_display` et
+`erp_kiosk` sont des **kiosques/écrans dédiés** (pas d'authentification multi-rôle fine — voir
+Todo) qui parlent tous à la même `erp-api`. `erp-app`, `erp_kitchen_display` et `erp_kiosk`
+(écran de suivi) s'abonnent en plus au serveur `reverb` via Laravel Echo pour se synchroniser en
+temps réel entre eux (voir plus bas).
 
 Adminer (client web MySQL) est aussi lancé par `docker-compose.yml`, sur le port 19080 —
 pratique pour inspecter la base pendant le développement.
@@ -41,6 +46,7 @@ docker compose up -d --build
 - Validation événement (`erp_validate_event`) : http://localhost:19003
 - Kitchen display (`erp_kitchen_display`) : http://localhost:19005
 - Self-order (`erp_self_order`) : http://localhost:19006
+- Kiosk (`erp_kiosk`) : http://localhost:19007
 - Adminer : http://localhost:19080 (serveur `db`, voir `.env` pour les identifiants)
 
 Au premier démarrage, `docker/entrypoint.sh` du conteneur `api` lance automatiquement
@@ -54,6 +60,67 @@ des clients et un catalogue produit de démonstration (`DemoSeeder`).
 chaud) n'a **aucun bind mount** — le code PHP est cuit dans l'image au build. Toute modification
 côté `erp-api`/`routes`/migrations nécessite `docker compose build api reverb && docker compose
 up -d api reverb` pour être prise en compte par les conteneurs déjà démarrés.
+
+## Déploiement en production
+
+`docker-compose.yml` (dev) sert les 5 apps Angular via `ng serve` — "un serveur simple pour tester
+en local, pas revu pour des questions de sécurité" selon son propre avertissement — donc jamais en
+prod tel quel. `docker-compose.prod.yml` est un fichier **séparé et autonome** (pas un override du
+compose dev) : builds Angular optimisés servis par nginx, `erp-api` durci (`APP_DEBUG=false`,
+cache config/route/vue), CORS restreint aux vrais domaines, et un reverse-proxy
+[Caddy](https://caddyserver.com/) devant tout qui gère le HTTPS automatiquement (Let's Encrypt).
+
+Cible : **un seul VPS**, un domaine dont les sous-domaines pointent vers son IP (enregistrements
+DNS A) : `api.`, `app.`, `kiosk.`, `self-order.`, `kitchen.`, `validate-event.`, `ws.` (Reverb).
+
+### Comment ça tient ensemble
+
+Les apps Angular ne peuvent plus dériver `API_URL`/`REVERB_*` de `window.location.hostname` +
+port codé en dur comme en dev (pas de "port 19001" en prod, juste `api.mondomaine.tld` en
+HTTPS/443). À la place, chaque image `Dockerfile.prod` sert un build statique (nginx) dont
+l'entrypoint génère un `env.js` à partir des variables d'environnement du conteneur, chargé avant
+le bundle Angular (voir `docker/env.template.js` de chaque app) — `core/api-config.ts`/
+`core/reverb-config.ts` lisent `window.__ERP_CONFIG__` s'il existe, sinon retombent sur le
+comportement dev actuel. Une seule image par app, redéployable sur n'importe quel domaine juste en
+changeant `.env`.
+
+### Process
+
+1. Sur le VPS : `git clone`.
+2. Préparer le `.env` de prod (fichier local au VPS, jamais commité — voir `.gitignore`).
+   Deux façons de faire :
+   - **Rapide** : partir de `.env.production` (déjà rempli avec des secrets générés —
+     `APP_KEY`, `REVERB_APP_KEY`/`SECRET`, mots de passe DB/admin — préparé pour ce repo, à ne
+     jamais committer). Il ne manque que `DOMAIN`/`ACME_EMAIL` et éventuellement `MAIL_*`. Puis
+     `cp .env.production .env` — `docker compose` (interpolation des `${DOMAIN}` etc. dans
+     `docker-compose.prod.yml`) ne lit que le fichier littéralement nommé `.env` dans le dossier
+     courant, pas `.env.production` directement.
+   - **Depuis zéro** : `cp .env.production.example .env` puis remplir chaque valeur marquée
+     `CHANGEME_*` — checklist :
+     - `APP_ENV=production`, `APP_DEBUG=false`, `DEMO=false`
+     - `DB_PASSWORD`/`DB_ROOT_PASSWORD`/`ADMIN_PASSWORD` : vraies valeurs, pas celles du repo
+     - `APP_KEY` régénéré : `docker compose -f docker-compose.prod.yml run --rm api php artisan key:generate --show`, coller le résultat
+     - `REVERB_APP_KEY`/`REVERB_APP_SECRET` régénérés (chaînes aléatoires — `openssl rand -hex 16`/`openssl rand -hex 20`)
+     - `DOMAIN=mondomaine.tld` et `ACME_EMAIL=vous@mondomaine.tld` (requis par Let's Encrypt)
+     - Vérifier `MAIL_*` (des vrais identifiants SMTP, pas ceux de dev)
+3. `docker compose -f docker-compose.prod.yml up -d --build`.
+4. Vérifier l'émission des certificats : `docker compose -f docker-compose.prod.yml logs caddy` — Caddy les provisionne au premier accès à chaque sous-domaine, ça peut prendre 30s-1min.
+5. Tester chaque sous-domaine dans un navigateur.
+
+**Piège à ne pas reproduire** (vécu en dev avec `APP_KEY` vide) : éditer `.env` puis `docker
+compose -f docker-compose.prod.yml restart` **ne suffit pas** — `restart` relance le même
+conteneur avec l'environnement figé au démarrage précédent. Toute modification de `.env` exige
+`docker compose -f docker-compose.prod.yml up -d` (recrée les conteneurs concernés).
+
+**Mise à jour de l'app** : `git pull && docker compose -f docker-compose.prod.yml up -d --build`.
+
+**Sauvegardes** : aucun script fourni — un `mysqldump` en cron suffit largement à cette échelle,
+ex. `docker compose -f docker-compose.prod.yml exec -T db mysqldump -uroot -p$DB_ROOT_PASSWORD
+$DB_DATABASE | gzip > backup-$(date +%F).sql.gz`.
+
+**Adminer n'est pas déployé en prod** (pas de client MySQL web exposé publiquement). Pour une
+inspection ponctuelle : `docker compose -f docker-compose.prod.yml exec db mysql -u root -p`, ou
+un tunnel SSH vers le port 3306 du conteneur `db` depuis le poste local.
 
 ## Temps réel (Laravel Echo / Reverb)
 
@@ -241,14 +308,21 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
 
 - ✅ Mode QR : scan du QR code d'une table (ou référence générique, réutilise tables/rooms),
   compose sa commande sans s'authentifier, jamais de paiement — passe directement en "demandée"
-  en cuisine
-- ✅ Mode kiosque : appareil authentifié (staff), catalogue self-order, paiement immédiat simulé
-  (QR Bancontact ou terminal), ticket + numéro de commande imprimable, visible en cuisine malgré
-  le paiement anticipé (`KioskOrderController`, voir `docs/README.md`)
+  en cuisine — app 100% publique, aucune authentification embarquée (voir `erp_kiosk` pour le
+  mode staff)
 - ✅ Génération automatique d'un QR code imprimable par table (`erp-app` > Paramètres > Salles)
-- ✅ Écran public "suivi des commandes" (numéros en préparation / prêts), temps réel via Reverb
 - ✅ Minuteur de préparation par section en cuisine, basé sur `products.preparation_time`
 - ✅ Champ `source` sur les tickets (vente directe / POS Restaurant / self-order / kiosque)
+
+## ✅ ERP Kiosk
+
+- ✅ App séparée de `erp_self_order` pour des raisons de sécurité : le code d'authentification et
+  d'encaissement du kiosque n'est jamais servi à un appareil client (voir mode QR ci-dessus)
+- ✅ Appareil authentifié (staff), catalogue self-order, paiement immédiat simulé (QR Bancontact
+  ou terminal), ticket + numéro de commande imprimable, visible en cuisine malgré le paiement
+  anticipé (`KioskOrderController`, voir `docs/README.md`)
+- ✅ Écran public "suivi des commandes" (numéros en préparation / prêts, tickets kiosque
+  uniquement), temps réel via Reverb — seule partie de cette app sans authentification
 
 ## Todo
 

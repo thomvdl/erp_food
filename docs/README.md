@@ -2,7 +2,7 @@
 
 ERP maison pour un établissement qui combine vente directe (snack/comptoir), restaurant avec
 service à table, location de salle pour événements, **et commande en libre-service** (client
-scanne un QR à table, ou utilise un kiosque façon fast-food). Cinq applications séparées
+scanne un QR à table/chambre, ou utilise un kiosque façon fast-food). Six applications séparées
 partageant une seule base de données et une seule API.
 
 Ce document est une visite guidée illustrée de chaque application. Pour les détails techniques
@@ -18,6 +18,7 @@ le [`Readme.md`](../Readme.md) à la racine du projet.
 - [`erp_kitchen_display` — écran cuisine](#erp_kitchen_display--écran-cuisine)
 - [`erp_validate_event` — validation d'entrée événement](#erp_validate_event--validation-dentrée-événement)
 - [`erp_self_order` — commande en libre-service](#erp_self_order--commande-en-libre-service)
+- [`erp_kiosk` — kiosque de commande self-service](#erp_kiosk--kiosque-de-commande-self-service)
 - [Le minuteur de préparation](#le-minuteur-de-préparation)
 - [Limitations connues](#limitations-connues)
 
@@ -30,12 +31,16 @@ le [`Readme.md`](../Readme.md) à la racine du projet.
 | `erp-app` | Back-office admin (POS, Paramètres, Événements, Réservations, Caisse, Tickets) | Angular 22 | 19002 |
 | `erp_validate_event` | Kiosque : validation d'entrée événement par QR code | Angular 22 | 19003 |
 | `erp_kitchen_display` | Kiosque : écran cuisine (postes + passes) | Angular 22 | 19005 |
-| `erp_self_order` | Commande client (scan QR à table) + kiosque de commande self-service | Angular 22 | 19006 |
+| `erp_self_order` | Commande client (scan QR à table/chambre) — 100% public | Angular 22 | 19006 |
+| `erp_kiosk` | Kiosque de commande self-service façon fast-food (staff authentifié) + écran de suivi | Angular 22 | 19007 |
 
-`erp-app`, `erp_kitchen_display` et `erp_self_order` (en mode kiosque) s'abonnent au serveur
-`reverb` via Laravel Echo pour se synchroniser en temps réel entre eux. Le mode QR
-d'`erp_self_order`, lui, n'a besoin d'aucune authentification — un client anonyme scanne un code
-et compose sa commande depuis son propre téléphone.
+`erp_self_order` n'a besoin d'aucune authentification — un client anonyme scanne un code et
+compose sa commande depuis son propre téléphone. C'est précisément pour ça que le mode kiosque vit
+dans une app séparée, `erp_kiosk` : le bundle servi à un appareil client ne doit jamais contenir de
+code d'authentification/caisse. L'écran de suivi des commandes vit lui aussi dans `erp_kiosk` (les
+numéros affichés viennent des tickets kiosque, voir plus bas), même s'il ne demande pas
+d'authentification. `erp-app`, `erp_kitchen_display` et `erp_kiosk` s'abonnent au serveur `reverb`
+via Laravel Echo pour se synchroniser en temps réel entre eux.
 
 Adminer (client web MySQL) tourne aussi via `docker-compose.yml`, sur le port 19080.
 
@@ -51,13 +56,14 @@ docker compose up -d --build
 - Validation événement (`erp_validate_event`) : http://localhost:19003
 - Kitchen display (`erp_kitchen_display`) : http://localhost:19005
 - Self-order (`erp_self_order`) : http://localhost:19006
+- Kiosk (`erp_kiosk`) : http://localhost:19007
 - Adminer : http://localhost:19080
 
 Identifiants admin par défaut (`.env`) : `admin` / `password`. Mettre `DEMO=true` dans `.env`
 avant le premier démarrage pour peupler un plan de salle, des clients et un catalogue produit de
 démonstration.
 
-**Piège connu** : `erp-api` n'a aucun bind mount (contrairement aux 4 apps Angular, rechargées à
+**Piège connu** : `erp-api` n'a aucun bind mount (contrairement aux 5 apps Angular, rechargées à
 chaud) — toute modification côté API nécessite `docker compose build api reverb && docker compose
 up -d api reverb`.
 
@@ -70,8 +76,10 @@ Trois familles d'abonnés :
 
 - `erp_kitchen_display` : refetch générique de la liste des commandes à chaque événement.
 - `erp-app` POS - Restaurant : synchronise plusieurs postes ouverts sur la même salle/commande.
-- `erp_self_order` (mode kiosque + écran "suivi des commandes") : même canal public, sans
-  authentification — juste des numéros de ticket déjà remis au client, rien de sensible.
+- `erp_kiosk` (écran "suivi des commandes") : même canal public, sans authentification pour cette
+  page précise — juste des numéros de ticket déjà remis au client, rien de sensible. Le reste de
+  `erp_kiosk` (login, setup, commande) n'écoute pas ce canal : il crée la commande et l'encaisse en
+  une seule requête, sans avoir à refléter son état ensuite.
 
 ---
 
@@ -193,8 +201,11 @@ Sélection d'une date d'événement, puis validation des places par scan du QR c
 
 ## `erp_self_order` — commande en libre-service
 
-La grosse nouveauté de ce projet : permettre à un client de commander lui-même, de deux façons
-différentes.
+La grosse nouveauté de ce projet : permettre à un client de commander lui-même. Cette app est
+volontairement limitée au mode QR — 100% public, aucune authentification, aucun encaissement :
+c'est la seule surface exposée à un appareil client non maîtrisé (le téléphone personnel qui
+scanne le QR), donc le mode kiosque (staff authentifié, caisse) vit dans une app séparée,
+[`erp_kiosk`](#erp_kiosk--kiosque-de-commande-self-service).
 
 ### Mode QR (client anonyme, pas de paiement)
 
@@ -222,7 +233,14 @@ apparaît donc immédiatement en cuisine sans qu'un serveur ait à cliquer "Vali
 **Le client ne paie jamais en mode QR** : un serveur encaisse ensuite depuis Gestion des commandes,
 une fois le repas terminé.
 
-### Mode kiosque (paiement immédiat, comme un fast-food)
+---
+
+## `erp_kiosk` — kiosque de commande self-service
+
+App dédiée au mode kiosque (paiement immédiat, comme un fast-food) — séparée d'`erp_self_order`
+pour que le code d'authentification et d'encaissement ne soit jamais servi à un appareil client
+(voir la note en tête de la section précédente). Les captures ci-dessous datent d'avant la
+séparation des deux apps, mais l'écran affiché est resté identique.
 
 Un membre du personnel configure le kiosque une fois par service : connexion (scan badge ou
 clavier visuel)...
@@ -252,8 +270,10 @@ automatique à un panier vide 5 secondes plus tard, pour le client suivant) :
 
 ![Ticket kiosque](screenshots/self-order-11-kiosk-ticket.png)
 
-Un écran public "suivi des commandes" (pensé pour un moniteur près du comptoir) affiche en direct
-les numéros en préparation et ceux prêts à récupérer :
+Un écran public "suivi des commandes" (pensé pour un moniteur près du comptoir, sans
+authentification) affiche en direct les numéros en préparation et ceux prêts à récupérer — les
+numéros affichés sont ceux des tickets kiosque (voir ci-dessus), pas des commandes QR
+d'`erp_self_order` qui ne sont jamais numérotées :
 
 ![Suivi des commandes](screenshots/self-order-12-suivi-commandes.png)
 

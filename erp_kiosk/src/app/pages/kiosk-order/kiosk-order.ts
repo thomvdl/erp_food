@@ -109,7 +109,7 @@ export class KioskOrder implements OnInit, OnDestroy {
     }).subscribe({
       next: ({ products, catalogs, paymentMethods, session }) => {
         if (!session) {
-          this.router.navigateByUrl('/kiosk/setup');
+          this.router.navigateByUrl('/setup');
           return;
         }
         this.cashSessionId = session.id;
@@ -250,7 +250,7 @@ export class KioskOrder implements OnInit, OnDestroy {
   }
 
   goToSetup(): void {
-    this.router.navigateByUrl('/kiosk/setup');
+    this.router.navigateByUrl('/setup');
   }
 
   ngOnDestroy(): void {

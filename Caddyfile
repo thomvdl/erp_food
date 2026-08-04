@@ -1,0 +1,31 @@
+{
+	email {$ACME_EMAIL}
+}
+
+api.{$DOMAIN} {
+	reverse_proxy api:80
+}
+
+app.{$DOMAIN} {
+	reverse_proxy app:80
+}
+
+kiosk.{$DOMAIN} {
+	reverse_proxy kiosk:80
+}
+
+self-order.{$DOMAIN} {
+	reverse_proxy self_order:80
+}
+
+kitchen.{$DOMAIN} {
+	reverse_proxy kitchen_display:80
+}
+
+validate-event.{$DOMAIN} {
+	reverse_proxy validate_event:80
+}
+
+ws.{$DOMAIN} {
+	reverse_proxy reverb:8080
+}

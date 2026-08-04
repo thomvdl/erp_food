@@ -66,7 +66,7 @@ export class KioskSetup implements OnInit {
   }
 
   startKiosk(): void {
-    this.router.navigateByUrl('/kiosk');
+    this.router.navigateByUrl('/');
   }
 
   logout(): void {
