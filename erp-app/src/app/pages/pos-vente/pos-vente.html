@@ -7,9 +7,16 @@
     </div>
     <div style="display: flex; gap: var(--space-3)">
       <button type="button" class="btn btn-outline" (click)="printTicket()">🖨️ Imprimer</button>
+      <button type="button" class="btn btn-outline" [disabled]="printingThermal()" (click)="printThermal()">
+        {{ printingThermal() ? 'Impression...' : thermalPrinted() ? '✓ Envoyé à l\'imprimante' : '🧾 Imprimante thermique' }}
+      </button>
       <button type="button" class="btn btn-primary" (click)="newSale()">Nouvelle vente</button>
     </div>
   </div>
+
+  @if (error()) {
+    <p class="error-text">{{ error() }}</p>
+  }
 
   <app-ticket-receipt class="card card-body ticket-print ticket-receipt" style="max-width: 380px" [ticket]="ticket" />
 } @else {

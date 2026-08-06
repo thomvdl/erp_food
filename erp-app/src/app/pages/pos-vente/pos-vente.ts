@@ -74,6 +74,8 @@ export class PosVente {
   /** Ticket payé affiché en plein écran après encaissement (voir order-builder.ts, même
    *  pattern) — reste posé le temps que le vendeur imprime, jusqu'à "Nouvelle vente". */
   readonly paidTicket = signal<Ticket | null>(null);
+  readonly printingThermal = signal(false);
+  readonly thermalPrinted = signal(false);
 
   private readonly clientSearch$ = new Subject<string>();
 
@@ -406,10 +408,32 @@ export class PosVente {
     window.print();
   }
 
+  printThermal(): void {
+    const ticket = this.paidTicket();
+    if (!ticket || this.printingThermal()) {
+      return;
+    }
+
+    this.printingThermal.set(true);
+    this.error.set(null);
+    this.ticketService.printThermal(ticket.id).subscribe({
+      next: () => {
+        this.printingThermal.set(false);
+        this.thermalPrinted.set(true);
+      },
+      error: (err) => {
+        this.printingThermal.set(false);
+        const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
+        this.error.set((messages?.length ? messages.join(' ') : err.error?.message) ?? "Impossible d'imprimer sur l'imprimante thermique.");
+      },
+    });
+  }
+
   /** Referme l'écran de confirmation pour repartir sur une vente vide — clearSale() a déjà vidé
    *  panier/paiements/client au moment du paiement, il ne reste que paidTicket à effacer. */
   newSale(): void {
     this.paidTicket.set(null);
+    this.thermalPrinted.set(false);
   }
 
   private resetPaymentsOnCartChange(): void {

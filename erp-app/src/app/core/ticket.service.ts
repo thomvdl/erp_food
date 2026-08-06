@@ -26,4 +26,10 @@ export class TicketService {
   sendEmail(id: number): Observable<void> {
     return this.http.post<void>(`${API_URL}/tickets/${id}/send-email`, {});
   }
+
+  /** Impression sur l'imprimante thermique réseau configurée (voir TicketController::printThermal
+   *  / App\Support\ThermalReceipt) — distinct de window.print() (navigateur, sans matériel requis). */
+  printThermal(id: number): Observable<void> {
+    return this.http.post<void>(`${API_URL}/tickets/${id}/print-thermal`, {});
+  }
 }

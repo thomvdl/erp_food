@@ -92,6 +92,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('tickets', [TicketController::class, 'store']);
     Route::get('tickets/{ticket}', [TicketController::class, 'show']);
     Route::post('tickets/{ticket}/send-email', [TicketController::class, 'sendEmail']);
+    Route::post('tickets/{ticket}/print-thermal', [TicketController::class, 'printThermal']);
     Route::apiResource('events', EventController::class);
     Route::get('event-dates', [EventDateController::class, 'index']);
     Route::post('events/{event}/dates', [EventDateController::class, 'store']);

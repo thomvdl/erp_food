@@ -26,6 +26,9 @@ export class TicketDetail {
   readonly sendingEmail = signal(false);
   readonly emailSent = signal(false);
 
+  readonly printingThermal = signal(false);
+  readonly thermalPrinted = signal(false);
+
   readonly formatMoney = formatMoney;
   readonly formatTicketDate = formatTicketDate;
   readonly ticketTotal = ticketTotal;
@@ -73,6 +76,27 @@ export class TicketDetail {
       error: () => {
         this.sendingEmail.set(false);
         this.error.set("Impossible d'envoyer le ticket par email.");
+      },
+    });
+  }
+
+  printThermal(): void {
+    const ticket = this.ticket();
+    if (!ticket || this.printingThermal()) {
+      return;
+    }
+
+    this.printingThermal.set(true);
+    this.error.set(null);
+    this.ticketService.printThermal(ticket.id).subscribe({
+      next: () => {
+        this.printingThermal.set(false);
+        this.thermalPrinted.set(true);
+      },
+      error: (err) => {
+        this.printingThermal.set(false);
+        const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
+        this.error.set((messages?.length ? messages.join(' ') : err.error?.message) ?? "Impossible d'imprimer sur l'imprimante thermique.");
       },
     });
   }

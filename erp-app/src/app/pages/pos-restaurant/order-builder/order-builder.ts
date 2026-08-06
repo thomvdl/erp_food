@@ -11,6 +11,7 @@ import { ProductService } from '../../../core/product.service';
 import { ProductCatalogService } from '../../../core/product-catalog.service';
 import { PaymentMethodService } from '../../../core/payment-method.service';
 import { ClientService } from '../../../core/client.service';
+import { TicketService } from '../../../core/ticket.service';
 import { ActiveCashierService } from '../../../core/active-cashier.service';
 import { RoomService } from '../../../core/room.service';
 import { Order, OrderLine, OrderSection } from '../../../core/models/order.model';
@@ -60,6 +61,7 @@ export class OrderBuilder implements OnDestroy {
   private readonly catalogService = inject(ProductCatalogService);
   private readonly paymentMethodService = inject(PaymentMethodService);
   private readonly clientService = inject(ClientService);
+  private readonly ticketService = inject(TicketService);
   readonly activeCashierService = inject(ActiveCashierService);
   private readonly kitchenEcho = inject(KitchenEchoService);
   private readonly roomService = inject(RoomService);
@@ -132,6 +134,8 @@ export class OrderBuilder implements OnDestroy {
   readonly paymentLines = signal<PaymentLine[]>([]);
   readonly paying = signal(false);
   readonly paidTicket = signal<Ticket | null>(null);
+  readonly printingThermal = signal(false);
+  readonly thermalPrinted = signal(false);
 
   readonly clientSearch = signal('');
   readonly clientResults = signal<Client[]>([]);
@@ -583,6 +587,27 @@ export class OrderBuilder implements OnDestroy {
 
   printTicket(): void {
     window.print();
+  }
+
+  printThermal(): void {
+    const ticket = this.paidTicket();
+    if (!ticket || this.printingThermal()) {
+      return;
+    }
+
+    this.printingThermal.set(true);
+    this.error.set(null);
+    this.ticketService.printThermal(ticket.id).subscribe({
+      next: () => {
+        this.printingThermal.set(false);
+        this.thermalPrinted.set(true);
+      },
+      error: (err) => {
+        this.printingThermal.set(false);
+        const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
+        this.error.set((messages?.length ? messages.join(' ') : err.error?.message) ?? "Impossible d'imprimer sur l'imprimante thermique.");
+      },
+    });
   }
 
   goToTableSelect(): void {

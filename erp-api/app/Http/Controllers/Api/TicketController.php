@@ -9,10 +9,12 @@ use App\Models\Product;
 use App\Models\Ticket;
 use App\Models\TicketPayment;
 use App\Models\TicketSection;
+use App\Support\ThermalReceipt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class TicketController extends Controller
 {
@@ -139,6 +141,26 @@ class TicketController extends Controller
         }
 
         Mail::to($ticket->client->email)->send(new TicketMail($ticket));
+
+        return response()->noContent();
+    }
+
+    /**
+     * Impression directe sur l'imprimante thermique réseau configurée (voir
+     * App\Support\ThermalReceipt / config/printer.php) — en plus de l'impression navigateur
+     * existante (window.print() côté front), qui reste utilisable sans aucun matériel.
+     */
+    public function printThermal(Ticket $ticket)
+    {
+        $ticket->load(self::WITH);
+
+        try {
+            ThermalReceipt::print($ticket);
+        } catch (Throwable $e) {
+            throw ValidationException::withMessages([
+                'printer' => ["Impression impossible : {$e->getMessage()}"],
+            ]);
+        }
 
         return response()->noContent();
     }
