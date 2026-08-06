@@ -236,12 +236,6 @@
               <span>👤 {{ client.firstname }} {{ client.lastname }}</span>
               <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="clearClient()">✕</button>
             </div>
-            @if (client.email) {
-              <label class="checkbox-field text-sm">
-                <input type="checkbox" [ngModel]="sendEmailOnPay()" (ngModelChange)="sendEmailOnPay.set($event)" />
-                Envoyer le ticket par email à {{ client.email }}
-              </label>
-            }
           } @else {
             <div class="pos-client__search">
               <input

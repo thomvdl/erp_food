@@ -54,6 +54,7 @@
                 </p>
             </td>
         </tr>
+        @include('emails.partials.company-footer')
     </table>
 </body>
 </html>

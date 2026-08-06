@@ -110,6 +110,12 @@ export class EventDashboard implements OnDestroy {
     return limit === null || limit === undefined ? null : Math.max(limit - this.tickets().length, 0);
   });
 
+  /** Une salle attachée à l'occurrence (room_id non null) impose de choisir une place sur le
+   *  plan avant de valider — voir submitValidation(). Ne concerne que ce dashboard : l'API
+   *  (EventTicketController::validateCode) garde table_id nullable pour erp_validate_event, qui
+   *  valide d'abord puis assigne une place séparément via assignTable. */
+  readonly isStrictPlacement = computed(() => this.eventDate()?.room_id != null);
+
   constructor() {
     this.eventDateService.get(this.eventDateId).subscribe((eventDate) => {
       this.eventDate.set(eventDate);
@@ -340,6 +346,11 @@ export class EventDashboard implements OnDestroy {
 
   submitValidation(): void {
     if (!this.code().trim()) {
+      return;
+    }
+
+    if (this.isStrictPlacement() && this.selectedTableId() === null) {
+      this.validateError.set('Sélectionne une place libre sur le plan avant de valider.');
       return;
     }
 

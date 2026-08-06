@@ -21,4 +21,9 @@ export class TicketService {
   create(payload: CreateTicketPayload): Observable<Ticket> {
     return this.http.post<Ticket>(`${API_URL}/tickets`, payload);
   }
+
+  /** Envoi (ou renvoi) du ticket par email au client — voir TicketController::sendEmail. */
+  sendEmail(id: number): Observable<void> {
+    return this.http.post<void>(`${API_URL}/tickets/${id}/send-email`, {});
+  }
 }

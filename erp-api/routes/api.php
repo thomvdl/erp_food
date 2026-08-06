@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CashSessionController;
 use App\Http\Controllers\Api\ClientController;
+use App\Http\Controllers\Api\CompanyController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\EventDateController;
 use App\Http\Controllers\Api\EventTicketController;
@@ -56,6 +57,7 @@ Route::get('kiosk-orders/status', [KioskOrderController::class, 'status']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('auth/me', [AuthController::class, 'me']);
+    Route::get('company', [CompanyController::class, 'show']);
 
     // ->except(['destroy']) sur product-categories/product-catalogs/roles/users/rooms/
     // rooms.tables/stations/taxes : "ne plus avoir la possibilité de supprimer... ajouter un
@@ -89,6 +91,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('tickets', [TicketController::class, 'index']);
     Route::post('tickets', [TicketController::class, 'store']);
     Route::get('tickets/{ticket}', [TicketController::class, 'show']);
+    Route::post('tickets/{ticket}/send-email', [TicketController::class, 'sendEmail']);
     Route::apiResource('events', EventController::class);
     Route::get('event-dates', [EventDateController::class, 'index']);
     Route::post('events/{event}/dates', [EventDateController::class, 'store']);

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\TicketMail;
 use App\Models\CashSession;
 use App\Models\Product;
 use App\Models\Ticket;
@@ -10,6 +11,7 @@ use App\Models\TicketPayment;
 use App\Models\TicketSection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 class TicketController extends Controller
@@ -118,5 +120,26 @@ class TicketController extends Controller
         });
 
         return response()->json($ticket->load(self::WITH), 201);
+    }
+
+    /**
+     * Envoi (ou renvoi) du ticket par email à la demande, depuis la page ticket — plutôt qu'une
+     * case à cocher au moment du paiement (UX jugée peu claire : le staff doit pouvoir déclencher
+     * l'envoi après coup, pour n'importe quel ticket ayant un client avec email, quel que soit son
+     * canal de vente d'origine — restaurant, vente directe, self-order ou kiosque).
+     */
+    public function sendEmail(Ticket $ticket)
+    {
+        $ticket->load(self::WITH);
+
+        if (!$ticket->client?->email) {
+            throw ValidationException::withMessages([
+                'client' => ['Ce ticket n\'a pas de client avec une adresse email.'],
+            ]);
+        }
+
+        Mail::to($ticket->client->email)->send(new TicketMail($ticket));
+
+        return response()->noContent();
     }
 }

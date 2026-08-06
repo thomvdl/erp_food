@@ -35,6 +35,7 @@
                 <p style="color: #7c7b76; font-size: 13px;">Un code = une place, valable une seule fois.</p>
             </td>
         </tr>
+        @include('emails.partials.company-footer')
     </table>
 </body>
 </html>

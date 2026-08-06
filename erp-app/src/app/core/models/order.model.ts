@@ -42,7 +42,6 @@ export interface OpenOrderPayload {
 export interface PayOrderPayload {
   client_id: number | null;
   cash_session_id?: number | null;
-  send_email?: boolean;
   payments: { payment_method_id: number; value: number }[];
 }
 

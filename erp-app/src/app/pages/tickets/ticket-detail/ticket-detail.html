@@ -3,8 +3,15 @@
     <a routerLink="/tickets" class="text-muted text-sm">← Retour aux tickets</a>
     <h1 class="text-2xl">Ticket @if (ticket(); as ticket) {#{{ ticket.id }}}</h1>
   </div>
-  @if (ticket()) {
-    <button type="button" class="btn btn-outline" (click)="print()">🖨️ Réimprimer</button>
+  @if (ticket(); as ticket) {
+    <div style="display: flex; gap: var(--space-3)">
+      @if (ticket.client?.email) {
+        <button type="button" class="btn btn-outline" [disabled]="sendingEmail()" (click)="sendEmail()">
+          {{ sendingEmail() ? 'Envoi...' : emailSent() ? '✓ Email envoyé' : '✉️ Envoyer par email' }}
+        </button>
+      }
+      <button type="button" class="btn btn-outline" (click)="print()">🖨️ Réimprimer</button>
+    </div>
   }
 </div>
 

@@ -23,6 +23,9 @@ export class TicketDetail {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
 
+  readonly sendingEmail = signal(false);
+  readonly emailSent = signal(false);
+
   readonly formatMoney = formatMoney;
   readonly formatTicketDate = formatTicketDate;
   readonly ticketTotal = ticketTotal;
@@ -52,5 +55,25 @@ export class TicketDetail {
 
   print(): void {
     window.print();
+  }
+
+  sendEmail(): void {
+    const ticket = this.ticket();
+    if (!ticket || this.sendingEmail()) {
+      return;
+    }
+
+    this.sendingEmail.set(true);
+    this.error.set(null);
+    this.ticketService.sendEmail(ticket.id).subscribe({
+      next: () => {
+        this.sendingEmail.set(false);
+        this.emailSent.set(true);
+      },
+      error: () => {
+        this.sendingEmail.set(false);
+        this.error.set("Impossible d'envoyer le ticket par email.");
+      },
+    });
   }
 }

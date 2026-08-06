@@ -4,14 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Events\OrderKitchenUpdated;
 use App\Http\Controllers\Controller;
-use App\Mail\TicketMail;
 use App\Models\CashSession;
 use App\Models\Order;
 use App\Models\Ticket;
 use App\Models\TicketPayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -134,16 +132,16 @@ class OrderController extends Controller
      * au front. "Quand une order est payée elle devient un ticket" (étape 6) : les OrderSection
      * deviennent des TicketSection 1:1 (même nom, l'état de la section n'a plus de sens une fois
      * payé donc pas reporté), la commande est ensuite supprimée pour libérer la table (cascade
-     * sections/lignes, comme ::destroy). "Envoyer par email si un client est sélectionné" (étape
-     * 6) : `send_email` + `client_id` viennent du payload, pas de l'Order (qui n'a jamais de
-     * client attaché avant ce moment — sélectionné à l'instant du paiement, même UX que pos-vente).
+     * sections/lignes, comme ::destroy). `client_id` vient du payload, pas de l'Order (qui n'a
+     * jamais de client attaché avant ce moment — sélectionné à l'instant du paiement, même UX que
+     * pos-vente). L'envoi du ticket par email, lui, se fait après coup depuis la page ticket (voir
+     * TicketController::sendEmail), pas ici.
      */
     public function pay(Request $request, Order $order)
     {
         $data = $request->validate([
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'cash_session_id' => ['required', 'integer', 'exists:cash_sessions,id'],
-            'send_email' => ['nullable', 'boolean'],
             'payments' => ['required', 'array', 'min:1'],
             'payments.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'payments.*.value' => ['required', 'numeric', 'min:0.01'],
@@ -224,12 +222,6 @@ class OrderController extends Controller
 
         event(new OrderKitchenUpdated($order->id));
 
-        $ticket->load(['client', 'table', 'sections.lines.product.tax', 'payments.paymentMethod']);
-
-        if (($data['send_email'] ?? false) && $ticket->client?->email) {
-            Mail::to($ticket->client->email)->send(new TicketMail($ticket));
-        }
-
-        return response()->json($ticket, 201);
+        return response()->json($ticket->load(['client', 'table', 'sections.lines.product.tax', 'payments.paymentMethod']), 201);
     }
 }

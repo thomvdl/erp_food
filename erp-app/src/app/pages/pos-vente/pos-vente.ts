@@ -11,6 +11,7 @@ import { ActiveCashierService } from '../../core/active-cashier.service';
 import { Product } from '../../core/models/product.model';
 import { ProductCategory } from '../../core/models/catalog.model';
 import { Client, PaymentMethod, Ticket } from '../../core/models/ticket.model';
+import { TicketReceipt } from '../../shared/ticket-receipt/ticket-receipt';
 
 interface CartLine {
   product: Product;
@@ -35,7 +36,7 @@ const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜
 @Component({
   selector: 'app-pos-vente',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, TicketReceipt],
   templateUrl: './pos-vente.html',
 })
 export class PosVente {
@@ -69,7 +70,10 @@ export class PosVente {
 
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
-  readonly success = signal<string | null>(null);
+
+  /** Ticket payé affiché en plein écran après encaissement (voir order-builder.ts, même
+   *  pattern) — reste posé le temps que le vendeur imprime, jusqu'à "Nouvelle vente". */
+  readonly paidTicket = signal<Ticket | null>(null);
 
   private readonly clientSearch$ = new Subject<string>();
 
@@ -374,7 +378,6 @@ export class PosVente {
     }
 
     this.error.set(null);
-    this.success.set(null);
     this.submitting.set(true);
 
     this.ticketService
@@ -388,9 +391,8 @@ export class PosVente {
         next: (ticket: Ticket) => {
           this.submitting.set(false);
           this.showPaymentModal.set(false);
-          this.success.set(`Vente enregistrée — ticket #${ticket.id} (${this.formatMoney(this.cartTotal())})`);
+          this.paidTicket.set(ticket);
           this.clearSale();
-          setTimeout(() => this.success.set(null), 5000);
         },
         error: (err) => {
           this.submitting.set(false);
@@ -398,6 +400,16 @@ export class PosVente {
           this.error.set(messages?.length ? messages.join(' ') : err.error?.message ?? "Impossible d'enregistrer la vente.");
         },
       });
+  }
+
+  printTicket(): void {
+    window.print();
+  }
+
+  /** Referme l'écran de confirmation pour repartir sur une vente vide — clearSale() a déjà vidé
+   *  panier/paiements/client au moment du paiement, il ne reste que paidTicket à effacer. */
+  newSale(): void {
+    this.paidTicket.set(null);
   }
 
   private resetPaymentsOnCartChange(): void {

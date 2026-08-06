@@ -56,6 +56,7 @@
                 <p style="color: #7c7b76; font-size: 13px; margin-top: 24px;">Merci de votre visite !</p>
             </td>
         </tr>
+        @include('emails.partials.company-footer')
     </table>
 </body>
 </html>

@@ -1,4 +1,6 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, inject, signal } from '@angular/core';
+import { CompanyService } from '../../core/company.service';
+import { Company } from '../../core/models/company.model';
 import { Ticket } from '../../core/models/ticket.model';
 import {
   formatMoney,
@@ -29,7 +31,17 @@ import {
   host: { style: 'display: block' },
 })
 export class TicketReceipt {
+  private readonly companyService = inject(CompanyService);
+
   @Input({ required: true }) ticket!: Ticket;
+
+  /** Coordonnées de l'établissement affichées en en-tête du reçu (voir CompanyController) —
+   *  null tant que non chargées, le template retombe alors sur le nom du logiciel. */
+  readonly company = signal<Company | null>(null);
+
+  constructor() {
+    this.companyService.get().subscribe((company) => this.company.set(company));
+  }
 
   readonly formatMoney = formatMoney;
   readonly formatTicketDate = formatTicketDate;

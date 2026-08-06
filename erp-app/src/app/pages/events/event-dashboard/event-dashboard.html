@@ -164,7 +164,12 @@
           />
         </label>
 
-        <button type="button" class="btn btn-primary" [disabled]="!code().trim() || validating()" (click)="submitValidation()">
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="!code().trim() || validating() || (isStrictPlacement() && selectedTableId() === null)"
+          (click)="submitValidation()"
+        >
           {{ validating() ? 'Validation…' : 'Valider' }}
         </button>
 
@@ -189,7 +194,7 @@
 
       @if (eventDate()?.room_id) {
         @if (selectedTableId() === null) {
-          <p class="text-muted text-sm">Placement strict : sélectionne une place libre sur le plan avant de valider (optionnel).</p>
+          <p class="text-muted text-sm">Placement strict : sélectionne une place libre sur le plan avant de pouvoir valider.</p>
         } @else {
           <p class="text-sm">
             Place sélectionnée : <strong>{{ selectedTableLabel() }}</strong>

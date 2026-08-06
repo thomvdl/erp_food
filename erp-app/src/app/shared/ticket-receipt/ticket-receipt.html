@@ -1,4 +1,18 @@
-<p class="ticket-receipt__brand">ERP<span>v2</span></p>
+@if (company(); as c) {
+  @if (c.name) {
+    <p class="ticket-receipt__brand">{{ c.name }}</p>
+  } @else {
+    <p class="ticket-receipt__brand">ERP<span>v2</span></p>
+  }
+  @if (c.address) {
+    <p class="ticket-receipt__center text-xs">{{ c.address }}</p>
+  }
+  @if (c.phone) {
+    <p class="ticket-receipt__center text-xs">{{ c.phone }}</p>
+  }
+} @else {
+  <p class="ticket-receipt__brand">ERP<span>v2</span></p>
+}
 
 <p class="ticket-receipt__center text-xs" style="margin-top: var(--space-4)">
   Ticket n°{{ ticket.id }} du {{ formatTicketDate(ticket.paid_at) }}

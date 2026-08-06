@@ -141,7 +141,6 @@ export class OrderBuilder implements OnDestroy {
   readonly newClientLastname = signal('');
   readonly newClientPhone = signal('');
   readonly savingClient = signal(false);
-  readonly sendEmailOnPay = signal(true);
 
   readonly enteringMethod = signal<PaymentMethod | null>(null);
   readonly keypadBuffer = signal('');
@@ -566,7 +565,6 @@ export class OrderBuilder implements OnDestroy {
       .pay(order.id, {
         client_id: this.selectedClient()?.id ?? null,
         cash_session_id: this.activeCashierService.activeSession()?.id ?? null,
-        send_email: this.sendEmailOnPay() && !!this.selectedClient(),
         payments: this.paymentLines().map((line) => ({ payment_method_id: line.method.id, value: line.value })),
       })
       .subscribe({

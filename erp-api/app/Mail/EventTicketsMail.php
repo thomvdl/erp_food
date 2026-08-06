@@ -4,9 +4,11 @@ namespace App\Mail;
 
 use App\Models\EventDate;
 use App\Models\EventTicket;
+use App\Support\EventIcs;
 use App\Support\Qr;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -49,6 +51,19 @@ class EventTicketsMail extends Mailable
     public function content(): Content
     {
         return new Content(view: 'emails.event-tickets');
+    }
+
+    /**
+     * Un seul .ics pour toutes les places de cette vente (même date/heure) — voir EventIcs, même
+     * principe que BookingConfirmationMail pour les réservations.
+     */
+    public function attachments(): array
+    {
+        $codes = array_column($this->tickets, 'code');
+
+        return [
+            Attachment::fromData(fn () => EventIcs::build($this->eventDate, $codes), 'evenement.ics')->withMime('text/calendar'),
+        ];
     }
 
     private function buildQrDataUri(string $code): string
