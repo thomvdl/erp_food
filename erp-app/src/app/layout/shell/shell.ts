@@ -43,6 +43,7 @@ export class Shell {
     { icon: '📋', label: 'Gestion des commandes', path: '/commandes' },
     { icon: '🧾', label: 'Gestion des tickets', path: '/tickets' },
     { icon: '🍔', label: 'Gestion des produits', path: '/produits' },
+    { icon: '👤', label: 'Gestion des clients', path: '/clients' },
     { icon: '⚙️', label: 'Paramètres', path: '/parametres' },
   ];
 

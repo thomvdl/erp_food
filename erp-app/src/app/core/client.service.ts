@@ -5,12 +5,20 @@ import { API_URL } from './api-config';
 import { Client } from './models/ticket.model';
 
 /**
- * Pas de CRUD complet côté API pour l'instant (voir ClientController) — juste ce qu'il faut
- * pour le sélecteur client du POS Vente directe : recherche libre + création rapide.
+ * Double usage (voir ClientController) : sélecteur client du POS Vente directe (recherche libre
+ * + création rapide) ET page Paramètres > Gestion des clients (CRUD complet).
  */
 @Injectable({ providedIn: 'root' })
 export class ClientService {
   private readonly http = inject(HttpClient);
+
+  list(): Observable<Client[]> {
+    return this.http.get<Client[]>(`${API_URL}/clients`);
+  }
+
+  get(id: number): Observable<Client> {
+    return this.http.get<Client>(`${API_URL}/clients/${id}`);
+  }
 
   search(query: string): Observable<Client[]> {
     return this.http.get<Client[]>(`${API_URL}/clients`, { params: { q: query } });
@@ -18,5 +26,16 @@ export class ClientService {
 
   create(payload: Pick<Client, 'firstname' | 'lastname'> & Partial<Pick<Client, 'email' | 'phone'>>): Observable<Client> {
     return this.http.post<Client>(`${API_URL}/clients`, payload);
+  }
+
+  update(
+    id: number,
+    payload: Pick<Client, 'firstname' | 'lastname'> & Partial<Pick<Client, 'email' | 'phone'>>,
+  ): Observable<Client> {
+    return this.http.put<Client>(`${API_URL}/clients/${id}`, payload);
+  }
+
+  remove(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/clients/${id}`);
   }
 }

@@ -1,0 +1,47 @@
+<div class="app-topbar">
+  <h1 class="text-2xl">Gestion des clients</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+<div class="field" style="max-width: 280px">
+  <label for="name-filter">Rechercher par nom ou email</label>
+  <input
+    id="name-filter"
+    class="input"
+    type="text"
+    placeholder="Nom du client…"
+    [ngModel]="nameFilter()"
+    (ngModelChange)="nameFilter.set($event)"
+  />
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Email</th>
+          <th>Téléphone</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (client of filteredClients(); track client.id) {
+          <tr>
+            <td>{{ client.firstname }} {{ client.lastname }}</td>
+            <td class="text-muted">{{ client.email ?? '—' }}</td>
+            <td class="text-muted">{{ client.phone ?? '—' }}</td>
+            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
+              <a class="btn btn-outline btn-sm" [routerLink]="[client.id]">Modifier</a>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4" class="text-muted">Aucun client pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

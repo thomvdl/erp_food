@@ -84,8 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('passes', PasseController::class)->parameters(['passes' => 'passe'])->except(['destroy']);
     Route::apiResource('taxes', TaxController::class)->except(['destroy']);
     Route::apiResource('products', ProductController::class);
-    Route::get('clients', [ClientController::class, 'index']);
-    Route::post('clients', [ClientController::class, 'store']);
+    Route::apiResource('clients', ClientController::class);
     Route::get('payment-methods', [PaymentMethodController::class, 'index']);
     Route::get('tickets', [TicketController::class, 'index']);
     Route::post('tickets', [TicketController::class, 'store']);

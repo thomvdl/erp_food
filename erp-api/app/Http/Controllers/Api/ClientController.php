@@ -9,8 +9,9 @@ use Illuminate\Http\Request;
 class ClientController extends Controller
 {
     /**
-     * Utilisé par le sélecteur client du POS Vente directe : recherche libre sur
-     * prénom/nom/email/téléphone, résultats limités (pas une page CRUD complète pour l'instant).
+     * Double usage : sélecteur client du POS Vente directe (recherche libre `q` sur
+     * prénom/nom/email/téléphone, résultats limités à 20) ET page Paramètres > Gestion des
+     * clients (pas de `q` => liste complète, sans limite).
      */
     public function index(Request $request)
     {
@@ -22,24 +23,50 @@ class ClientController extends Controller
                     ->orWhere('lastname', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
                     ->orWhere('phone', 'like', "%{$search}%");
-            });
+            })->limit(20);
         }
 
-        return $query->orderBy('lastname')->limit(20)->get();
+        return $query->orderBy('lastname')->get();
     }
 
     /**
-     * Création rapide depuis le POS ("+ Nouveau client") — pas de page Client dédiée pour l'instant.
+     * Utilisé à la fois par la création rapide depuis le POS ("+ Nouveau client") et par la page
+     * Gestion des clients.
      */
     public function store(Request $request)
     {
-        $data = $request->validate([
+        return response()->json(Client::query()->create($this->validated($request)), 201);
+    }
+
+    public function show(Client $client)
+    {
+        return $client;
+    }
+
+    public function update(Request $request, Client $client)
+    {
+        $client->update($this->validated($request));
+
+        return $client;
+    }
+
+    public function destroy(Client $client)
+    {
+        $client->delete();
+
+        return response()->noContent();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validated(Request $request): array
+    {
+        return $request->validate([
             'firstname' => ['required', 'string', 'max:255'],
             'lastname' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
         ]);
-
-        return response()->json(Client::query()->create($data), 201);
     }
 }

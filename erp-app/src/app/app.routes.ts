@@ -178,6 +178,23 @@ export const routes: Routes = [
         ],
       },
       {
+        path: 'clients',
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./pages/clients/client-list/client-list').then((m) => m.ClientList),
+          },
+          {
+            path: 'nouveau',
+            loadComponent: () => import('./pages/clients/client-form/client-form').then((m) => m.ClientForm),
+          },
+          {
+            path: ':id',
+            loadComponent: () => import('./pages/clients/client-form/client-form').then((m) => m.ClientForm),
+          },
+        ],
+      },
+      {
         path: 'evenements',
         children: [
           {

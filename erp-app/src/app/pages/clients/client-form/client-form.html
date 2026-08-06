@@ -1,0 +1,36 @@
+<a routerLink="/clients" class="back-link">← Clients</a>
+
+<h1 class="text-2xl">{{ isEdit() ? 'Modifier le client' : 'Nouveau client' }}</h1>
+
+<form class="form" (ngSubmit)="submit()">
+  <label class="field">
+    Prénom
+    <input class="input" type="text" name="firstname" [ngModel]="firstname()" (ngModelChange)="firstname.set($event)" required />
+  </label>
+
+  <label class="field">
+    Nom
+    <input class="input" type="text" name="lastname" [ngModel]="lastname()" (ngModelChange)="lastname.set($event)" required />
+  </label>
+
+  <label class="field">
+    Email
+    <input class="input" type="email" name="email" [ngModel]="email()" (ngModelChange)="email.set($event)" />
+  </label>
+
+  <label class="field">
+    Téléphone
+    <input class="input" type="tel" name="phone" [ngModel]="phone()" (ngModelChange)="phone.set($event)" />
+  </label>
+
+  @if (error()) {
+    <p class="error-text">{{ error() }}</p>
+  }
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary" [disabled]="saving()">
+      {{ saving() ? 'Enregistrement...' : 'Enregistrer' }}
+    </button>
+    <a class="btn btn-outline" routerLink="/clients">Annuler</a>
+  </div>
+</form>
