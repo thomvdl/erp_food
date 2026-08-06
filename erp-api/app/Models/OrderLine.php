@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['quantity', 'note', 'product_id', 'order_section_id'])]
+#[Fillable(['quantity', 'note', 'product_id', 'combo_id', 'order_section_id'])]
 class OrderLine extends Model
 {
     /**
@@ -26,6 +26,13 @@ class OrderLine extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /** Combo d'origine si cette ligne vient de l'éclatement d'un combo (voir
+     *  OrderLineController::addCombo) — null pour une ligne ajoutée normalement. */
+    public function combo(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'combo_id');
     }
 
     public function orderSection(): BelongsTo
