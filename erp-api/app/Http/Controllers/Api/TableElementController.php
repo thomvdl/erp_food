@@ -22,6 +22,11 @@ class TableElementController extends Controller
     public function store(Request $request, Room $room)
     {
         $data = $this->validated($request);
+        // Sans ça, "active" (default(true) en base, voir add_active_to_tables_table) est absent
+        // du modèle en mémoire après create() — Eloquent ne relit pas la ligne insérée — et le
+        // JSON renvoyé au front omet le champ, faisant apparaître la table comme inactive dans
+        // l'éditeur de plan juste après son ajout.
+        $data['active'] ??= true;
 
         return response()->json($room->tables()->create($data), 201);
     }

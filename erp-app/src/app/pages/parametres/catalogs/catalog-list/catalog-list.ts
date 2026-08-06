@@ -64,6 +64,21 @@ export class CatalogList {
     });
   }
 
+  activateForSelfOrder(catalog: ProductCatalog): void {
+    if (catalog.active_self_order || this.activating() !== null) {
+      return;
+    }
+
+    this.activating.set(catalog.id);
+    this.catalogService.activateForSelfOrder(catalog.id).subscribe({
+      next: () => {
+        this.activating.set(null);
+        this.refresh();
+      },
+      error: () => this.activating.set(null),
+    });
+  }
+
   private refresh(): void {
     this.catalogService.list().subscribe((catalogs) => this.catalogs.set(catalogs));
   }

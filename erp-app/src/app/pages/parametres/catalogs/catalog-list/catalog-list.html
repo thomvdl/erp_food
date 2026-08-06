@@ -6,7 +6,7 @@
 </div>
 
 <p class="text-muted">
-  Un seul catalogue actif à la fois pour le POS Restaurant, un seul (indépendamment) pour le POS Vente directe, et un seul pour le Kiosque.
+  Un seul catalogue actif à la fois pour le POS Restaurant, un seul (indépendamment) pour le POS Vente directe, un seul pour le Kiosque, et un seul pour la Commande QR.
 </p>
 
 <div class="card">
@@ -19,6 +19,7 @@
           <th>POS Restaurant</th>
           <th>POS Vente directe</th>
           <th>Kiosque</th>
+          <th>Commande QR</th>
           <th></th>
         </tr>
       </thead>
@@ -75,13 +76,27 @@
                 </button>
               }
             </td>
+            <td>
+              @if (catalog.active_self_order) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <button
+                  type="button"
+                  class="btn btn-outline btn-sm"
+                  [disabled]="activating() !== null"
+                  (click)="activateForSelfOrder(catalog)"
+                >
+                  Activer
+                </button>
+              }
+            </td>
             <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
               <a class="btn btn-outline btn-sm" [routerLink]="[catalog.id]">Modifier</a>
             </td>
           </tr>
         } @empty {
           <tr>
-            <td colspan="6" class="text-muted">Aucun catalogue pour le moment.</td>
+            <td colspan="7" class="text-muted">Aucun catalogue pour le moment.</td>
           </tr>
         }
       </tbody>
