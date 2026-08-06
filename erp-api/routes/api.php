@@ -60,65 +60,110 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('auth/me', [AuthController::class, 'me']);
     Route::get('company', [CompanyController::class, 'show']);
 
-    // ->except(['destroy']) sur product-categories/product-catalogs/roles/users/rooms/
+    // Lecture seule (voir RoleController) — les trois rôles sont fixes, plus de create/update.
+    Route::apiResource('roles', RoleController::class)->only(['index', 'show']);
+
+    // Lecture ouverte à tous les rôles authentifiés (POS en a besoin : catalogue, salles pour le
+    // transfert de table, moyens de paiement...) — seules les mutations sont restreintes
+    // ci-dessous (voir Readme.md, "il n'y aura que trois rôles" : admin = Paramètres complets,
+    // superviseur = tout le reste sauf Paramètres, user = juste les POS).
+    Route::get('product-categories', [ProductCategoryController::class, 'index']);
+    Route::get('product-catalogs', [ProductCatalogController::class, 'index']);
+    Route::get('products', [ProductController::class, 'index']);
+    Route::get('products/{product}', [ProductController::class, 'show']);
+    Route::get('rooms', [RoomController::class, 'index']);
+    Route::get('rooms/{room}', [RoomController::class, 'show']);
+    Route::get('rooms/{room}/tables', [TableElementController::class, 'index']);
+    Route::get('stations', [StationController::class, 'index']);
+    Route::get('passes', [PasseController::class, 'index']);
+    Route::get('taxes', [TaxController::class, 'index']);
+    Route::get('payment-methods', [PaymentMethodController::class, 'index']);
+    Route::get('clients', [ClientController::class, 'index']);
+    Route::post('clients', [ClientController::class, 'store']);
+    Route::get('clients/{client}', [ClientController::class, 'show']);
+    // Doit être déclarée AVANT cash-sessions/{cash_session} (dans le groupe superviseur
+    // ci-dessous) : sinon Laravel matche "active" comme si c'était un {cash_session} (premier
+    // enregistré gagne), et ça part en 404 au lieu d'appeler ::active — voir CashSessionController.
+    Route::get('cash-sessions/active', [CashSessionController::class, 'active']);
+
+    // ---- Paramètres (admin uniquement) ----
+    // ->except(['destroy']) sur product-categories/product-catalogs/users/rooms/
     // rooms.tables/stations/taxes : "ne plus avoir la possibilité de supprimer... ajouter un
     // champ active" (voir Readme.md) — le cascade delete sur ces entités très référencées était
     // jugé trop risqué, remplacé par une désactivation (update ordinaire avec active=false).
-    // Passes et products non concernés, hors du périmètre de cette demande.
-    Route::apiResource('product-categories', ProductCategoryController::class)->except(['destroy']);
-    Route::apiResource('product-catalogs', ProductCatalogController::class)->except(['destroy']);
-    Route::post('product-catalogs/{product_catalog}/activate-restaurant', [ProductCatalogController::class, 'activateForRestaurant']);
-    Route::post('product-catalogs/{product_catalog}/activate-direct-sale', [ProductCatalogController::class, 'activateForDirectSale']);
-    Route::post('product-catalogs/{product_catalog}/activate-self-order', [ProductCatalogController::class, 'activateForSelfOrder']);
-    Route::post('product-catalogs/{product_catalog}/activate-kiosk', [ProductCatalogController::class, 'activateForKiosk']);
-    Route::apiResource('roles', RoleController::class)->except(['destroy']);
-    Route::apiResource('users', UserController::class)->except(['destroy']);
-    Route::post('users/{user}/qr-code', [UserController::class, 'generateQrCode']);
-    Route::get('users/{user}/qr', [UserController::class, 'qr']);
-    Route::post('users/{user}/qr-code/email', [UserController::class, 'sendQrEmail']);
-    Route::apiResource('rooms', RoomController::class)->except(['destroy']);
-    Route::apiResource('rooms.tables', TableElementController::class)->shallow()->except(['destroy']);
-    Route::apiResource('stations', StationController::class)->except(['destroy']);
-    // ->parameters(...) : Laravel singularise "passes" en "pass" (anglais) par défaut, alors que
-    // PasseController type-hint `Passe $passe` — sans ce forçage, le binding implicite de route
-    // échoue silencieusement sur show/update/destroy (reçoit une instance vide au lieu du bon
-    // enregistrement, "pass" et "passe" ne correspondant jamais). Repéré via le CRUD Paramètres :
-    // un update renvoyait {"station":null} avec un 200, un destroy renvoyait 204 sans rien supprimer.
-    Route::apiResource('passes', PasseController::class)->parameters(['passes' => 'passe'])->except(['destroy']);
-    Route::apiResource('taxes', TaxController::class)->except(['destroy']);
-    Route::post('discounts/validate', [DiscountController::class, 'validateCode']);
-    Route::apiResource('discounts', DiscountController::class)->except(['destroy']);
-    Route::apiResource('products', ProductController::class);
-    Route::apiResource('clients', ClientController::class);
-    Route::get('payment-methods', [PaymentMethodController::class, 'index']);
-    Route::get('tickets', [TicketController::class, 'index']);
+    // Passes non concernées, hors du périmètre de cette demande.
+    Route::middleware('role:admin')->group(function () {
+        Route::apiResource('product-categories', ProductCategoryController::class)->except(['destroy', 'index']);
+        Route::apiResource('product-catalogs', ProductCatalogController::class)->except(['destroy', 'index']);
+        Route::post('product-catalogs/{product_catalog}/activate-restaurant', [ProductCatalogController::class, 'activateForRestaurant']);
+        Route::post('product-catalogs/{product_catalog}/activate-direct-sale', [ProductCatalogController::class, 'activateForDirectSale']);
+        Route::post('product-catalogs/{product_catalog}/activate-self-order', [ProductCatalogController::class, 'activateForSelfOrder']);
+        Route::post('product-catalogs/{product_catalog}/activate-kiosk', [ProductCatalogController::class, 'activateForKiosk']);
+        Route::apiResource('users', UserController::class)->except(['destroy']);
+        Route::post('users/{user}/qr-code', [UserController::class, 'generateQrCode']);
+        Route::get('users/{user}/qr', [UserController::class, 'qr']);
+        Route::post('users/{user}/qr-code/email', [UserController::class, 'sendQrEmail']);
+        Route::apiResource('rooms', RoomController::class)->except(['destroy', 'index', 'show']);
+        Route::apiResource('rooms.tables', TableElementController::class)->shallow()->except(['destroy', 'index', 'show']);
+        Route::apiResource('stations', StationController::class)->except(['destroy', 'index']);
+        // ->parameters(...) : Laravel singularise "passes" en "pass" (anglais) par défaut, alors que
+        // PasseController type-hint `Passe $passe` — sans ce forçage, le binding implicite de route
+        // échoue silencieusement sur show/update/destroy (reçoit une instance vide au lieu du bon
+        // enregistrement, "pass" et "passe" ne correspondant jamais). Repéré via le CRUD Paramètres :
+        // un update renvoyait {"station":null} avec un 200, un destroy renvoyait 204 sans rien supprimer.
+        Route::apiResource('passes', PasseController::class)->parameters(['passes' => 'passe'])->except(['destroy', 'index']);
+        Route::apiResource('taxes', TaxController::class)->except(['destroy', 'index']);
+        // Gérer les codes de réduction eux-mêmes (créer/modifier) est une action Paramètres — les
+        // UTILISER au paiement (discounts/validate ci-dessous) est une action superviseur+.
+        Route::apiResource('discounts', DiscountController::class)->except(['destroy']);
+        // Écriture sur le catalogue produit — lecture (index/show) ouverte plus haut, need par le POS.
+        Route::post('products', [ProductController::class, 'store']);
+        Route::put('products/{product}', [ProductController::class, 'update']);
+        Route::delete('products/{product}', [ProductController::class, 'destroy']);
+    });
+
+    // ---- Superviseur (et admin) — tout le reste sauf Paramètres ----
+    Route::middleware('role:superviseur')->group(function () {
+        Route::post('discounts/validate', [DiscountController::class, 'validateCode']);
+        Route::put('clients/{client}', [ClientController::class, 'update']);
+        Route::delete('clients/{client}', [ClientController::class, 'destroy']);
+        Route::get('tickets', [TicketController::class, 'index']);
+        Route::get('tickets/{ticket}', [TicketController::class, 'show']);
+        Route::apiResource('events', EventController::class);
+        Route::get('event-dates', [EventDateController::class, 'index']);
+        Route::post('events/{event}/dates', [EventDateController::class, 'store']);
+        Route::get('event-dates/{event_date}', [EventDateController::class, 'show']);
+        Route::put('event-dates/{event_date}', [EventDateController::class, 'update']);
+        Route::delete('event-dates/{event_date}', [EventDateController::class, 'destroy']);
+        Route::get('event-tickets', [EventTicketController::class, 'index']);
+        Route::post('event-tickets', [EventTicketController::class, 'store']);
+        Route::post('event-tickets/validate', [EventTicketController::class, 'validateCode']);
+        Route::post('event-tickets/{event_ticket}/assign-table', [EventTicketController::class, 'assignTable']);
+        Route::put('event-tickets/{event_ticket}', [EventTicketController::class, 'update']);
+        Route::delete('event-tickets/{event_ticket}', [EventTicketController::class, 'destroy']);
+        // "Voir les rapports/historiques" : la liste/le détail des sessions passées, pas
+        // l'ouverture elle-même (voir ::active plus haut, ouverte à tous — le POS a besoin de
+        // savoir si UNE caisse est ouverte pour vendre, sans pouvoir en ouvrir/fermer une).
+        Route::get('cash-sessions', [CashSessionController::class, 'index']);
+        Route::post('cash-sessions', [CashSessionController::class, 'store']);
+        Route::get('cash-sessions/{cash_session}', [CashSessionController::class, 'show']);
+        Route::post('cash-sessions/{cash_session}/close', [CashSessionController::class, 'close']);
+        Route::post('orders/{order}/corrections', [OrderController::class, 'correction']);
+    });
+
+    // ---- POS (tous les rôles) ----
     Route::post('tickets', [TicketController::class, 'store']);
-    Route::get('tickets/{ticket}', [TicketController::class, 'show']);
     Route::post('tickets/{ticket}/send-email', [TicketController::class, 'sendEmail']);
     Route::post('tickets/{ticket}/print-thermal', [TicketController::class, 'printThermal']);
-    Route::apiResource('events', EventController::class);
-    Route::get('event-dates', [EventDateController::class, 'index']);
-    Route::post('events/{event}/dates', [EventDateController::class, 'store']);
-    Route::get('event-dates/{event_date}', [EventDateController::class, 'show']);
-    Route::put('event-dates/{event_date}', [EventDateController::class, 'update']);
-    Route::delete('event-dates/{event_date}', [EventDateController::class, 'destroy']);
-    Route::get('event-tickets', [EventTicketController::class, 'index']);
-    Route::post('event-tickets', [EventTicketController::class, 'store']);
-    Route::post('event-tickets/validate', [EventTicketController::class, 'validateCode']);
-    Route::post('event-tickets/{event_ticket}/assign-table', [EventTicketController::class, 'assignTable']);
-    Route::put('event-tickets/{event_ticket}', [EventTicketController::class, 'update']);
-    Route::delete('event-tickets/{event_ticket}', [EventTicketController::class, 'destroy']);
+
+    // Réservations : ouvert à tous les rôles (voir Readme.md, "ajouter Gestion des commandes et
+    // Réservations pour les utilisateurs").
     Route::get('bookings', [BookingController::class, 'index']);
     Route::post('bookings', [BookingController::class, 'store']);
     Route::get('bookings/{booking}', [BookingController::class, 'show']);
     Route::put('bookings/{booking}', [BookingController::class, 'update']);
     Route::delete('bookings/{booking}', [BookingController::class, 'destroy']);
     Route::post('bookings/{booking}/validate', [BookingController::class, 'validateBooking']);
-    Route::get('cash-sessions', [CashSessionController::class, 'index']);
-    Route::get('cash-sessions/active', [CashSessionController::class, 'active']);
-    Route::post('cash-sessions', [CashSessionController::class, 'store']);
-    Route::get('cash-sessions/{cash_session}', [CashSessionController::class, 'show']);
-    Route::post('cash-sessions/{cash_session}/close', [CashSessionController::class, 'close']);
 
     // POS Restaurant (voir Readme.md) : une table ouverte = une Order (state par défaut 'send').
     Route::get('orders', [OrderController::class, 'index']);
@@ -127,7 +172,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('orders/{order}', [OrderController::class, 'destroy']);
     Route::post('orders/{order}/pay', [OrderController::class, 'pay']);
     Route::post('orders/{order}/transfer', [OrderController::class, 'transfer']);
-    Route::post('orders/{order}/corrections', [OrderController::class, 'correction']);
     Route::post('orders/{order}/sections', [OrderSectionController::class, 'store']);
     Route::delete('order-sections/{order_section}', [OrderSectionController::class, 'destroy']);
     Route::post('order-sections/{order_section}/valider', [OrderSectionController::class, 'valider']);

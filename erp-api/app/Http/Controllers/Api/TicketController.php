@@ -86,10 +86,13 @@ class TicketController extends Controller
         $total = array_sum(array_map(fn (array $line) => $line['unit_price'] * $line['quantity'], $lines));
 
         // Réduction recalculée côté serveur (voir DiscountCalculator) — jamais un montant/total
-        // envoyé par le client, même principe que les prix produits juste au-dessus.
+        // envoyé par le client, même principe que les prix produits juste au-dessus. Réservé à
+        // superviseur+ (voir Readme.md, "il n'y aura que trois rôles") : un simple user peut
+        // vendre/encaisser mais pas appliquer de code promo.
         $discount = null;
         $discountAmount = 0.0;
         if (!empty($data['discount_code'])) {
+            abort_unless($request->user()->isAtLeastSuperviseur(), 403, "Seul un superviseur peut appliquer un code de réduction.");
             $discount = DiscountCalculator::resolve($data['discount_code']);
             $discountAmount = DiscountCalculator::amountOff($discount, $lines, $total);
             $total = max(round($total - $discountAmount, 2), 0);

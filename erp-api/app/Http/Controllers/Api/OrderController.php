@@ -189,10 +189,11 @@ class OrderController extends Controller
         // TicketController::store : jamais un montant/total envoyé par le client. C'est aussi le
         // point d'entrée pour une réduction sur une commande composée en self-order (voir
         // SelfOrderController, qui ne gère aucun paiement) puisque c'est ICI, à l'encaissement
-        // réel par le staff, que le code est appliqué.
+        // réel par le staff, que le code est appliqué. Réservé à superviseur+ (voir Readme.md).
         $discount = null;
         $discountAmount = 0.0;
         if (!empty($data['discount_code'])) {
+            abort_unless($request->user()->isAtLeastSuperviseur(), 403, "Seul un superviseur peut appliquer un code de réduction.");
             $discount = DiscountCalculator::resolve($data['discount_code']);
             $discountAmount = DiscountCalculator::amountOff($discount, $lines, $total);
             $total = max(round($total - $discountAmount, 2), 0);

@@ -6,7 +6,7 @@
     </div>
 
     <nav class="app-sidebar__nav">
-      @for (item of navItems; track item.path) {
+      @for (item of navItems(); track item.path) {
         <a
           class="app-nav-item"
           [routerLink]="item.path"

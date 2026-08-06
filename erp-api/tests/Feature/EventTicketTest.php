@@ -7,10 +7,8 @@ use App\Models\Client;
 use App\Models\Event;
 use App\Models\EventDate;
 use App\Models\EventTicket;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class EventTicketTest extends TestCase
@@ -24,7 +22,7 @@ class EventTicketTest extends TestCase
     {
         parent::setUp();
 
-        Sanctum::actingAs(User::factory()->create());
+        $this->actingAsAdmin();
 
         $this->client = Client::query()->create(['firstname' => 'Marie', 'lastname' => 'Dupont']);
         $event = Event::query()->create(['name' => 'Concert de Jazz']);

@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
+import { AuthService } from '../../../core/auth.service';
 import { OrderService } from '../../../core/order.service';
 import { OrderSectionService } from '../../../core/order-section.service';
 import { OrderLineService } from '../../../core/order-line.service';
@@ -66,6 +67,7 @@ export class OrderBuilder implements OnDestroy {
   private readonly ticketService = inject(TicketService);
   private readonly discountService = inject(DiscountService);
   readonly activeCashierService = inject(ActiveCashierService);
+  readonly authService = inject(AuthService);
   private readonly kitchenEcho = inject(KitchenEchoService);
   private readonly roomService = inject(RoomService);
 

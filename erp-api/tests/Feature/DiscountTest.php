@@ -13,7 +13,6 @@ use App\Models\Room;
 use App\Models\TableElement;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
@@ -36,8 +35,7 @@ class DiscountTest extends TestCase
     {
         parent::setUp();
 
-        $this->user = User::factory()->create();
-        Sanctum::actingAs($this->user);
+        $this->user = $this->actingAsAdmin();
 
         $this->cash = PaymentMethod::query()->create(['name' => 'Espèces', 'slug' => 'especes']);
         $this->product = Product::query()->create(['name' => 'Café', 'slug' => 'cafe', 'price' => 3]);

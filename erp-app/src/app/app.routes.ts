@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth.guard';
+import { roleGuard } from './core/role.guard';
 
 export const routes: Routes = [
   {
@@ -13,10 +14,12 @@ export const routes: Routes = [
     children: [
       {
         path: '',
+        canActivate: [roleGuard('superviseur')],
         loadComponent: () => import('./pages/dashboard/dashboard').then((m) => m.Dashboard),
       },
       {
         path: 'parametres',
+        canActivate: [roleGuard('admin')],
         children: [
           {
             path: '',
@@ -56,14 +59,6 @@ export const routes: Routes = [
           {
             path: 'roles',
             loadComponent: () => import('./pages/parametres/roles/role-list/role-list').then((m) => m.RoleList),
-          },
-          {
-            path: 'roles/nouveau',
-            loadComponent: () => import('./pages/parametres/roles/role-form/role-form').then((m) => m.RoleForm),
-          },
-          {
-            path: 'roles/:id',
-            loadComponent: () => import('./pages/parametres/roles/role-form/role-form').then((m) => m.RoleForm),
           },
           {
             path: 'utilisateurs',
@@ -174,6 +169,7 @@ export const routes: Routes = [
       },
       {
         path: 'produits',
+        canActivate: [roleGuard('superviseur')],
         children: [
           {
             path: '',
@@ -191,6 +187,7 @@ export const routes: Routes = [
       },
       {
         path: 'clients',
+        canActivate: [roleGuard('superviseur')],
         children: [
           {
             path: '',
@@ -208,6 +205,7 @@ export const routes: Routes = [
       },
       {
         path: 'evenements',
+        canActivate: [roleGuard('superviseur')],
         children: [
           {
             path: '',
@@ -238,6 +236,7 @@ export const routes: Routes = [
       },
       {
         path: 'caisse',
+        canActivate: [roleGuard('superviseur')],
         children: [
           {
             path: '',
@@ -270,6 +269,7 @@ export const routes: Routes = [
       },
       {
         path: 'tickets',
+        canActivate: [roleGuard('superviseur')],
         children: [
           {
             path: '',

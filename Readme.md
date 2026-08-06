@@ -298,8 +298,19 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
     1. ✅ Gérer les salles et les tables (position des tables, ajout de salle)
     2. ✅ Gérer les catégories de produits
     3. ✅ Gérer les catalogues de produits (activer un catalogue par contexte POS)
-    4. ✅ Gérer les utilisateurs et les différents rôles (CRUD complet, mais pas encore de
-       permissions différentes par rôle — voir Todo)
+    4. ✅ Gérer les utilisateurs (CRUD complet) et leur attribuer un ou plusieurs des trois rôles
+       fixes (admin/superviseur/user, voir RoleSeeder) — les rôles eux-mêmes sont en lecture seule
+       depuis l'app, pas de création/modification (`RoleController` n'expose que index/show).
+       Chaque rôle a un périmètre fixe (voir `EnsureUserHasRole` côté API, `role.guard.ts` côté
+       front) : **admin** a accès à tout, y compris Paramètres ; **superviseur** a accès à tout
+       sauf Paramètres (caisse, rapports/historiques — tickets —, réductions au paiement,
+       corrections de commande, événements, produits, clients) ; **user** a accès aux deux POS,
+       à Gestion des commandes et à Réservations, mais pas de réduction ni de correction
+       possibles, pas d'ouverture/fermeture de session de caisse (juste vendre une fois qu'un
+       superviseur en a ouvert une), et pas accès à Paramètres/Dashboard/Événements/Fond de
+       caisse/Gestion des tickets/Gestion des produits/Gestion des clients. Le serveur reste la
+       seule vraie barrière — le front ne fait que cacher les actions non permises pour ne pas
+       laisser deviner un 403.
     5. ✅ Gestion des produits
     6. ✅ Gérer les stations (CRUD + choix du passe de chaque station)
     7. ✅ Gérer les passes (CRUD)
@@ -308,7 +319,7 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
        directe, POS - Restaurant et Kiosk (`erp_self_order` ne gère jamais de paiement lui-même,
        donc n'a pas besoin d'UI dédiée — voir `## ✅ ERP Self Order`)
     9. ✅ Plus de suppression pure sur salles/tables/catégories/catalogues/utilisateurs/
-       rôles/stations/taxes/passes/réductions — remplacée par une case "Actif"
+       stations/taxes/passes/réductions — remplacée par une case "Actif"
        (activer/désactiver), pour éviter les suppressions en cascade sur des entités très
        référencées ailleurs dans l'app
 
@@ -350,5 +361,7 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
 
 ## Todo
 
-- Définir ce qui est disponible de faire avec les différents rôles utilisateur (permissions par
-  rôle — actuellement tout utilisateur connecté à `erp-app` a accès à tout)
+- ~~Définir ce qui est disponible de faire avec les différents rôles utilisateur~~ fait (voir
+  Paramètres > 4 ci-dessus) — reste à vérifier que le staff qui valide les entrées via
+  `erp_validate_event` a bien un compte superviseur+ (le rôle `user`, volontairement limité aux
+  deux POS, ne peut plus valider de billet depuis ce changement)

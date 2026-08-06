@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
+import { AuthService } from '../../core/auth.service';
 import { ProductService } from '../../core/product.service';
 import { ProductCatalogService } from '../../core/product-catalog.service';
 import { PaymentMethodService } from '../../core/payment-method.service';
@@ -49,6 +50,7 @@ export class PosVente {
   private readonly ticketService = inject(TicketService);
   private readonly discountService = inject(DiscountService);
   readonly activeCashierService = inject(ActiveCashierService);
+  readonly authService = inject(AuthService);
 
   readonly allProducts = signal<Product[]>([]);
   readonly activeDirectSaleCatalogId = signal<number | null>(null);

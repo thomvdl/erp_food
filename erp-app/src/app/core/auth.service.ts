@@ -18,6 +18,24 @@ export class AuthService {
   readonly token = signal<string | null>(localStorage.getItem(TOKEN_KEY));
   readonly currentUser = signal<AuthUser | null>(null);
 
+  /**
+   * "Il n'y aura que trois rôles" (voir Readme.md) : admin ⊇ superviseur ⊇ user — admin passe
+   * toujours, même hiérarchie que côté API (voir User::isAdmin/isAtLeastSuperviseur). Sert au
+   * garde de route (role.guard.ts) et à cacher les actions non permises dans l'UI — le serveur
+   * reste la vraie barrière (voir EnsureUserHasRole), ceci n'est qu'un confort d'affichage.
+   */
+  hasRole(slug: string): boolean {
+    return (this.currentUser()?.roles ?? []).some((role) => role.slug === slug);
+  }
+
+  isAdmin(): boolean {
+    return this.hasRole('admin');
+  }
+
+  isAtLeastSuperviseur(): boolean {
+    return this.isAdmin() || this.hasRole('superviseur');
+  }
+
   loginWithPassword(username: string, password: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${API_URL}/auth/login`, { username, password }).pipe(tap((res) => this.setSession(res)));
   }

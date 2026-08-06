@@ -36,8 +36,10 @@
     <div style="display: flex; align-items: center; gap: var(--space-3)">
       @if (activeCashierService.activeSession(); as session) {
         <span class="badge badge-success">💶 Caisse ouverte — {{ session.user?.username }}</span>
-      } @else {
+      } @else if (authService.isAtLeastSuperviseur()) {
         <a class="badge badge-warning" routerLink="/caisse">💶 Aucune caisse ouverte — Ouvrir</a>
+      } @else {
+        <span class="badge badge-warning" title="Demande à un superviseur d'ouvrir la caisse">💶 Aucune caisse ouverte</span>
       }
       <button type="button" class="btn btn-outline" (click)="goToTableSelect()">← Retour aux tables</button>
       <button type="button" class="btn btn-outline" (click)="openTransferModal()">⇄ Transférer la table</button>
@@ -217,7 +219,7 @@
             <span>Total</span>
             <span>{{ formatMoney(orderTotal()) }}</span>
           </div>
-          @if (allSectionsSent()) {
+          @if (allSectionsSent() && authService.isAtLeastSuperviseur()) {
             <button
               type="button"
               class="btn btn-outline"
@@ -340,6 +342,7 @@
           <span>{{ formatMoney(payableTotal()) }}</span>
         </div>
 
+        @if (authService.isAtLeastSuperviseur()) {
         <div class="field">
           @if (appliedDiscount(); as applied) {
             <div class="pos-client__chip">
@@ -371,6 +374,7 @@
             <p class="error-text text-sm">{{ discountError() }}</p>
           }
         </div>
+        }
 
         @if (paymentLines().length > 0) {
           <div class="pos-payments__list">

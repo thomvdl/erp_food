@@ -86,10 +86,11 @@ class KioskOrderController extends Controller
 
         // Réduction recalculée côté serveur (voir DiscountCalculator) — même principe que
         // TicketController::store/OrderController::pay : jamais un montant/total envoyé par le
-        // client.
+        // client. Réservé à superviseur+ (voir Readme.md).
         $discount = null;
         $discountAmount = 0.0;
         if (!empty($data['discount_code'])) {
+            abort_unless($request->user()->isAtLeastSuperviseur(), 403, "Seul un superviseur peut appliquer un code de réduction.");
             $discount = DiscountCalculator::resolve($data['discount_code']);
             $discountAmount = DiscountCalculator::amountOff($discount, $lines, $total);
             $total = max(round($total - $discountAmount, 2), 0);
