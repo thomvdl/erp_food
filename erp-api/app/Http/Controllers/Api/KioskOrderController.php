@@ -54,7 +54,7 @@ class KioskOrderController extends Controller
             ]);
         }
 
-        $catalog = ProductCatalog::query()->where('active_self_order', true)->where('active', true)->first();
+        $catalog = ProductCatalog::query()->where('active_kiosk', true)->where('active', true)->first();
 
         if (!$catalog) {
             throw ValidationException::withMessages([

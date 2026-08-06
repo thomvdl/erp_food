@@ -22,7 +22,7 @@ class PasseSeeder extends Seeder
     public function run(): void
     {
         $passes = [
-            'Passe Cuisine' => 'Viande',
+            'Passe Cuisine' => 'Cuisine',
             'Passe Bar' => 'Bar',
         ];
 

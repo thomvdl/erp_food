@@ -7,10 +7,10 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-// "active_restaurant"/"active_direct_sale"/"active_self_order" volontairement absents du
-// Fillable : ne doivent jamais transiter par les payloads store/update classiques, seulement
-// être écrits par ProductCatalogController@activateForRestaurant/activateForDirectSale/
-// activateForSelfOrder.
+// "active_restaurant"/"active_direct_sale"/"active_self_order"/"active_kiosk" volontairement
+// absents du Fillable : ne doivent jamais transiter par les payloads store/update classiques,
+// seulement être écrits par ProductCatalogController@activateForRestaurant/activateForDirectSale/
+// activateForSelfOrder/activateForKiosk.
 #[Fillable(['name', 'slug', 'active'])]
 class ProductCatalog extends Model
 {
@@ -23,6 +23,7 @@ class ProductCatalog extends Model
             'active_restaurant' => 'boolean',
             'active_direct_sale' => 'boolean',
             'active_self_order' => 'boolean',
+            'active_kiosk' => 'boolean',
         ];
     }
 

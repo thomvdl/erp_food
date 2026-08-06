@@ -67,6 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('product-catalogs/{product_catalog}/activate-restaurant', [ProductCatalogController::class, 'activateForRestaurant']);
     Route::post('product-catalogs/{product_catalog}/activate-direct-sale', [ProductCatalogController::class, 'activateForDirectSale']);
     Route::post('product-catalogs/{product_catalog}/activate-self-order', [ProductCatalogController::class, 'activateForSelfOrder']);
+    Route::post('product-catalogs/{product_catalog}/activate-kiosk', [ProductCatalogController::class, 'activateForKiosk']);
     Route::apiResource('roles', RoleController::class)->except(['destroy']);
     Route::apiResource('users', UserController::class)->except(['destroy']);
     Route::post('users/{user}/qr-code', [UserController::class, 'generateQrCode']);

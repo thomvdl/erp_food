@@ -23,4 +23,12 @@ export class ProductCatalogService extends CachedResourceService<ProductCatalog>
       .post<ProductCatalog>(`${API_URL}/product-catalogs/${id}/activate-direct-sale`, {})
       .pipe(tap(() => this.invalidate()));
   }
+
+  /** Même principe pour erp_kiosk (voir ProductCatalogController@activateForKiosk) — indépendant
+   *  du catalogue self_order/QR. */
+  activateForKiosk(id: number): Observable<ProductCatalog> {
+    return this.http
+      .post<ProductCatalog>(`${API_URL}/product-catalogs/${id}/activate-kiosk`, {})
+      .pipe(tap(() => this.invalidate()));
+  }
 }

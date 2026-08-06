@@ -49,6 +49,21 @@ export class CatalogList {
     });
   }
 
+  activateForKiosk(catalog: ProductCatalog): void {
+    if (catalog.active_kiosk || this.activating() !== null) {
+      return;
+    }
+
+    this.activating.set(catalog.id);
+    this.catalogService.activateForKiosk(catalog.id).subscribe({
+      next: () => {
+        this.activating.set(null);
+        this.refresh();
+      },
+      error: () => this.activating.set(null),
+    });
+  }
+
   private refresh(): void {
     this.catalogService.list().subscribe((catalogs) => this.catalogs.set(catalogs));
   }

@@ -19,6 +19,7 @@ export interface ProductCatalog {
   active_restaurant: boolean;
   active_direct_sale: boolean;
   active_self_order: boolean;
+  active_kiosk: boolean;
 }
 
 export interface Product {

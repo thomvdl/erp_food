@@ -25,9 +25,9 @@ const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜
 /**
  * Écran client du kiosque — "comme dans un fast food" (voir Readme du projet) : vente directe en
  * self-service, paiement immédiat au kiosque (contrairement au mode QR, qui n'encaisse jamais).
- * Catalogue utilisé : celui marqué active_self_order (même source que le mode QR, voir
- * ProductCatalogController::activateForSelfOrder) — pas active_direct_sale, pour que le contenu du
- * kiosque et du menu QR restent toujours identiques.
+ * Catalogue utilisé : celui marqué active_kiosk (voir ProductCatalogController::activateForKiosk),
+ * indépendant du catalogue active_self_order utilisé par le mode QR — voir Paramètres > Catalogue
+ * dans erp-app pour choisir quel catalogue est actif pour le kiosque.
  *
  * "Seulement deux moyens de paiement pour le kiosque : QR code ou terminal Bancontact" (retour
  * utilisateur) — pas d'espèces (kiosque non surveillé, pas de fond de caisse à gérer) ni de choix
@@ -47,8 +47,8 @@ export class KioskOrder implements OnInit, OnDestroy {
   private readonly kioskService = inject(KioskService);
   private readonly router = inject(Router);
 
-  /** Retour auto à "Nouvelle commande" 5s après le paiement — voir Readme.md. */
-  private static readonly NEW_ORDER_DELAY_MS = 5000;
+  /** Retour auto à "Nouvelle commande" 10s après le paiement — voir Readme.md. */
+  private static readonly NEW_ORDER_DELAY_MS = 10000;
   private newOrderTimeout: ReturnType<typeof setTimeout> | null = null;
 
   readonly loading = signal(true);
@@ -115,7 +115,7 @@ export class KioskOrder implements OnInit, OnDestroy {
         this.cashSessionId = session.id;
         this.allProducts.set(products);
         this.paymentMethods.set(paymentMethods);
-        this.activeCatalogId.set(catalogs.find((catalog) => catalog.active_self_order)?.id ?? null);
+        this.activeCatalogId.set(catalogs.find((catalog) => catalog.active_kiosk)?.id ?? null);
         this.loading.set(false);
         if (this.activeCatalogId() === null) {
           this.loadError.set('Aucun catalogue disponible pour le moment — contactez le personnel.');

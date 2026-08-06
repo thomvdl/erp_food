@@ -13,7 +13,7 @@ class PaymentMethodSeeder extends Seeder
 
     public function run(): void
     {
-        $methods = ['Espèces', 'Carte bancaire', 'Bancontact', 'Chèque-repas'];
+        $methods = ['Espèces', 'Bancontact', 'Chèque-repas'];
 
         foreach ($methods as $name) {
             PaymentMethod::query()->firstOrCreate(['slug' => Str::slug($name)], ['name' => $name]);

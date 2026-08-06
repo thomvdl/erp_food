@@ -13,7 +13,7 @@ class StationSeeder extends Seeder
 
     public function run(): void
     {
-        $stations = ['Viande', 'Poisson', 'Froid', 'Dessert', 'Bar'];
+        $stations = ['Cuisine', 'Bar'];
 
         foreach ($stations as $name) {
             Station::query()->firstOrCreate(['slug' => Str::slug($name)], ['name' => $name]);

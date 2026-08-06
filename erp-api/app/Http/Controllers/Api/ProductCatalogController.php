@@ -84,4 +84,18 @@ class ProductCatalogController extends Controller
 
         return $productCatalog->refresh();
     }
+
+    /**
+     * Même principe, pour erp_kiosk — voir KioskOrderController, qui lit exclusivement ce flag
+     * pour savoir quel catalogue exposer au kiosque (indépendant du catalogue self_order/QR).
+     */
+    public function activateForKiosk(ProductCatalog $productCatalog)
+    {
+        DB::transaction(function () use ($productCatalog) {
+            ProductCatalog::query()->where('id', '!=', $productCatalog->id)->update(['active_kiosk' => false]);
+            $productCatalog->forceFill(['active_kiosk' => true])->save();
+        });
+
+        return $productCatalog->refresh();
+    }
 }

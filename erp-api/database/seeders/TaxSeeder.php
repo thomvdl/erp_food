@@ -13,10 +13,12 @@ class TaxSeeder extends Seeder
 
     public function run(): void
     {
+        // Taux TVA belges : 21% (taux normal), 12% (ex. restauration/HORECA hors boissons),
+        // 6% (ex. alimentation, à emporter), 0% (exonéré).
         $taxes = [
-            ['slug' => 'tva-20', 'value' => 20.00],
-            ['slug' => 'tva-10', 'value' => 10.00],
-            ['slug' => 'tva-5-5', 'value' => 5.50],
+            ['slug' => 'tva-21', 'value' => 21.00],
+            ['slug' => 'tva-12', 'value' => 12.00],
+            ['slug' => 'tva-6', 'value' => 6.00],
             ['slug' => 'sans-tva', 'value' => 0.00],
         ];
 
