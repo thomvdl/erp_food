@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Mail\BookingConfirmationMail;
 use App\Models\Client;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -75,5 +77,56 @@ class BookingTest extends TestCase
 
         $response->assertOk();
         $this->assertNotNull($response->json('validated_at'));
+    }
+
+    public function test_create_booking_sends_confirmation_email_when_client_has_email(): void
+    {
+        Mail::fake();
+
+        $client = Client::query()->create(['firstname' => 'Marie', 'lastname' => 'Dupont', 'email' => 'marie@example.com']);
+
+        $this->postJson('/api/bookings', [
+            'client_id' => $client->id, 'number_of_guests' => 2, 'type' => 'dinner', 'date' => '2026-08-15', 'hour' => '20:00',
+        ])->assertCreated();
+
+        Mail::assertSent(BookingConfirmationMail::class, fn ($mail) => $mail->hasTo($client->email));
+    }
+
+    public function test_create_booking_does_not_send_email_when_client_has_no_email(): void
+    {
+        Mail::fake();
+
+        $client = Client::query()->create(['firstname' => 'Marie', 'lastname' => 'Dupont']);
+
+        $this->postJson('/api/bookings', [
+            'client_id' => $client->id, 'number_of_guests' => 2, 'type' => 'dinner', 'date' => '2026-08-15', 'hour' => '20:00',
+        ])->assertCreated();
+
+        Mail::assertNothingSent();
+    }
+
+    /**
+     * Voir BookingController::store — le try/catch autour de l'envoi ne doit pas transformer un
+     * SMTP en rade en 500 côté client alors que la réservation est déjà enregistrée en base.
+     * Force une vraie erreur de connexion (port 1 sur localhost, refusé immédiatement) plutôt
+     * qu'un mock profond de Illuminate\Mail\Mailer (MailManager construit son driver lui-même,
+     * pas résolu via le container — un mock bindé ne serait jamais atteint).
+     */
+    public function test_create_booking_succeeds_even_when_email_sending_fails(): void
+    {
+        config([
+            'mail.default' => 'smtp',
+            'mail.mailers.smtp.host' => '127.0.0.1',
+            'mail.mailers.smtp.port' => 1,
+        ]);
+
+        $client = Client::query()->create(['firstname' => 'Marie', 'lastname' => 'Dupont', 'email' => 'marie@example.com']);
+
+        $response = $this->postJson('/api/bookings', [
+            'client_id' => $client->id, 'number_of_guests' => 2, 'type' => 'dinner', 'date' => '2026-08-15', 'hour' => '20:00',
+        ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('bookings', ['client_id' => $client->id, 'type' => 'dinner']);
     }
 }

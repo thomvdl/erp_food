@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { API_URL } from './api-config';
 import {
   CashSession,
@@ -36,8 +36,14 @@ export class KioskService {
     return this.http.get<PaymentMethod[]>(`${API_URL}/payment-methods`);
   }
 
+  /** Le backend renvoie {} (pas null) quand il n'y a pas de session ouverte — comportement de
+   *  Laravel/Symfony sur response()->json(null) (voir CashSessionController::active). {} est
+   *  "truthy" en JS, donc sans ce mapping le kiosque afficherait "Caisse ouverte" pour n'importe
+   *  quel utilisateur sans session — même contournement que erp-app/core/cash-session.service.ts. */
   activeCashSession(userId: number): Observable<CashSession | null> {
-    return this.http.get<CashSession | null>(`${API_URL}/cash-sessions/active`, { params: { user_id: userId } });
+    return this.http
+      .get<CashSession | Record<string, never>>(`${API_URL}/cash-sessions/active`, { params: { user_id: userId } })
+      .pipe(map((session) => ('id' in session ? (session as CashSession) : null)));
   }
 
   openCashSession(payload: OpenCashSessionPayload): Observable<CashSession> {

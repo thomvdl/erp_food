@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class EventTicketController extends Controller
 {
@@ -217,6 +218,13 @@ class EventTicketController extends Controller
             return;
         }
 
-        Mail::to($client->email)->send(new EventTicketsMail($tickets, $eventDate));
+        // try/catch volontaire : les places sont déjà vendues/enregistrées en base à ce stade —
+        // un SMTP en rade ne doit pas transformer une vente réussie en 500 côté client (voir
+        // BookingController::store, même raison).
+        try {
+            Mail::to($client->email)->send(new EventTicketsMail($tickets, $eventDate));
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 }

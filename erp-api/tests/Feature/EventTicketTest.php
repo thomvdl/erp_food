@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Mail\EventTicketsMail;
 use App\Models\Client;
 use App\Models\Event;
 use App\Models\EventDate;
 use App\Models\EventTicket;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -133,5 +135,62 @@ class EventTicketTest extends TestCase
         $response = $this->get("/api/event-tickets/{$ticket['id']}/qr");
 
         $response->assertOk()->assertHeader('Content-Type', 'image/png');
+    }
+
+    public function test_store_sends_codes_by_email_when_requested_and_client_has_email(): void
+    {
+        Mail::fake();
+
+        $client = Client::query()->create(['firstname' => 'Marie', 'lastname' => 'Dupont', 'email' => 'marie@example.com']);
+
+        $this->postJson('/api/event-tickets', [
+            'event_date_id' => $this->eventDate->id,
+            'client_id' => $client->id,
+            'quantity' => 2,
+            'send_email' => true,
+        ])->assertCreated();
+
+        Mail::assertSent(EventTicketsMail::class, fn ($mail) => $mail->hasTo($client->email) && count($mail->tickets) === 2);
+    }
+
+    public function test_store_does_not_send_email_when_not_requested(): void
+    {
+        Mail::fake();
+
+        $client = Client::query()->create(['firstname' => 'Marie', 'lastname' => 'Dupont', 'email' => 'marie@example.com']);
+
+        $this->postJson('/api/event-tickets', [
+            'event_date_id' => $this->eventDate->id,
+            'client_id' => $client->id,
+        ])->assertCreated();
+
+        Mail::assertNothingSent();
+    }
+
+    /**
+     * Voir EventTicketController::sendCodesByEmail — le try/catch autour de l'envoi ne doit pas
+     * transformer un SMTP en rade en 500 côté client alors que les places sont déjà vendues.
+     * Même approche que BookingTest (connexion refusée sur localhost:1) plutôt qu'un mock de
+     * Illuminate\Mail\Mailer — voir le commentaire là-bas pour le pourquoi.
+     */
+    public function test_store_succeeds_even_when_email_sending_fails(): void
+    {
+        config([
+            'mail.default' => 'smtp',
+            'mail.mailers.smtp.host' => '127.0.0.1',
+            'mail.mailers.smtp.port' => 1,
+        ]);
+
+        $client = Client::query()->create(['firstname' => 'Marie', 'lastname' => 'Dupont', 'email' => 'marie@example.com']);
+
+        $response = $this->postJson('/api/event-tickets', [
+            'event_date_id' => $this->eventDate->id,
+            'client_id' => $client->id,
+            'quantity' => 2,
+            'send_email' => true,
+        ]);
+
+        $response->assertCreated();
+        $this->assertSame(2, EventTicket::query()->where('client_id', $client->id)->count());
     }
 }

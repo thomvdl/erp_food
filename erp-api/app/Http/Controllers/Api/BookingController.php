@@ -7,6 +7,7 @@ use App\Mail\BookingConfirmationMail;
 use App\Models\Booking;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 class BookingController extends Controller
 {
@@ -39,8 +40,15 @@ class BookingController extends Controller
 
         // Confirmer la bonne prise de rendez-vous au client (voir Readme.md) — même garde-fou
         // que TicketMail/EventTicketsMail : le client n'a pas forcément d'email renseigné.
+        // try/catch volontaire : un SMTP en rade ne doit pas transformer une réservation déjà
+        // enregistrée en base en 500 côté client (qui réessaierait et créerait un doublon) — voir
+        // BookingTest::test_create_booking_succeeds_even_when_email_sending_fails.
         if ($booking->client->email) {
-            Mail::to($booking->client->email)->send(new BookingConfirmationMail($booking));
+            try {
+                Mail::to($booking->client->email)->send(new BookingConfirmationMail($booking));
+            } catch (Throwable $e) {
+                report($e);
+            }
         }
 
         return response()->json($booking, 201);

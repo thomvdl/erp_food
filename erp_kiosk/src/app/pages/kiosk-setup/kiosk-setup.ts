@@ -42,7 +42,16 @@ export class KioskSetup implements OnInit {
         this.session.set(session);
         this.loading.set(false);
       },
-      error: () => this.loading.set(false),
+      // Sans ce reset, un état "caisse ouverte" affiché lors d'un précédent refresh() réussi
+      // reste figé à l'écran indéfiniment si un appel suivant échoue (ex. currentUser().id ne
+      // correspond plus à un utilisateur existant après un reset de la base côté API) — mieux
+      // vaut retomber sur "aucune caisse ouverte" (faux négatif rare) que rester bloqué sur un
+      // faux positif qui laisserait démarrer le kiosque sans vraie caisse ouverte.
+      error: () => {
+        this.session.set(null);
+        this.loading.set(false);
+        this.error.set('Impossible de vérifier la caisse — réessaie ou reconnecte-toi.');
+      },
     });
   }
 
