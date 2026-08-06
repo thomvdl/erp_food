@@ -137,6 +137,18 @@ export const routes: Routes = [
             path: 'taxes/:id',
             loadComponent: () => import('./pages/parametres/taxes/tax-form/tax-form').then((m) => m.TaxForm),
           },
+          {
+            path: 'reductions',
+            loadComponent: () => import('./pages/parametres/discounts/discount-list/discount-list').then((m) => m.DiscountList),
+          },
+          {
+            path: 'reductions/nouveau',
+            loadComponent: () => import('./pages/parametres/discounts/discount-form/discount-form').then((m) => m.DiscountForm),
+          },
+          {
+            path: 'reductions/:id',
+            loadComponent: () => import('./pages/parametres/discounts/discount-form/discount-form').then((m) => m.DiscountForm),
+          },
         ],
       },
       {

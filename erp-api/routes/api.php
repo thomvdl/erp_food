@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CashSessionController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\CompanyController;
+use App\Http\Controllers\Api\DiscountController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\EventDateController;
 use App\Http\Controllers\Api\EventTicketController;
@@ -85,6 +86,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // un update renvoyait {"station":null} avec un 200, un destroy renvoyait 204 sans rien supprimer.
     Route::apiResource('passes', PasseController::class)->parameters(['passes' => 'passe'])->except(['destroy']);
     Route::apiResource('taxes', TaxController::class)->except(['destroy']);
+    Route::post('discounts/validate', [DiscountController::class, 'validateCode']);
+    Route::apiResource('discounts', DiscountController::class)->except(['destroy']);
     Route::apiResource('products', ProductController::class);
     Route::apiResource('clients', ClientController::class);
     Route::get('payment-methods', [PaymentMethodController::class, 'index']);

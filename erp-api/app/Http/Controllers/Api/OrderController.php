@@ -8,6 +8,7 @@ use App\Models\CashSession;
 use App\Models\Order;
 use App\Models\Ticket;
 use App\Models\TicketPayment;
+use App\Support\DiscountCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -142,6 +143,7 @@ class OrderController extends Controller
         $data = $request->validate([
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'cash_session_id' => ['required', 'integer', 'exists:cash_sessions,id'],
+            'discount_code' => ['nullable', 'string'],
             'payments' => ['required', 'array', 'min:1'],
             'payments.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'payments.*.value' => ['required', 'numeric', 'min:0.01'],
@@ -166,11 +168,30 @@ class OrderController extends Controller
             ]);
         }
 
-        $total = 0;
+        $lines = [];
         foreach ($order->sections as $section) {
             foreach ($section->lines as $line) {
-                $total += (float) $line->product->price * $line->quantity;
+                $lines[] = [
+                    'product_id' => $line->product_id,
+                    'quantity' => $line->quantity,
+                    'unit_price' => (float) $line->product->price,
+                ];
             }
+        }
+
+        $total = array_sum(array_map(fn (array $line) => $line['unit_price'] * $line['quantity'], $lines));
+
+        // Réduction recalculée côté serveur (voir DiscountCalculator) — même principe que
+        // TicketController::store : jamais un montant/total envoyé par le client. C'est aussi le
+        // point d'entrée pour une réduction sur une commande composée en self-order (voir
+        // SelfOrderController, qui ne gère aucun paiement) puisque c'est ICI, à l'encaissement
+        // réel par le staff, que le code est appliqué.
+        $discount = null;
+        $discountAmount = 0.0;
+        if (!empty($data['discount_code'])) {
+            $discount = DiscountCalculator::resolve($data['discount_code']);
+            $discountAmount = DiscountCalculator::amountOff($discount, $lines, $total);
+            $total = max(round($total - $discountAmount, 2), 0);
         }
 
         $paidTotal = collect($data['payments'])->sum('value');
@@ -181,7 +202,7 @@ class OrderController extends Controller
             ]);
         }
 
-        $ticket = DB::transaction(function () use ($order, $data, $cashSession) {
+        $ticket = DB::transaction(function () use ($order, $data, $cashSession, $discount, $discountAmount) {
             $ticket = Ticket::query()->create([
                 'paid_at' => now(),
                 'client_id' => $data['client_id'] ?? null,
@@ -190,6 +211,8 @@ class OrderController extends Controller
                 // peut avoir été ouverte par le personnel OU par un client via QR (voir
                 // SelfOrderController::store), ce ticket doit refléter l'origine réelle.
                 'source' => $order->source,
+                'discount_id' => $discount?->id,
+                'discount_amount' => $discount ? round($discountAmount, 2) : null,
             ]);
 
             foreach ($order->sections as $orderSection) {
@@ -222,6 +245,6 @@ class OrderController extends Controller
 
         event(new OrderKitchenUpdated($order->id));
 
-        return response()->json($ticket->load(['client', 'table', 'sections.lines.product.tax', 'payments.paymentMethod']), 201);
+        return response()->json($ticket->load(['client', 'table', 'sections.lines.product.tax', 'payments.paymentMethod', 'discount']), 201);
     }
 }

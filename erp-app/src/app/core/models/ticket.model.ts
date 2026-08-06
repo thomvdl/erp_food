@@ -1,6 +1,7 @@
 import { Product } from './product.model';
 import { User } from './user.model';
 import { TableElement } from './floor-plan.model';
+import { Discount } from './discount.model';
 
 export interface Client {
   id: number;
@@ -58,12 +59,18 @@ export interface Ticket {
   table?: TableElement | null;
   sections: TicketSection[];
   payments: TicketPayment[];
+  /** Réduction appliquée à ce ticket (voir DiscountCalculator) — null si aucune. */
+  discount_id?: number | null;
+  discount_amount?: number | string | null;
+  discount?: Discount | null;
 }
 
 export interface CreateTicketPayload {
   client_id: number | null;
   /** Session de caisse active du vendeur, si le module Caisse est utilisé (voir cash-session.service.ts) — optionnel, une vente reste possible sans. */
   cash_session_id?: number | null;
+  /** Code promo appliqué (voir DiscountCalculator) — revalidé côté serveur, jamais fait confiance au montant affiché côté client. */
+  discount_code?: string | null;
   lines: { product_id: number; quantity: number }[];
   payments: { payment_method_id: number; value: number }[];
 }

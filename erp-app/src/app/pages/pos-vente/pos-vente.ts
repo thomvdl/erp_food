@@ -7,10 +7,12 @@ import { ProductCatalogService } from '../../core/product-catalog.service';
 import { PaymentMethodService } from '../../core/payment-method.service';
 import { ClientService } from '../../core/client.service';
 import { TicketService } from '../../core/ticket.service';
+import { DiscountService } from '../../core/discount.service';
 import { ActiveCashierService } from '../../core/active-cashier.service';
 import { Product } from '../../core/models/product.model';
 import { ProductCategory } from '../../core/models/catalog.model';
 import { Client, PaymentMethod, Ticket } from '../../core/models/ticket.model';
+import { ValidateDiscountResponse } from '../../core/models/discount.model';
 import { TicketReceipt } from '../../shared/ticket-receipt/ticket-receipt';
 
 interface CartLine {
@@ -45,6 +47,7 @@ export class PosVente {
   private readonly paymentMethodService = inject(PaymentMethodService);
   private readonly clientService = inject(ClientService);
   private readonly ticketService = inject(TicketService);
+  private readonly discountService = inject(DiscountService);
   readonly activeCashierService = inject(ActiveCashierService);
 
   readonly allProducts = signal<Product[]>([]);
@@ -67,6 +70,13 @@ export class PosVente {
 
   readonly paymentLines = signal<PaymentLine[]>([]);
   readonly showPaymentModal = signal(false);
+
+  /** Code promo (voir DiscountCalculator) — appliqué explicitement ("Appliquer") plutôt qu'en
+   *  live pendant la frappe : c'est une opération monétaire, pas une recherche. */
+  readonly discountCodeInput = signal('');
+  readonly appliedDiscount = signal<ValidateDiscountResponse | null>(null);
+  readonly discountError = signal<string | null>(null);
+  readonly checkingDiscount = signal(false);
 
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
@@ -136,9 +146,16 @@ export class PosVente {
     }, 0),
   );
 
+  readonly discountAmount = computed(() => this.appliedDiscount()?.amount_off ?? 0);
+
+  /** Total réellement dû après réduction — jamais négatif. Le serveur recalcule indépendamment
+   *  au moment du paiement (voir TicketController::store) ; ceci ne sert qu'à l'affichage et au
+   *  clavier de saisie du paiement. */
+  readonly payableTotal = computed(() => Math.max(Math.round((this.cartTotal() - this.discountAmount()) * 100) / 100, 0));
+
   readonly paidTotal = computed(() => this.paymentLines().reduce((sum, line) => sum + line.value, 0));
 
-  readonly remaining = computed(() => Math.round((this.cartTotal() - this.paidTotal()) * 100) / 100);
+  readonly remaining = computed(() => Math.round((this.payableTotal() - this.paidTotal()) * 100) / 100);
 
   readonly canSubmit = computed(
     () =>
@@ -345,11 +362,50 @@ export class PosVente {
     this.paymentLines.set(this.paymentLines().filter((_, i) => i !== index));
   }
 
+  applyDiscountCode(): void {
+    const code = this.discountCodeInput().trim().toUpperCase();
+    if (!code || this.checkingDiscount()) {
+      return;
+    }
+
+    this.checkingDiscount.set(true);
+    this.discountError.set(null);
+
+    this.discountService
+      .validate(
+        code,
+        this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
+      )
+      .subscribe({
+        next: (result) => {
+          this.checkingDiscount.set(false);
+          this.appliedDiscount.set(result);
+          this.paymentLines.set([]);
+        },
+        error: (err) => {
+          this.checkingDiscount.set(false);
+          this.appliedDiscount.set(null);
+          const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
+          this.discountError.set((messages?.length ? messages.join(' ') : err.error?.message) ?? 'Code invalide.');
+        },
+      });
+  }
+
+  removeDiscount(): void {
+    this.appliedDiscount.set(null);
+    this.discountCodeInput.set('');
+    this.discountError.set(null);
+    this.paymentLines.set([]);
+  }
+
   clearSale(): void {
     this.cart.set([]);
     this.paymentLines.set([]);
     this.selectedClient.set(null);
     this.error.set(null);
+    this.appliedDiscount.set(null);
+    this.discountCodeInput.set('');
+    this.discountError.set(null);
   }
 
   openPaymentModal(): void {
@@ -386,6 +442,7 @@ export class PosVente {
       .create({
         client_id: this.selectedClient()?.id ?? null,
         cash_session_id: this.activeCashierService.activeSession()?.id ?? null,
+        discount_code: this.appliedDiscount()?.discount.code ?? null,
         lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
         payments: this.paymentLines().map((line) => ({ payment_method_id: line.method.id, value: line.value })),
       })
@@ -436,9 +493,16 @@ export class PosVente {
     this.thermalPrinted.set(false);
   }
 
+  /** Le panier a changé après validation d'un code (voir applyDiscountCode()) : le montant
+   *  déjà calculé (amount_off) est potentiellement périmé (ex. pourcentage d'un total qui a
+   *  changé) — mieux vaut forcer une revalidation explicite que d'afficher un montant faux. */
   private resetPaymentsOnCartChange(): void {
     if (this.paymentLines().length > 0) {
       this.paymentLines.set([]);
+    }
+    if (this.appliedDiscount()) {
+      this.appliedDiscount.set(null);
+      this.discountError.set('Le panier a changé — réapplique le code promo.');
     }
   }
 }

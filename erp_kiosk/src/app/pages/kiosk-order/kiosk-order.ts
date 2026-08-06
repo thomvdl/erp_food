@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { KioskService } from '../../core/kiosk.service';
-import { PaymentMethod, Product, Ticket } from '../../core/models/kiosk.model';
+import { PaymentMethod, Product, Ticket, ValidateDiscountResponse } from '../../core/models/kiosk.model';
 import { TicketReceipt } from '../../shared/ticket-receipt/ticket-receipt';
 
 interface CartLine {
@@ -70,6 +70,12 @@ export class KioskOrder implements OnInit, OnDestroy {
   readonly paymentError = signal<string | null>(null);
   readonly paidTicket = signal<Ticket | null>(null);
 
+  /** Code promo (voir DiscountCalculator côté API) — même pattern que pos-vente.ts/order-builder.ts. */
+  readonly discountCodeInput = signal('');
+  readonly appliedDiscount = signal<ValidateDiscountResponse | null>(null);
+  readonly discountError = signal<string | null>(null);
+  readonly checkingDiscount = signal(false);
+
   readonly bancontactMethod = computed(() => this.paymentMethods().find((method) => method.slug === 'bancontact') ?? null);
 
   readonly availableProducts = computed(() => {
@@ -96,6 +102,11 @@ export class KioskOrder implements OnInit, OnDestroy {
   });
 
   readonly cartTotal = computed(() => this.cart().reduce((sum, line) => sum + Number(line.product.price) * line.quantity, 0));
+
+  readonly discountAmount = computed(() => this.appliedDiscount()?.amount_off ?? 0);
+  /** Total réellement dû après réduction — le serveur recalcule indépendamment au moment du
+   *  paiement (voir KioskOrderController::store) ; ceci ne sert qu'à l'affichage. */
+  readonly payableTotal = computed(() => Math.max(Math.round((this.cartTotal() - this.discountAmount()) * 100) / 100, 0));
 
   ngOnInit(): void {
     const userId = this.authService.currentUser()?.id;
@@ -180,6 +191,43 @@ export class KioskOrder implements OnInit, OnDestroy {
     this.showPaymentModal.set(false);
     this.simulatingVariant.set(null);
     this.paymentError.set(null);
+    this.appliedDiscount.set(null);
+    this.discountCodeInput.set('');
+    this.discountError.set(null);
+  }
+
+  applyDiscountCode(): void {
+    const code = this.discountCodeInput().trim().toUpperCase();
+    if (!code || this.checkingDiscount()) {
+      return;
+    }
+
+    this.checkingDiscount.set(true);
+    this.discountError.set(null);
+
+    this.kioskService
+      .validateDiscount(
+        code,
+        this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
+      )
+      .subscribe({
+        next: (result) => {
+          this.checkingDiscount.set(false);
+          this.appliedDiscount.set(result);
+        },
+        error: (err) => {
+          this.checkingDiscount.set(false);
+          this.appliedDiscount.set(null);
+          const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
+          this.discountError.set((messages?.length ? messages.join(' ') : err.error?.message) ?? 'Code invalide.');
+        },
+      });
+  }
+
+  removeDiscount(): void {
+    this.appliedDiscount.set(null);
+    this.discountCodeInput.set('');
+    this.discountError.set(null);
   }
 
   choosePaymentVariant(variant: PaymentVariant): void {
@@ -214,8 +262,9 @@ export class KioskOrder implements OnInit, OnDestroy {
       .createKioskOrder({
         client_id: null,
         cash_session_id: this.cashSessionId,
+        discount_code: this.appliedDiscount()?.discount.code ?? null,
         lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
-        payments: [{ payment_method_id: method.id, value: this.cartTotal() }],
+        payments: [{ payment_method_id: method.id, value: this.payableTotal() }],
       })
       .subscribe({
         next: (ticket) => {
@@ -247,6 +296,9 @@ export class KioskOrder implements OnInit, OnDestroy {
       this.newOrderTimeout = null;
     }
     this.paidTicket.set(null);
+    this.appliedDiscount.set(null);
+    this.discountCodeInput.set('');
+    this.discountError.set(null);
   }
 
   goToSetup(): void {

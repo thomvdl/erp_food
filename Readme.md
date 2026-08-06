@@ -210,6 +210,19 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
 - `cash_session_counts` : cash_session_id, payment_method_id, expected_amount, counted_amount,
   discrepancy (détail du comptage à la fermeture, par moyen de paiement)
 
+**Réductions**
+- `discounts` : code (unique), type (`percentage` | `fixed_amount` | `free_product`), value
+  (nullable — pourcentage 0-100 ou montant en €, absent pour `free_product`), minimum_total
+  (nullable — seuil d'éligibilité : montant d'achat minimum requis pour utiliser le code ; une
+  fois atteint la réduction s'applique toujours en entier, jamais plafonnée), free_product_id
+  (nullable FK produits), starts_at, ends_at (période de validité, bornes incluses), active — le
+  calcul (`App\Support\DiscountCalculator`) est partagé entre l'aperçu live
+  (`POST /discounts/validate`) et les 3 endroits où un paiement est réellement encaissé
+  (`TicketController::store`, `OrderController::pay`, `KioskOrderController::store`) : le serveur
+  ne fait jamais confiance à un montant de réduction envoyé par le client
+- `tickets.discount_id` (nullable FK discounts), `tickets.discount_amount` (nullable — montant
+  déduit, figé au moment du paiement comme le reste du ticket)
+
 ## ERP_APP (back-office)
 
 - ✅ Dashboard
@@ -219,6 +232,8 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
     1. ✅ Vente directe de produits
     2. ✅ Possibilité de sélectionner un client (optionnel)
     3. ✅ Paiements
+    4. ✅ Application d'un code de réduction au paiement (recalculé côté serveur, jamais confiance
+       dans le montant affiché côté front)
 
 - ✅ POS - Restaurant
     1. ✅ Affiche les plans de salle avec un sélecteur de salle (uniquement les salles de type
@@ -230,9 +245,10 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
        Restaurant)
     5. ✅ Paiement avec possibilité de payer une partie en espèces et une partie en Bancontact —
        affiche le rendu en espèces
-    6. ✅ Possibilité d'imprimer le ticket de caisse (mise en page façon vrai ticket de caisse) et
+    6. ✅ Application d'un code de réduction au paiement (idem POS - Vente directe)
+    7. ✅ Possibilité d'imprimer le ticket de caisse (mise en page façon vrai ticket de caisse) et
        de l'envoyer par email si un client est sélectionné
-    7. ✅ Chaque section suit un cycle (en_attente → send → ask → do → seed → done, "en_attente" =
+    8. ✅ Chaque section suit un cycle (en_attente → send → ask → do → seed → done, "en_attente" =
        pas encore validée, "done" jamais atteint pour l'instant) :
         - ✅ valider → send → envoyée sur le kitchen display
         - ✅ demander en cuisine → ask → demande la section en cuisine
@@ -242,7 +258,7 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
           aussi, si la section mélange plusieurs passes)
         - done (jamais atteint, réservé pour une étape future — ex. "physiquement servie en
           salle")
-    8. ✅ Synchronisation temps réel entre plusieurs instances de POS - Restaurant (Laravel
+    9. ✅ Synchronisation temps réel entre plusieurs instances de POS - Restaurant (Laravel
        Echo/Reverb) : ouverture/libération d'une table, ajout de produit, section validée, et
        paiement se répercutent en direct sur les autres postes ouverts sur la même commande ou
        sur l'écran de sélection de table, sans recharger la page
@@ -252,6 +268,8 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
     2. ✅ Détail d'un ticket (`/tickets/:id`)
     3. ✅ Réimpression d'un ticket — consultation et réimpression uniquement, pas de modification
        ni de suppression (un ticket payé est une pièce comptable figée)
+    4. ✅ Si une réduction a été appliquée : ligne dédiée sur le ticket imprimé/détail et total
+       affiché net (montant réellement encaissé, pas le total brut du panier)
 
 - ✅ Event
     1. ✅ Vendre des places (liées à un client) pour un événement, créer un code de validation,
@@ -285,9 +303,14 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
     5. ✅ Gestion des produits
     6. ✅ Gérer les stations (CRUD + choix du passe de chaque station)
     7. ✅ Gérer les passes (CRUD)
-    8. ✅ Plus de suppression pure sur salles/tables/catégories/catalogues/utilisateurs/
-       rôles/stations/taxes/passes — remplacée par une case "Actif" (activer/désactiver), pour
-       éviter les suppressions en cascade sur des entités très référencées ailleurs dans l'app
+    8. ✅ Gérer les réductions (code, type pourcentage/montant fixe/produit gratuit, seuil
+       d'éligibilité optionnel, période de validité) — utilisables au paiement dans POS - Vente
+       directe, POS - Restaurant et Kiosk (`erp_self_order` ne gère jamais de paiement lui-même,
+       donc n'a pas besoin d'UI dédiée — voir `## ✅ ERP Self Order`)
+    9. ✅ Plus de suppression pure sur salles/tables/catégories/catalogues/utilisateurs/
+       rôles/stations/taxes/passes/réductions — remplacée par une case "Actif"
+       (activer/désactiver), pour éviter les suppressions en cascade sur des entités très
+       référencées ailleurs dans l'app
 
 ## ✅ ERP Validate event
 
@@ -321,6 +344,7 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
 - ✅ Appareil authentifié (staff), catalogue self-order, paiement immédiat simulé (QR Bancontact
   ou terminal), ticket + numéro de commande imprimable, visible en cuisine malgré le paiement
   anticipé (`KioskOrderController`, voir `docs/README.md`)
+- ✅ Application d'un code de réduction au paiement (idem POS - Vente directe / POS - Restaurant)
 - ✅ Écran public "suivi des commandes" (numéros en préparation / prêts, tickets kiosque
   uniquement), temps réel via Reverb — seule partie de cette app sans authentification
 

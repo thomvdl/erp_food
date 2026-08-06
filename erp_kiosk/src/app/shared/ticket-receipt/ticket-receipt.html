@@ -39,11 +39,23 @@
   <span></span>
   <span>{{ ticketArticleCount(ticket) }}</span>
 </div>
-<div class="ticket-receipt__row" style="font-weight: 700; font-size: var(--font-size-lg)">
+<div class="ticket-receipt__row" [style.font-weight]="ticket.discount_amount ? 400 : 700" [style.font-size]="ticket.discount_amount ? 'var(--font-size-sm)' : 'var(--font-size-lg)'">
   <span>Total TTC</span>
   <span></span>
   <span>{{ formatMoney(ticketTotal(ticket)) }}</span>
 </div>
+@if (ticket.discount_amount) {
+  <div class="ticket-receipt__row text-sm">
+    <span>Réduction{{ ticket.discount ? ' (' + ticket.discount.code + ')' : '' }}</span>
+    <span></span>
+    <span>−{{ formatMoney(ticket.discount_amount) }}</span>
+  </div>
+  <div class="ticket-receipt__row" style="font-weight: 700; font-size: var(--font-size-lg)">
+    <span>Net à payer</span>
+    <span></span>
+    <span>{{ formatMoney(ticketNetTotal(ticket)) }}</span>
+  </div>
+}
 
 <p class="font-medium text-sm" style="margin-top: var(--space-3)">Règlement</p>
 @for (payment of ticket.payments; track payment.id) {

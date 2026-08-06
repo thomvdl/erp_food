@@ -10,6 +10,7 @@ import {
   Product,
   ProductCatalog,
   Ticket,
+  ValidateDiscountResponse,
 } from './models/kiosk.model';
 
 /**
@@ -52,5 +53,11 @@ export class KioskService {
 
   createKioskOrder(payload: CreateKioskOrderPayload): Observable<Ticket> {
     return this.http.post<Ticket>(`${API_URL}/kiosk-orders`, payload);
+  }
+
+  /** Aperçu live d'un code promo avant paiement (voir DiscountController::validateCode) — le
+   *  paiement réel revalide indépendamment côté serveur. */
+  validateDiscount(code: string, lines: { product_id: number; quantity: number }[]): Observable<ValidateDiscountResponse> {
+    return this.http.post<ValidateDiscountResponse>(`${API_URL}/discounts/validate`, { code, lines });
   }
 }

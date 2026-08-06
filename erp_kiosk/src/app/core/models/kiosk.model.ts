@@ -57,8 +57,26 @@ export interface OpenCashSessionPayload {
 export interface CreateKioskOrderPayload {
   client_id: number | null;
   cash_session_id: number | null;
+  /** Code promo appliqué (voir DiscountCalculator côté API) — revalidé côté serveur. */
+  discount_code?: string | null;
   lines: { product_id: number; quantity: number }[];
   payments: { payment_method_id: number; value: number }[];
+}
+
+export type DiscountType = 'percentage' | 'fixed_amount' | 'free_product';
+
+export interface Discount {
+  id: number;
+  code: string;
+  type: DiscountType;
+  value: number | string | null;
+  free_product_id: number | null;
+}
+
+/** Réponse de POST /discounts/validate — aperçu live avant paiement. */
+export interface ValidateDiscountResponse {
+  discount: Discount;
+  amount_off: number;
 }
 
 export interface Client {
@@ -101,4 +119,8 @@ export interface Ticket {
   table?: null;
   sections: TicketSection[];
   payments: TicketPayment[];
+  /** Réduction appliquée à ce ticket (voir DiscountCalculator) — null si aucune. */
+  discount_id?: number | null;
+  discount_amount?: number | string | null;
+  discount?: Discount | null;
 }

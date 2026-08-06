@@ -12,6 +12,7 @@ import { ProductCatalogService } from '../../../core/product-catalog.service';
 import { PaymentMethodService } from '../../../core/payment-method.service';
 import { ClientService } from '../../../core/client.service';
 import { TicketService } from '../../../core/ticket.service';
+import { DiscountService } from '../../../core/discount.service';
 import { ActiveCashierService } from '../../../core/active-cashier.service';
 import { RoomService } from '../../../core/room.service';
 import { Order, OrderLine, OrderSection } from '../../../core/models/order.model';
@@ -19,6 +20,7 @@ import { Product } from '../../../core/models/product.model';
 import { ProductCategory } from '../../../core/models/catalog.model';
 import { Room, TableElement } from '../../../core/models/floor-plan.model';
 import { Client, PaymentMethod, Ticket } from '../../../core/models/ticket.model';
+import { ValidateDiscountResponse } from '../../../core/models/discount.model';
 import { KitchenEchoService } from '../../../core/kitchen-echo.service';
 import { formatMoney } from '../../../core/ticket-print.util';
 import { TicketReceipt } from '../../../shared/ticket-receipt/ticket-receipt';
@@ -62,6 +64,7 @@ export class OrderBuilder implements OnDestroy {
   private readonly paymentMethodService = inject(PaymentMethodService);
   private readonly clientService = inject(ClientService);
   private readonly ticketService = inject(TicketService);
+  private readonly discountService = inject(DiscountService);
   readonly activeCashierService = inject(ActiveCashierService);
   private readonly kitchenEcho = inject(KitchenEchoService);
   private readonly roomService = inject(RoomService);
@@ -136,6 +139,12 @@ export class OrderBuilder implements OnDestroy {
   readonly paidTicket = signal<Ticket | null>(null);
   readonly printingThermal = signal(false);
   readonly thermalPrinted = signal(false);
+
+  /** Code promo (voir DiscountCalculator) — même pattern que pos-vente.ts. */
+  readonly discountCodeInput = signal('');
+  readonly appliedDiscount = signal<ValidateDiscountResponse | null>(null);
+  readonly discountError = signal<string | null>(null);
+  readonly checkingDiscount = signal(false);
 
   readonly clientSearch = signal('');
   readonly clientResults = signal<Client[]>([]);
@@ -214,8 +223,13 @@ export class OrderBuilder implements OnDestroy {
     return list.length > 0 && list.every((section) => section.state === 'seed');
   });
 
+  readonly discountAmount = computed(() => this.appliedDiscount()?.amount_off ?? 0);
+  /** Total réellement dû après réduction — le serveur recalcule indépendamment au moment du
+   *  paiement (voir OrderController::pay) ; ceci ne sert qu'à l'affichage/au clavier. */
+  readonly payableTotal = computed(() => Math.max(Math.round((this.orderTotal() - this.discountAmount()) * 100) / 100, 0));
+
   readonly paidTotal = computed(() => this.paymentLines().reduce((sum, line) => sum + line.value, 0));
-  readonly remaining = computed(() => Math.round((this.orderTotal() - this.paidTotal()) * 100) / 100);
+  readonly remaining = computed(() => Math.round((this.payableTotal() - this.paidTotal()) * 100) / 100);
   readonly canSubmitPayment = computed(
     () =>
       this.paymentLines().length > 0 &&
@@ -490,6 +504,44 @@ export class OrderBuilder implements OnDestroy {
     this.enteringMethod.set(null);
     this.keypadBuffer.set('');
     this.error.set(null);
+    this.appliedDiscount.set(null);
+    this.discountCodeInput.set('');
+    this.discountError.set(null);
+  }
+
+  applyDiscountCode(): void {
+    const code = this.discountCodeInput().trim().toUpperCase();
+    if (!code || this.checkingDiscount()) {
+      return;
+    }
+
+    const lines = this.sections().flatMap((section) =>
+      section.lines.map((line) => ({ product_id: line.product_id, quantity: line.quantity })),
+    );
+
+    this.checkingDiscount.set(true);
+    this.discountError.set(null);
+
+    this.discountService.validate(code, lines).subscribe({
+      next: (result) => {
+        this.checkingDiscount.set(false);
+        this.appliedDiscount.set(result);
+        this.paymentLines.set([]);
+      },
+      error: (err) => {
+        this.checkingDiscount.set(false);
+        this.appliedDiscount.set(null);
+        const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
+        this.discountError.set((messages?.length ? messages.join(' ') : err.error?.message) ?? 'Code invalide.');
+      },
+    });
+  }
+
+  removeDiscount(): void {
+    this.appliedDiscount.set(null);
+    this.discountCodeInput.set('');
+    this.discountError.set(null);
+    this.paymentLines.set([]);
   }
 
   isCash(method: PaymentMethod): boolean {
@@ -569,6 +621,7 @@ export class OrderBuilder implements OnDestroy {
       .pay(order.id, {
         client_id: this.selectedClient()?.id ?? null,
         cash_session_id: this.activeCashierService.activeSession()?.id ?? null,
+        discount_code: this.appliedDiscount()?.discount.code ?? null,
         payments: this.paymentLines().map((line) => ({ payment_method_id: line.method.id, value: line.value })),
       })
       .subscribe({

@@ -304,9 +304,52 @@
 
         <hr class="divider" />
 
+        @if (appliedDiscount(); as applied) {
+          <div class="pos-cart__totals-row text-sm">
+            <span>Sous-total</span>
+            <span>{{ formatMoney(orderTotal()) }}</span>
+          </div>
+          <div class="pos-cart__totals-row text-sm" style="color: var(--color-success-text)">
+            <span>Réduction ({{ applied.discount.code }})</span>
+            <span>−{{ formatMoney(applied.amount_off) }}</span>
+          </div>
+        }
+
         <div class="pos-cart__totals-row pos-cart__totals-row--grand">
           <span>Total à payer</span>
-          <span>{{ formatMoney(orderTotal()) }}</span>
+          <span>{{ formatMoney(payableTotal()) }}</span>
+        </div>
+
+        <div class="field">
+          @if (appliedDiscount(); as applied) {
+            <div class="pos-client__chip">
+              <span>🏷️ {{ applied.discount.code }}</span>
+              <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeDiscount()">✕</button>
+            </div>
+          } @else {
+            <div style="display: flex; gap: var(--space-2)">
+              <input
+                class="input"
+                type="text"
+                placeholder="Code promo"
+                style="text-transform: uppercase"
+                [ngModel]="discountCodeInput()"
+                (ngModelChange)="discountCodeInput.set($event)"
+                (keyup.enter)="applyDiscountCode()"
+              />
+              <button
+                type="button"
+                class="btn btn-outline"
+                [disabled]="!discountCodeInput().trim() || checkingDiscount()"
+                (click)="applyDiscountCode()"
+              >
+                {{ checkingDiscount() ? '...' : 'Appliquer' }}
+              </button>
+            </div>
+          }
+          @if (discountError()) {
+            <p class="error-text text-sm">{{ discountError() }}</p>
+          }
         </div>
 
         @if (paymentLines().length > 0) {

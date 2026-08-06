@@ -1,0 +1,47 @@
+<a routerLink="/parametres" class="back-link">← Paramètres</a>
+
+<div class="app-topbar">
+  <h1 class="text-2xl">Réductions</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Type</th>
+          <th>Valeur</th>
+          <th>Période</th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (discount of discounts(); track discount.id) {
+          <tr>
+            <td class="font-semibold">{{ discount.code }}</td>
+            <td class="text-muted">{{ typeLabel(discount) }}</td>
+            <td>{{ valueLabel(discount) }}</td>
+            <td class="text-muted">{{ formatDate(discount.starts_at) }} → {{ formatDate(discount.ends_at) }}</td>
+            <td>
+              @if (discount.active) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <span class="badge badge-neutral">Inactif</span>
+              }
+            </td>
+            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
+              <a class="btn btn-outline btn-sm" [routerLink]="[discount.id]">Modifier</a>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="6" class="text-muted">Aucune réduction pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
