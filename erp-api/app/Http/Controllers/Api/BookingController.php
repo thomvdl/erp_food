@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\BookingConfirmationMail;
 use App\Models\Booking;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class BookingController extends Controller
 {
@@ -33,8 +35,15 @@ class BookingController extends Controller
         $data = $this->validated($request);
 
         $booking = Booking::query()->create($data);
+        $booking->load('client');
 
-        return response()->json($booking->load('client'), 201);
+        // Confirmer la bonne prise de rendez-vous au client (voir Readme.md) — même garde-fou
+        // que TicketMail/EventTicketsMail : le client n'a pas forcément d'email renseigné.
+        if ($booking->client->email) {
+            Mail::to($booking->client->email)->send(new BookingConfirmationMail($booking));
+        }
+
+        return response()->json($booking, 201);
     }
 
     public function update(Request $request, Booking $booking)

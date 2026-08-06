@@ -58,7 +58,7 @@
             </td>
             <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
               @if (!booking.validated_at) {
-                <button type="button" class="btn btn-accent btn-sm" (click)="validate(booking)">Valider</button>
+                <button type="button" class="btn btn-accent btn-sm" (click)="confirmValidate(booking)">Valider</button>
               }
               <a class="btn btn-outline btn-sm" [routerLink]="[booking.id]">Modifier</a>
               <button type="button" class="btn btn-danger btn-sm" (click)="remove(booking)">Supprimer</button>
@@ -73,3 +73,26 @@
     </table>
   </div>
 </div>
+
+@if (bookingToValidate(); as booking) {
+  <div class="modal-overlay" (click)="cancelValidate()">
+    <div class="modal-panel" (click)="$event.stopPropagation()">
+      <div class="card-header">
+        <h2 class="text-lg">Valider la réservation ?</h2>
+      </div>
+      <div class="card-body">
+        <p>
+          Confirmer la réservation de <strong>{{ booking.client?.firstname }} {{ booking.client?.lastname }}</strong>
+          pour {{ booking.number_of_guests }} personne{{ booking.number_of_guests > 1 ? 's' : '' }}
+          le {{ formatDate(booking) }} à {{ formatHour(booking) }} ({{ typeLabel(booking.type) }}) ?
+        </p>
+      </div>
+      <div class="card-footer form-actions">
+        <button type="button" class="btn btn-primary" [disabled]="validating()" (click)="validate()">
+          {{ validating() ? 'Validation...' : 'Confirmer' }}
+        </button>
+        <button type="button" class="btn btn-outline" (click)="cancelValidate()">Annuler</button>
+      </div>
+    </div>
+  </div>
+}

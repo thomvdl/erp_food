@@ -37,6 +37,10 @@ export class BookingList {
   readonly sortField = signal<SortField>('hour');
   readonly sortDir = signal<SortDir>('asc');
 
+  /** Réservation en attente de confirmation dans la modale "Valider" (voir validate()/confirmValidate()) — null = modale fermée. */
+  readonly bookingToValidate = signal<Booking | null>(null);
+  readonly validating = signal(false);
+
   readonly filteredBookings = computed(() => {
     const type = this.typeFilter();
     return type ? this.bookings().filter((booking) => booking.type === type) : this.bookings();
@@ -102,8 +106,31 @@ export class BookingList {
     return this.sortDir() === 'asc' ? '▲' : '▼';
   }
 
-  validate(booking: Booking): void {
-    this.bookingService.validate(booking.id).subscribe(() => this.refresh());
+  /** Ouvre la modale de confirmation — voir validate() pour l'appel API réel, déclenché
+   *  uniquement après confirmation explicite dans la modale ("être sûr de valider"). */
+  confirmValidate(booking: Booking): void {
+    this.bookingToValidate.set(booking);
+  }
+
+  cancelValidate(): void {
+    this.bookingToValidate.set(null);
+  }
+
+  validate(): void {
+    const booking = this.bookingToValidate();
+    if (!booking || this.validating()) {
+      return;
+    }
+
+    this.validating.set(true);
+    this.bookingService.validate(booking.id).subscribe({
+      next: () => {
+        this.validating.set(false);
+        this.bookingToValidate.set(null);
+        this.refresh();
+      },
+      error: () => this.validating.set(false),
+    });
   }
 
   remove(booking: Booking): void {
