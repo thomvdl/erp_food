@@ -323,8 +323,7 @@ button {
   top: 0;
   align-self: flex-start;
   height: 100vh;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .app-sidebar.is-collapsed {
@@ -346,6 +345,12 @@ button {
   flex-direction: column;
   gap: var(--space-1);
   flex: 1;
+  /* min-height: 0 est nécessaire pour qu'un enfant flex accepte de rétrécir sous sa taille de
+     contenu — sans ça, overflow-y ne scroll jamais et pousse le pied de sidebar (thème,
+     utilisateur) hors écran à la place, voir le commentaire sur .app-sidebar ci-dessus. */
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .app-nav-item {
