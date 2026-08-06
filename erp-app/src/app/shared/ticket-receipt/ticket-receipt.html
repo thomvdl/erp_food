@@ -41,9 +41,9 @@
     <p class="text-muted text-xs" style="margin-top: var(--space-2)">{{ section.name }}</p>
   }
   @for (line of section.lines; track line.id) {
-    <div class="ticket-receipt__row text-sm">
-      <span>{{ line.product?.name }}</span>
-      <span>{{ line.quantity }}</span>
+    <div class="ticket-receipt__row text-sm" [style.color]="line.is_correction ? 'var(--color-danger-text)' : null">
+      <span>{{ line.is_correction ? '🔧 Correction — ' : '' }}{{ line.product?.name }}</span>
+      <span>{{ line.is_correction ? '−' + line.quantity : line.quantity }}</span>
       <span>{{ formatMoney(ticketLineTotal(line)) }}</span>
     </div>
   }

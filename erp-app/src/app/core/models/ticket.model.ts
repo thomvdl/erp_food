@@ -21,6 +21,9 @@ export interface TicketLine {
   id: number;
   quantity: number;
   note: string | null;
+  /** Recopié depuis OrderLine.is_correction au paiement (voir OrderController::pay) — voir
+   *  ticket-print.util.ts::ticketLineTotal pour l'effet sur le total. */
+  is_correction: boolean;
   unit_price: number | string;
   product_id: number;
   product?: Product;

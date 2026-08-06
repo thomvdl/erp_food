@@ -6,6 +6,11 @@ export interface OrderLine {
   id: number;
   quantity: number;
   note: string | null;
+  /** Ligne de correction (voir OrderController::correction) : `quantity` reste positive en base,
+   *  ce flag inverse son effet sur le total ("mettre le produit avec le montant en négatif") —
+   *  voir order-builder.ts::lineTotal. Créée quand un produit a été rentré en trop après l'envoi
+   *  d'une section en cuisine (plus modifiable normalement, voir OrderLineController::assertEditable). */
+  is_correction: boolean;
   product_id: number;
   order_section_id: number;
   product?: Product;
@@ -49,4 +54,12 @@ export interface PayOrderPayload {
 
 export interface TransferOrderPayload {
   table_id: number;
+}
+
+/** "Corriger une commande si il y a un produit en trop" — voir OrderController::correction.
+ *  `quantity` est le nombre d'unités à corriger, en positif (le serveur crée la ligne négative
+ *  en effet, jamais en base). Refusé (422) si la commande ne comporte pas toutes ses sections
+ *  envoyées, ou si la quantité demandée dépasse ce qui a réellement été commandé. */
+export interface CorrectOrderPayload {
+  lines: { product_id: number; quantity: number }[];
 }

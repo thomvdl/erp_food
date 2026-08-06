@@ -127,6 +127,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('orders/{order}', [OrderController::class, 'destroy']);
     Route::post('orders/{order}/pay', [OrderController::class, 'pay']);
     Route::post('orders/{order}/transfer', [OrderController::class, 'transfer']);
+    Route::post('orders/{order}/corrections', [OrderController::class, 'correction']);
     Route::post('orders/{order}/sections', [OrderSectionController::class, 'store']);
     Route::delete('order-sections/{order_section}', [OrderSectionController::class, 'destroy']);
     Route::post('order-sections/{order_section}/valider', [OrderSectionController::class, 'valider']);

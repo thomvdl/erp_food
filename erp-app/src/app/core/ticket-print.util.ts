@@ -10,8 +10,11 @@ export function formatMoney(value: number | string): string {
   return Number(value).toFixed(2) + ' €';
 }
 
+/** Une ligne de correction (voir OrderController::correction) est stockée avec une quantity
+ *  POSITIVE — c'est ici que son effet sur le total est inversé, jamais en base. */
 export function ticketLineTotal(line: Ticket['sections'][number]['lines'][number]): number {
-  return Number(line.unit_price) * line.quantity;
+  const sign = line.is_correction ? -1 : 1;
+  return sign * Number(line.unit_price) * line.quantity;
 }
 
 export function ticketSectionTotal(section: Ticket['sections'][number]): number {
@@ -30,7 +33,11 @@ export function ticketNetTotal(ticket: Ticket): number {
 }
 
 export function ticketArticleCount(ticket: Ticket): number {
-  return ticket.sections.reduce((sum, section) => sum + section.lines.reduce((lineSum, line) => lineSum + line.quantity, 0), 0);
+  return ticket.sections.reduce(
+    (sum, section) =>
+      sum + section.lines.reduce((lineSum, line) => lineSum + (line.is_correction ? -line.quantity : line.quantity), 0),
+    0,
+  );
 }
 
 /** Le prix produit est TTC — la TVA s'en extrait, elle ne s'ajoute pas dessus (même principe que pos-vente.ts::vatTotal). */

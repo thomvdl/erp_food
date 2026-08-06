@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_URL } from './api-config';
-import { OpenOrderPayload, Order, PayOrderPayload, TransferOrderPayload } from './models/order.model';
+import { CorrectOrderPayload, OpenOrderPayload, Order, OrderLine, PayOrderPayload, TransferOrderPayload } from './models/order.model';
 import { Ticket } from './models/ticket.model';
 
 @Injectable({ providedIn: 'root' })
@@ -29,5 +29,10 @@ export class OrderService {
   /** Déplace la commande vers une autre table (libre) — le client a changé de place. */
   transfer(id: number, payload: TransferOrderPayload): Observable<Order> {
     return this.http.post<Order>(`${API_URL}/orders/${id}/transfer`, payload);
+  }
+
+  /** "Corriger une commande si il y a un produit en trop" — voir OrderController::correction. */
+  correction(id: number, payload: CorrectOrderPayload): Observable<OrderLine[]> {
+    return this.http.post<OrderLine[]>(`${API_URL}/orders/${id}/corrections`, payload);
   }
 }

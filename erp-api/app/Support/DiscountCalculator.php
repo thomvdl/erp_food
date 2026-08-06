@@ -69,12 +69,16 @@ class DiscountCalculator
      * n'a pas de sens ("code réservé aux clients qui ont pris le produit concerné"). Une seule
      * unité offerte, jamais toutes les occurrences si plusieurs ont été commandées.
      *
+     * `quantity` peut être négative (voir OrderController::pay — une ligne de correction, voir
+     * OrderController::correction, y est passée avec une quantity inversée) : une ligne annulée
+     * par une correction ne doit jamais compter comme "le produit est dans la commande".
+     *
      * @param array<int, array{product_id: int, quantity: int, unit_price: float}> $lines
      */
     private static function freeProductAmount(Discount $discount, array $lines): float
     {
         foreach ($lines as $line) {
-            if ($line['product_id'] === $discount->free_product_id) {
+            if ($line['product_id'] === $discount->free_product_id && $line['quantity'] > 0) {
                 return $line['unit_price'];
             }
         }

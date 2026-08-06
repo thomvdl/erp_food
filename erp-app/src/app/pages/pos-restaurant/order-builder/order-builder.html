@@ -142,45 +142,54 @@
             @if (activeSection(); as section) {
               @for (line of section.lines; track line.id) {
                 <div class="pos-cart__line">
-                  <div class="pos-cart__line-info">
-                    <span class="font-medium">{{ line.product?.name }}</span>
-                    <span class="text-muted text-xs">{{ formatMoney(line.product?.price ?? 0) }} / unité</span>
-                    @if (editingNoteLineId() === line.id) {
-                      <div style="display: flex; gap: var(--space-2); margin-top: var(--space-1); align-items: center">
-                        <input
-                          type="text"
-                          class="input"
-                          placeholder="Note (ex. sans oignon)"
-                          [value]="noteDraft()"
-                          (input)="noteDraft.set($any($event.target).value)"
-                          (keydown.enter)="saveNote(line)"
-                          (keydown.escape)="cancelEditingNote()"
-                          maxlength="255"
-                          style="flex: 1; padding: 0.25rem 0.5rem" />
-                        <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="saveNote(line)">✓</button>
-                        <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="cancelEditingNote()">✕</button>
-                      </div>
-                    } @else {
-                      @if (line.note) {
-                        <span class="text-xs" style="font-style: italic; margin-top: 2px">📝 {{ line.note }}</span>
+                  @if (line.is_correction) {
+                    <div class="pos-cart__line-info">
+                      <span class="font-medium" style="color: var(--color-danger-text)">🔧 Correction — {{ line.product?.name }}</span>
+                      <span class="text-muted text-xs">{{ formatMoney(line.product?.price ?? 0) }} / unité</span>
+                    </div>
+                    <span class="text-muted text-sm">−{{ line.quantity }}</span>
+                    <span class="pos-cart__line-total" style="color: var(--color-danger-text)">{{ formatMoney(lineTotal(line)) }}</span>
+                  } @else {
+                    <div class="pos-cart__line-info">
+                      <span class="font-medium">{{ line.product?.name }}</span>
+                      <span class="text-muted text-xs">{{ formatMoney(line.product?.price ?? 0) }} / unité</span>
+                      @if (editingNoteLineId() === line.id) {
+                        <div style="display: flex; gap: var(--space-2); margin-top: var(--space-1); align-items: center">
+                          <input
+                            type="text"
+                            class="input"
+                            placeholder="Note (ex. sans oignon)"
+                            [value]="noteDraft()"
+                            (input)="noteDraft.set($any($event.target).value)"
+                            (keydown.enter)="saveNote(line)"
+                            (keydown.escape)="cancelEditingNote()"
+                            maxlength="255"
+                            style="flex: 1; padding: 0.25rem 0.5rem" />
+                          <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="saveNote(line)">✓</button>
+                          <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="cancelEditingNote()">✕</button>
+                        </div>
+                      } @else {
+                        @if (line.note) {
+                          <span class="text-xs" style="font-style: italic; margin-top: 2px">📝 {{ line.note }}</span>
+                        }
+                        <button
+                          type="button"
+                          class="btn btn-ghost btn-sm"
+                          [disabled]="!activeSectionEditable()"
+                          (click)="startEditingNote(line)"
+                          style="align-self: flex-start; padding: 2px 0; height: auto">
+                          {{ line.note ? 'Modifier la note' : '📝 Ajouter une note' }}
+                        </button>
                       }
-                      <button
-                        type="button"
-                        class="btn btn-ghost btn-sm"
-                        [disabled]="!activeSectionEditable()"
-                        (click)="startEditingNote(line)"
-                        style="align-self: flex-start; padding: 2px 0; height: auto">
-                        {{ line.note ? 'Modifier la note' : '📝 Ajouter une note' }}
-                      </button>
-                    }
-                  </div>
-                  <div class="qty-stepper">
-                    <button type="button" class="qty-stepper__btn" [disabled]="!activeSectionEditable()" (click)="decrementLine(line.id, line.quantity)">−</button>
-                    <span>{{ line.quantity }}</span>
-                    <button type="button" class="qty-stepper__btn" [disabled]="!activeSectionEditable()" (click)="incrementLine(line.id, line.quantity)">+</button>
-                  </div>
-                  <span class="pos-cart__line-total">{{ formatMoney(lineTotal(line)) }}</span>
-                  <button type="button" class="btn btn-ghost btn-sm btn-icon" [disabled]="!activeSectionEditable()" (click)="removeLine(line.id)">✕</button>
+                    </div>
+                    <div class="qty-stepper">
+                      <button type="button" class="qty-stepper__btn" [disabled]="!activeSectionEditable()" (click)="decrementLine(line.id, line.quantity)">−</button>
+                      <span>{{ line.quantity }}</span>
+                      <button type="button" class="qty-stepper__btn" [disabled]="!activeSectionEditable()" (click)="incrementLine(line.id, line.quantity)">+</button>
+                    </div>
+                    <span class="pos-cart__line-total">{{ formatMoney(lineTotal(line)) }}</span>
+                    <button type="button" class="btn btn-ghost btn-sm btn-icon" [disabled]="!activeSectionEditable()" (click)="removeLine(line.id)">✕</button>
+                  }
                 </div>
               } @empty {
                 <p class="text-muted text-sm">Aucun produit dans cette section — clique sur un produit à gauche.</p>
@@ -208,6 +217,17 @@
             <span>Total</span>
             <span>{{ formatMoney(orderTotal()) }}</span>
           </div>
+          @if (allSectionsSent()) {
+            <button
+              type="button"
+              class="btn btn-outline"
+              [disabled]="correctableLines().length === 0"
+              [title]="correctableLines().length === 0 ? 'Rien à corriger dans cette commande' : ''"
+              (click)="openCorrectionModal()"
+            >
+              🔧 Corriger la commande
+            </button>
+          }
           <button
             type="button"
             class="btn btn-accent btn-lg"
@@ -498,6 +518,70 @@
         @if (transferError()) {
           <p class="error-text">{{ transferError() }}</p>
         }
+      </div>
+    </div>
+  </div>
+}
+
+@if (showCorrectionModal()) {
+  <div class="modal-overlay" (click)="closeCorrectionModal()">
+    <div class="modal-panel" (click)="$event.stopPropagation()">
+      <div class="card-header">
+        <h2 class="text-lg">Corriger la commande</h2>
+        <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="closeCorrectionModal()">✕</button>
+      </div>
+
+      <div class="card-body">
+        <p class="text-muted text-sm" style="margin-bottom: var(--space-3)">
+          Un produit rentré en trop ? Indique combien d'unités retirer — une ligne de correction sera ajoutée à la commande, déduite du total.
+        </p>
+
+        @for (entry of correctableLines(); track entry.product_id) {
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) 0">
+            <div>
+              <span class="font-medium">{{ entry.name }}</span>
+              <span class="text-muted text-xs" style="display: block">{{ entry.netQuantity }} commandé(s)</span>
+            </div>
+            <div class="qty-stepper">
+              <button
+                type="button"
+                class="qty-stepper__btn"
+                [disabled]="correctionQuantityFor(entry.product_id) <= 0"
+                (click)="setCorrectionQuantity(entry.product_id, entry.netQuantity, correctionQuantityFor(entry.product_id) - 1)"
+              >
+                −
+              </button>
+              <span>{{ correctionQuantityFor(entry.product_id) }}</span>
+              <button
+                type="button"
+                class="qty-stepper__btn"
+                [disabled]="correctionQuantityFor(entry.product_id) >= entry.netQuantity"
+                (click)="setCorrectionQuantity(entry.product_id, entry.netQuantity, correctionQuantityFor(entry.product_id) + 1)"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        } @empty {
+          <p class="text-muted text-sm">Rien à corriger dans cette commande.</p>
+        }
+
+        @if (correctionError()) {
+          <p class="error-text">{{ correctionError() }}</p>
+        }
+      </div>
+
+      <div class="card-footer form-actions">
+        <button
+          type="button"
+          class="btn btn-accent btn-lg"
+          style="flex: 1"
+          [disabled]="!hasCorrectionsToSubmit() || correcting()"
+          (click)="submitCorrection()"
+        >
+          {{ correcting() ? 'Correction…' : 'Confirmer la correction' }}
+        </button>
+        <button type="button" class="btn btn-outline" (click)="closeCorrectionModal()">Annuler</button>
       </div>
     </div>
   </div>

@@ -89,6 +89,34 @@ export class OrderBuilder implements OnDestroy {
   readonly editingNoteLineId = signal<number | null>(null);
   readonly noteDraft = signal('');
 
+  // --- Correction ("un produit en trop", voir Readme.md/OrderController::correction) — une
+  // fois toutes les sections envoyées en cuisine, plus possible de simplement supprimer une
+  // ligne (verrouillée) : cette modale ajoute une ligne compensatoire en négatif à la place. ---
+  readonly showCorrectionModal = signal(false);
+  readonly correctionQuantities = signal<Record<number, number>>({});
+  readonly correcting = signal(false);
+  readonly correctionError = signal<string | null>(null);
+
+  /** Quantité nette (déjà éventuellement corrigée) par produit, tous produits confondus dans la
+   *  commande — seuls ceux encore net positif ont un sens à corriger. */
+  readonly correctableLines = computed(() => {
+    const byProduct = new Map<number, { product_id: number; name: string; netQuantity: number }>();
+    for (const section of this.sections()) {
+      for (const line of section.lines) {
+        const delta = line.is_correction ? -line.quantity : line.quantity;
+        const existing = byProduct.get(line.product_id);
+        if (existing) {
+          existing.netQuantity += delta;
+        } else {
+          byProduct.set(line.product_id, { product_id: line.product_id, name: line.product?.name ?? '—', netQuantity: delta });
+        }
+      }
+    }
+    return Array.from(byProduct.values()).filter((entry) => entry.netQuantity > 0);
+  });
+
+  readonly hasCorrectionsToSubmit = computed(() => Object.values(this.correctionQuantities()).some((qty) => qty > 0));
+
   // --- Transfert de table ("le client change de place") — même pattern de plan de salle en
   // lecture seule que table-select.ts, mais dans une modale plutôt qu'un écran plein. ---
   readonly showTransferModal = signal(false);
@@ -211,10 +239,7 @@ export class OrderBuilder implements OnDestroy {
   });
 
   readonly orderTotal = computed(() =>
-    this.sections().reduce(
-      (sum, section) => sum + section.lines.reduce((lineSum, line) => lineSum + Number(line.product?.price ?? 0) * line.quantity, 0),
-      0,
-    ),
+    this.sections().reduce((sum, section) => sum + this.sectionTotal(section), 0),
   );
 
   /** "Quand toutes les sections sont envoyées on peut payer" (voir Readme.md) — au moins une section, toutes à 'seed'. */
@@ -285,11 +310,15 @@ export class OrderBuilder implements OnDestroy {
   readonly formatMoney = formatMoney;
 
   sectionTotal(section: OrderSection): number {
-    return section.lines.reduce((sum, line) => sum + Number(line.product?.price ?? 0) * line.quantity, 0);
+    return section.lines.reduce((sum, line) => sum + this.lineTotal(line), 0);
   }
 
+  /** Une ligne de correction (voir OrderController::correction) est stockée avec une quantity
+   *  POSITIVE — c'est ici que son effet sur le total est inversé, jamais en base ("mettre le
+   *  produit avec le montant en négatif"). */
   lineTotal(line: OrderLine): number {
-    return Number(line.product?.price ?? 0) * line.quantity;
+    const sign = line.is_correction ? -1 : 1;
+    return sign * Number(line.product?.price ?? 0) * line.quantity;
   }
 
   selectSection(section: OrderSection): void {
@@ -431,6 +460,59 @@ export class OrderBuilder implements OnDestroy {
     return { en_attente: 'En attente', send: 'Validée', ask: 'Demandée', do: 'Prête', seed: 'Envoyée', done: 'Servie' }[state];
   }
 
+  // --- Correction ("un produit en trop") ---
+
+  openCorrectionModal(): void {
+    if (!this.allSectionsSent()) {
+      return;
+    }
+    this.correctionQuantities.set({});
+    this.correctionError.set(null);
+    this.showCorrectionModal.set(true);
+  }
+
+  closeCorrectionModal(): void {
+    this.showCorrectionModal.set(false);
+    this.correctionQuantities.set({});
+    this.correctionError.set(null);
+  }
+
+  correctionQuantityFor(productId: number): number {
+    return this.correctionQuantities()[productId] ?? 0;
+  }
+
+  setCorrectionQuantity(productId: number, netQuantity: number, value: number): void {
+    const clamped = Math.max(0, Math.min(Math.floor(value) || 0, netQuantity));
+    this.correctionQuantities.set({ ...this.correctionQuantities(), [productId]: clamped });
+  }
+
+  submitCorrection(): void {
+    const order = this.order();
+    if (!order || !this.hasCorrectionsToSubmit() || this.correcting()) {
+      return;
+    }
+
+    const lines = Object.entries(this.correctionQuantities())
+      .filter(([, quantity]) => quantity > 0)
+      .map(([productId, quantity]) => ({ product_id: Number(productId), quantity }));
+
+    this.correcting.set(true);
+    this.correctionError.set(null);
+
+    this.orderService.correction(order.id, { lines }).subscribe({
+      next: () => {
+        this.correcting.set(false);
+        this.closeCorrectionModal();
+        this.refreshOrder();
+      },
+      error: (err) => {
+        this.correcting.set(false);
+        const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
+        this.correctionError.set((messages?.length ? messages.join(' ') : err.error?.message) ?? 'Impossible de corriger la commande.');
+      },
+    });
+  }
+
   // --- Client (même pattern que pos-vente.ts) ---
 
   onClientSearchChange(value: string): void {
@@ -515,9 +597,20 @@ export class OrderBuilder implements OnDestroy {
       return;
     }
 
-    const lines = this.sections().flatMap((section) =>
-      section.lines.map((line) => ({ product_id: line.product_id, quantity: line.quantity })),
-    );
+    // Agrégé net par produit (les corrections, voir OrderController::correction, se déduisent
+    // ici) : /discounts/validate exige une quantity positive, une ligne de correction n'a donc
+    // pas sa place telle quelle — seul le total net importe pour l'aperçu (le paiement réel,
+    // lui, recalcule tout côté serveur à partir des vraies lignes, voir OrderController::pay).
+    const netQuantities = new Map<number, number>();
+    for (const section of this.sections()) {
+      for (const line of section.lines) {
+        const delta = line.is_correction ? -line.quantity : line.quantity;
+        netQuantities.set(line.product_id, (netQuantities.get(line.product_id) ?? 0) + delta);
+      }
+    }
+    const lines = Array.from(netQuantities.entries())
+      .filter(([, quantity]) => quantity > 0)
+      .map(([product_id, quantity]) => ({ product_id, quantity }));
 
     this.checkingDiscount.set(true);
     this.discountError.set(null);
