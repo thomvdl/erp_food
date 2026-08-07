@@ -2,7 +2,14 @@
   display: block;
   height: 100dvh;
   overflow: hidden;
-  background: var(--surface-page);
+  /* Fond "pro" plutôt qu'un gris plat : deux halos teal très doux dans les coins (mêmes tokens
+   *  que le reste de la marque, déjà adaptés au thème sombre — voir :root) au lieu d'une couleur
+   *  d'accent qui, elle, ne l'est pas. Assez subtil pour ne jamais nuire à la lisibilité des
+   *  cartes produit blanches par-dessus. */
+  background:
+    radial-gradient(1100px circle at 12% -15%, var(--color-primary-100) 0%, transparent 55%),
+    radial-gradient(900px circle at 100% 115%, var(--color-primary-50) 0%, transparent 50%),
+    var(--surface-page);
 }
 
 /* Page fixe (pas de scroll global) — seuls .kiosk-sidebar et .kiosk-menu défilent en interne

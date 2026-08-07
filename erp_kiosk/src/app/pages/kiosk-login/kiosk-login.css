@@ -1,7 +1,12 @@
 :host {
   display: block;
   min-height: 100vh;
-  background: var(--surface-page);
+  /* Même fond "pro" que l'écran de commande (voir kiosk-order.css) — cohérence visuelle sur
+   *  tout le parcours kiosque plutôt qu'un gris plat ici et un dégradé là. */
+  background:
+    radial-gradient(1100px circle at 12% -15%, var(--color-primary-100) 0%, transparent 55%),
+    radial-gradient(900px circle at 100% 115%, var(--color-primary-50) 0%, transparent 50%),
+    var(--surface-page);
 }
 
 .login-kiosk {
