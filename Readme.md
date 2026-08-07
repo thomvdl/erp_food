@@ -128,17 +128,22 @@ un tunnel SSH vers le port 3306 du conteneur `db` depuis le poste local.
 
 ## Temps réel (Laravel Echo / Reverb)
 
-Un seul canal public Reverb, `kitchen`, événement `order.updated` (voir
-`App\Events\OrderKitchenUpdated`), diffusé à **chaque mutation d'une commande** (table ouverte,
-section créée/validée/demandée/marquée faite/envoyée/supprimée, produit ajouté/modifié/retiré,
-commande payée/annulée). Deux familles d'abonnés :
+Deux canaux publics Reverb :
 
-- `erp_kitchen_display` (`kitchen-board.ts`) : refetch générique de la liste à chaque événement.
-- `erp-app` POS - Restaurant (`table-select.ts`, `order-builder.ts`) : `table-select.ts` refetch
-  l'occupation des tables à chaque événement ; `order-builder.ts` ne refetch que si l'id de
-  commande correspond à celle actuellement ouverte — permet à plusieurs instances de POS -
-  Restaurant (plusieurs serveurs, plusieurs postes) de rester synchronisées sans recharger la
-  page, y compris quand une commande est payée ou annulée depuis un autre poste.
+- `kitchen`, événement `order.updated` (voir `App\Events\OrderKitchenUpdated`), diffusé à
+  **chaque mutation d'une commande** (table ouverte, section créée/validée/demandée/marquée
+  faite/envoyée/supprimée, produit ajouté/modifié/retiré, commande payée/annulée). Deux familles
+  d'abonnés :
+  - `erp_kitchen_display` (`kitchen-board.ts`) : refetch générique de la liste à chaque événement.
+  - `erp-app` POS - Restaurant (`table-select.ts`, `order-builder.ts`) : `table-select.ts` refetch
+    l'occupation des tables à chaque événement ; `order-builder.ts` ne refetch que si l'id de
+    commande correspond à celle actuellement ouverte — permet à plusieurs instances de POS -
+    Restaurant (plusieurs serveurs, plusieurs postes) de rester synchronisées sans recharger la
+    page, y compris quand une commande est payée ou annulée depuis un autre poste.
+- `kiosk-checkout.{id}`, événement `KioskCheckoutPaid` — confirmation temps réel du paiement QR du
+  kiosque (voir section ERP Kiosk plus bas) : `erp_kiosk` s'y abonne le temps d'attendre le
+  paiement, avec un polling de secours (`GET /kiosk-checkouts/{id}`) si l'appareil rate l'event
+  (websocket coupé — un kiosque n'est pas surveillé).
 
 `ShouldBroadcastNow` (pas de queue worker actif dans ce projet) : la diffusion est synchrone,
 dans la même requête HTTP que la mutation qui la déclenche.
@@ -164,16 +169,32 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
 **Catalogue produit**
 - `payment_methods` : name, slug, active
 - `taxes` : slug, value, active
-- `product_categories` : name, slug, active
-- `product_catalogs` : name, slug, active, active_restaurant, active_direct_sale (ces deux
-  derniers sont indépendants de `active` : ils désignent lequel des catalogues *actifs* est
-  actuellement affiché par contexte POS — restaurant et vente directe peuvent chacun avoir leur
-  propre catalogue affiché en même temps)
-- `products` : name, slug, description, price, sku, active, tax_id, station_id,
-  product_category_id — plus `catalog_product` (pivot many-to-many vers `product_catalogs`)
+- `product_categories` : name, slug, active, icon (emoji, nullable), image_path (chemin relatif
+  sur le disque `public`, nullable — mutuellement exclusif avec `icon`, voir `App\Support\ImageUpload`)
+- `product_catalogs` : name, slug, active, active_restaurant, active_direct_sale, active_kiosk,
+  active_self_order (les quatre indépendants de `active` et indépendants entre eux : chacun
+  désigne si ce catalogue fait partie de ceux *actuellement affichés* pour ce contexte POS —
+  **plusieurs catalogues peuvent être actifs en même temps pour un même contexte** (pas une
+  sélection exclusive), le contexte affiche alors l'union des produits de tous ses catalogues
+  actifs (voir `ProductCatalogController@setActiveForX`, `Paramètres > Catalogues`))
+- `products` : name, slug, description, price, sku, active, is_combo, tax_id, station_id,
+  product_category_id, icon (emoji, nullable), image_path (nullable, même principe que
+  `product_categories` ci-dessus) — plus `catalog_product` (pivot many-to-many vers
+  `product_catalogs`)
+- `product_components` : combo_id (FK `products`, le produit `is_combo=true`), component_product_id
+  (FK `products`, un produit normal — pas de combo imbriqué dans un combo), quantity — composition
+  d'un menu/formule ; à la commande, un combo est éclaté en une ligne `order_line` par composant
+  (taguée `combo_id`), jamais ajouté comme une ligne opaque, pour que la cuisine voie chaque
+  composant séparément
 
 **Clients**
-- `clients` : firstname, lastname, email, phone
+- `clients` : firstname, lastname, email, phone, points_balance (solde de points fidélité — voir
+  section Programme de fidélité plus bas, colonne dénormalisée mise à jour uniquement par
+  `App\Support\LoyaltyPoints`, jamais en écriture directe)
+- `client_point_movements` : client_id, ticket_id (nullable), points (signé — positif = gagné,
+  négatif = utilisé) — historique des mouvements, consulté depuis la fiche client 360°
+  (`/clients/:id`) ; `clients.points_balance` reste la valeur de référence pour l'affichage
+  courant, pas recalculée depuis cette table à chaque lecture
 
 **Plan de salle**
 - `rooms` : name, slug, type (`restaurant` | `event`), active
@@ -184,17 +205,35 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
   bas), client_id (nullable), table_id, number_of_guests
 - `order_sections` : name, state (en_attente → send → ask → do → seed — "en_attente" = pas
   encore validée, avant même d'entrer dans le cycle nommé ; "done" jamais atteint), order_id
-- `order_lines` : quantity, product_id, order_section_id, done (le poste a préparé cette ligne —
-  suivi par ligne, pas par section, une section peut mélanger plusieurs postes), sent (le passe a
-  expédié cette ligne — idem par ligne, une section peut mélanger plusieurs passes)
+- `order_lines` : quantity, product_id, combo_id (nullable, FK `products` — renseigné quand cette
+  ligne est un composant éclaté d'un combo, voir `product_components` plus haut), note (nullable),
+  order_section_id, done (le poste a préparé cette ligne — suivi par ligne, pas par section, une
+  section peut mélanger plusieurs postes), sent (le passe a expédié cette ligne — idem par ligne,
+  une section peut mélanger plusieurs passes), is_correction (voir `OrderController::correction` —
+  une fois toutes les sections envoyées en cuisine, "un produit en trop" ne peut plus être
+  supprimé/décrémenté normalement (garde-fou anti-désync avec ce que la cuisine a préparé) ; une
+  correction ajoute une NOUVELLE ligne du même produit flaguée `is_correction`, jamais renvoyée en
+  cuisine (`done`/`sent` forcés à `true`), dont la quantité est déduite du total au paiement)
 
 **Tickets (commande payée — figé, lecture seule)**
-- `tickets` : paid_at, client_id (nullable), table_id (nullable — vente directe n'a pas de table)
+- `tickets` : paid_at, client_id (nullable), table_id (nullable — vente directe n'a pas de table),
+  discount_id (nullable), discount_amount (nullable), points_earned (nullable — points fidélité
+  gagnés sur cette vente), points_redeemed (nullable), points_redeemed_amount (nullable) — les
+  trois derniers figés au paiement, comme `discount_amount` (voir programme de fidélité plus bas)
 - `ticket_sections` : name, ticket_id
 - `ticket_lines` : quantity, unit_price (figé au prix du produit au moment du paiement),
-  product_id, ticket_section_id
+  note (nullable), is_correction (même principe que `order_lines.is_correction` — toujours stocké
+  avec une `quantity` positive, le signe est appliqué au moment du calcul, ex. dans
+  `ReportController` pour le CA), product_id, ticket_section_id
 - `ticket_payments` : value, payment_method_id, ticket_id, user_id (nullable), cash_session_id
   (nullable) — un ticket peut avoir plusieurs paiements (règlement partagé espèces/carte)
+- `kiosk_checkouts` : stripe_checkout_session_id (unique), status (`pending`/`paid`/...),
+  cash_session_id, client_id (nullable), discount_id/discount_amount (nullable),
+  points_earned/points_redeemed/points_redeemed_amount (nullable), lines (json, figé au moment du
+  scan), total, ticket_id (nullable, pas de contrainte FK — simple repère une fois la vente
+  matérialisée) — voir section paiement kiosque plus bas ; contrairement à `tickets`, existe
+  *avant* que la vente soit confirmée (créé au scan du QR, matérialisé en `Ticket`/`Order` réels
+  seulement une fois le webhook Stripe reçu)
 
 **Événements**
 - `events` : name, slug, active
@@ -227,6 +266,20 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
 - `tickets.discount_id` (nullable FK discounts), `tickets.discount_amount` (nullable — montant
   déduit, figé au moment du paiement comme le reste du ticket)
 
+## Programme de fidélité
+
+`App\Support\LoyaltyPoints` : 1 point gagné par € dépensé, 100 points = 5€ de réduction (taux
+fixes, pas de configuration en base pour l'instant). Contrairement aux codes de réduction
+(réservés à superviseur+), **les points sont utilisables par n'importe quel rôle** — décision
+explicite : ce n'est pas une dérogation commerciale décidée au comptoir comme un code promo, juste
+la conversion d'un solde déjà acquis par le client. Si les points demandés dépassent ce qu'il
+resterait à payer, la vente est **rejetée** (422), jamais silencieusement plafonnée — comportement
+volontairement différent d'un code promo qui, lui, se plafonne au total. Intégré aux 5 points
+d'encaissement (`TicketController::store`, `OrderController::pay`, `KioskOrderController::store`,
+`KioskCheckoutController::store` + `StripeWebhookController` pour la confirmation asynchrone),
+cumulable avec un code de réduction sur la même vente. Consultable en détail depuis la fiche
+client 360° (`/clients/:id`), qui liste `client_point_movements`.
+
 ## ERP_APP (back-office)
 
 - ✅ Dashboard
@@ -238,6 +291,8 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
     3. ✅ Paiements
     4. ✅ Application d'un code de réduction au paiement (recalculé côté serveur, jamais confiance
        dans le montant affiché côté front)
+    5. ✅ Redemption de points fidélité en réduction, cumulable avec un code promo (voir section
+       Programme de fidélité plus haut)
 
 - ✅ POS - Restaurant
     1. ✅ Affiche les plans de salle avec un sélecteur de salle (uniquement les salles de type
@@ -250,9 +305,14 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
     5. ✅ Paiement avec possibilité de payer une partie en espèces et une partie en Bancontact —
        affiche le rendu en espèces
     6. ✅ Application d'un code de réduction au paiement (idem POS - Vente directe)
-    7. ✅ Possibilité d'imprimer le ticket de caisse (mise en page façon vrai ticket de caisse) et
+    7. ✅ Redemption de points fidélité en réduction (idem POS - Vente directe)
+    8. ✅ Possibilité d'imprimer le ticket de caisse (mise en page façon vrai ticket de caisse) et
        de l'envoyer par email si un client est sélectionné
-    8. ✅ Chaque section suit un cycle (en_attente → send → ask → do → seed → done, "en_attente" =
+    9. ✅ Correction de commande : une fois toutes les sections envoyées en cuisine ('seed'), un
+       produit rentré en trop peut être retiré de l'addition sans désynchroniser ce que la cuisine
+       a réellement préparé — ajoute une ligne de correction déduite du total plutôt que de
+       supprimer la ligne d'origine (voir `OrderController::correction`, DB `order_lines.is_correction`)
+    10. ✅ Chaque section suit un cycle (en_attente → send → ask → do → seed → done, "en_attente" =
        pas encore validée, "done" jamais atteint pour l'instant) :
         - ✅ valider → send → envoyée sur le kitchen display
         - ✅ demander en cuisine → ask → demande la section en cuisine
@@ -262,7 +322,7 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
           aussi, si la section mélange plusieurs passes)
         - done (jamais atteint, réservé pour une étape future — ex. "physiquement servie en
           salle")
-    9. ✅ Synchronisation temps réel entre plusieurs instances de POS - Restaurant (Laravel
+    11. ✅ Synchronisation temps réel entre plusieurs instances de POS - Restaurant (Laravel
        Echo/Reverb) : ouverture/libération d'une table, ajout de produit, section validée, et
        paiement se répercutent en direct sur les autres postes ouverts sur la même commande ou
        sur l'écran de sélection de table, sans recharger la page
@@ -277,8 +337,10 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
 
 - ✅ Event
     1. ✅ Vendre des places (liées à un client) pour un événement, créer un code de validation,
-       possibilité de l'envoyer par email
-    2. ✅ Liste des places vendues avec modification et suppression
+       possibilité de l'envoyer par email — page dédiée `/vente-de-places`, **top-level, séparée
+       de `/evenements`** (gestion des events eux-mêmes) plutôt que nichée dessous
+    2. ✅ Liste des places vendues avec modification et suppression, vue liste ou calendrier (toggle),
+       nombre de places vendues/restantes affiché par date
     3. ✅ Valider la présence avec le code de validation et attribuer une place (si placement
        strict, room_id disponible)
     4. ✅ Affichage d'une salle avec les places prises (room)
@@ -292,6 +354,21 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
 - ✅ Produits
     1. ✅ Gestion des produits en vente
     2. ✅ Possibilité de tri et de filtre
+    3. ✅ Recherche par nom
+    4. ✅ Miniature (image ou icône emoji, au choix) affichée dans la liste
+    5. ✅ Combos/menus : un produit `is_combo` composé de plusieurs autres (voir DB
+       `product_components`) — éclaté en une ligne par composant à la commande, pas une ligne
+       opaque, pour que la cuisine voie chaque composant séparément
+
+- ✅ Gestion des clients
+    1. ✅ CRUD complet (recherche/création rapide depuis les POS déjà existante par ailleurs)
+    2. ✅ Fiche client 360° (`/clients/:id`) : coordonnées, solde de points fidélité, historique
+       des mouvements de points, historique des tickets
+
+- ✅ Rapports
+    1. ✅ Comparaison de période (jour/semaine/mois vs même durée écoulée sur la période
+       précédente — pas la période précédente entière) : chiffre d'affaires, nombre de ventes
+    2. ✅ Meilleures ventes par chiffre d'affaires sur la période sélectionnée
 
 - ✅ Ouverture / Fermeture de caisse
     1. ✅ Ouverture de session avec montant en cash
@@ -300,8 +377,11 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
 
 - ✅ Paramètres
     1. ✅ Gérer les salles et les tables (position des tables, ajout de salle)
-    2. ✅ Gérer les catégories de produits
-    3. ✅ Gérer les catalogues de produits (activer un catalogue par contexte POS)
+    2. ✅ Gérer les catégories de produits — image ou icône emoji au choix (mutuellement exclusifs)
+    3. ✅ Gérer les catalogues de produits — **plusieurs catalogues activables simultanément par
+       contexte** (POS Restaurant/POS Vente directe/Kiosque/Commande QR, indépendants les uns des
+       autres) plutôt qu'un seul catalogue exclusif par contexte ; le contexte affiche alors
+       l'union des produits de tous ses catalogues actifs
     4. ✅ Gérer les utilisateurs (CRUD complet) et leur attribuer un ou plusieurs des trois rôles
        fixes (admin/superviseur/user, voir RoleSeeder) — les rôles eux-mêmes sont en lecture seule
        depuis l'app, pas de création/modification (`RoleController` n'expose que index/show).
@@ -342,6 +422,8 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
   peuvent partager le même passe)
 - ✅ Marquer comme fait dans les postes (uniquement les postes — pas les passes)
 - ✅ Marquer comme envoyé dans les passes (uniquement les passes — pas les postes)
+- ✅ Panneau "à préparer" : résumé des produits en attente/en cours, restreint à la perspective du
+  poste courant (ne montre que ce que ce poste a réellement à préparer)
 
 ## ✅ ERP Self Order
 
@@ -357,10 +439,28 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
 
 - ✅ App séparée de `erp_self_order` pour des raisons de sécurité : le code d'authentification et
   d'encaissement du kiosque n'est jamais servi à un appareil client (voir mode QR ci-dessus)
-- ✅ Appareil authentifié (staff), catalogue self-order, paiement immédiat simulé (QR Bancontact
-  ou terminal), ticket + numéro de commande imprimable, visible en cuisine malgré le paiement
-  anticipé (`KioskOrderController`, voir `docs/README.md`)
-- ✅ Application d'un code de réduction au paiement (idem POS - Vente directe / POS - Restaurant)
+- ✅ Appareil authentifié (staff), catalogue self-order (union des catalogues actifs pour ce
+  contexte, voir Paramètres > Catalogues), ticket + numéro de commande imprimable, visible en
+  cuisine malgré le paiement anticipé (`KioskOrderController`, voir `docs/README.md`)
+- ✅ Deux variants de paiement, un seul moyen possible par vente (pas de split, contrairement aux
+  deux POS `erp-app`) :
+  - **Terminal** : reste entièrement simulé (`KioskOrderController`) — un vrai terminal Bancontact
+    nécessiterait le SDK Stripe Terminal, hors périmètre pour l'instant.
+  - **QR code** : vrai paiement Stripe Checkout (Bancontact) — le client scanne avec son propre
+    téléphone et paie via sa banque, sur un appareil séparé du kiosque. Bancontact confirme "en
+    direct" côté Stripe (`checkout.session.completed`, pas un vrai async_payment_*) mais reste
+    découplé de la requête HTTP initiale : le kiosque a déjà affiché le QR bien avant que le
+    paiement soit confirmé. `KioskCheckoutController` fige la vente dans un `KioskCheckout`
+    `pending` au moment du scan ; `StripeWebhookController` la matérialise (Ticket + Order, via
+    `App\Support\KioskSaleRecorder`, même logique que le variant Terminal) une fois le webhook
+    reçu, avec confirmation temps réel côté kiosque via Reverb (canal `kiosk-checkout.{id}`) et
+    un polling de secours (`GET /kiosk-checkouts/{id}`) si l'appareil rate l'event.
+- ✅ "Connexion" client optionnelle par téléphone (`GET /clients/lookup`, correspondance exacte
+  uniquement) — pas de liste de clients ni de recherche libre comme sur les POS `erp-app` (fuite
+  de confidentialité inacceptable sur un appareil public) : trouvé → sélectionné directement,
+  sinon → proposition de créer un compte avec ce numéro
+- ✅ Application d'un code de réduction et/ou de points fidélité au paiement (idem POS - Vente
+  directe / POS - Restaurant, voir section Programme de fidélité plus haut)
 - ✅ Écran public "suivi des commandes" (numéros en préparation / prêts, tickets kiosque
   uniquement), temps réel via Reverb — seule partie de cette app sans authentification
 

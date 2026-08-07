@@ -6,8 +6,36 @@
 </div>
 
 <p class="text-muted">
-  Un seul catalogue actif à la fois pour le POS Restaurant, un seul (indépendamment) pour le POS Vente directe, un seul pour le Kiosque, et un seul pour la Commande QR.
+  Plusieurs catalogues peuvent être actifs en même temps pour le POS Restaurant, indépendamment pour le POS Vente directe, le Kiosque et la Commande QR.
 </p>
+
+<div style="display: flex; gap: var(--space-4); flex-wrap: wrap">
+  <div class="field" style="max-width: 280px">
+    <label for="name-filter">Rechercher par nom</label>
+    <input
+      id="name-filter"
+      class="input"
+      type="text"
+      placeholder="Nom du catalogue…"
+      [ngModel]="nameFilter()"
+      (ngModelChange)="nameFilter.set($event)"
+    />
+  </div>
+
+  <div class="field" style="max-width: 280px">
+    <label for="status-filter">Filtrer par statut</label>
+    <select
+      id="status-filter"
+      class="select"
+      [ngModel]="statusFilter()"
+      (ngModelChange)="statusFilter.set($event)"
+    >
+      <option value="all">Tous les statuts</option>
+      <option value="active">Actif</option>
+      <option value="inactive">Inactif</option>
+    </select>
+  </div>
+</div>
 
 <div class="card">
   <div class="card-body">
@@ -24,7 +52,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (catalog of catalogs(); track catalog.id) {
+        @for (catalog of filteredCatalogs(); track catalog.id) {
           <tr>
             <td>{{ catalog.name }}</td>
             <td>
@@ -35,60 +63,36 @@
               }
             </td>
             <td>
-              @if (catalog.active_restaurant) {
-                <span class="badge badge-success">Actif</span>
-              } @else {
-                <button
-                  type="button"
-                  class="btn btn-outline btn-sm"
-                  [disabled]="activating() !== null"
-                  (click)="activateForRestaurant(catalog)"
-                >
-                  Activer
-                </button>
-              }
+              <input
+                type="checkbox"
+                [checked]="catalog.active_restaurant"
+                [disabled]="togglingId() === catalog.id"
+                (change)="toggleRestaurant(catalog, $any($event.target).checked)"
+              />
             </td>
             <td>
-              @if (catalog.active_direct_sale) {
-                <span class="badge badge-success">Actif</span>
-              } @else {
-                <button
-                  type="button"
-                  class="btn btn-outline btn-sm"
-                  [disabled]="activating() !== null"
-                  (click)="activateForDirectSale(catalog)"
-                >
-                  Activer
-                </button>
-              }
+              <input
+                type="checkbox"
+                [checked]="catalog.active_direct_sale"
+                [disabled]="togglingId() === catalog.id"
+                (change)="toggleDirectSale(catalog, $any($event.target).checked)"
+              />
             </td>
             <td>
-              @if (catalog.active_kiosk) {
-                <span class="badge badge-success">Actif</span>
-              } @else {
-                <button
-                  type="button"
-                  class="btn btn-outline btn-sm"
-                  [disabled]="activating() !== null"
-                  (click)="activateForKiosk(catalog)"
-                >
-                  Activer
-                </button>
-              }
+              <input
+                type="checkbox"
+                [checked]="catalog.active_kiosk"
+                [disabled]="togglingId() === catalog.id"
+                (change)="toggleKiosk(catalog, $any($event.target).checked)"
+              />
             </td>
             <td>
-              @if (catalog.active_self_order) {
-                <span class="badge badge-success">Actif</span>
-              } @else {
-                <button
-                  type="button"
-                  class="btn btn-outline btn-sm"
-                  [disabled]="activating() !== null"
-                  (click)="activateForSelfOrder(catalog)"
-                >
-                  Activer
-                </button>
-              }
+              <input
+                type="checkbox"
+                [checked]="catalog.active_self_order"
+                [disabled]="togglingId() === catalog.id"
+                (change)="toggleSelfOrder(catalog, $any($event.target).checked)"
+              />
             </td>
             <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
               <a class="btn btn-outline btn-sm" [routerLink]="[catalog.id]">Modifier</a>

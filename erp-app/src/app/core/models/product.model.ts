@@ -29,6 +29,11 @@ export interface Product {
   preparation_time: number | null;
   sku: string | null;
   active: boolean;
+  /** Stock suivi pour ce produit — `null` = non suivi (disponibilité illimitée, comportement par
+   *  défaut). Décrémenté côté serveur à chaque vente réelle (voir App\Support\StockManager),
+   *  jamais recalculé ici : cette valeur peut être légèrement périmée entre deux rafraîchissements
+   *  de la liste produits, le serveur reste la seule source de vérité au paiement. */
+  stock_quantity: number | null;
   /** Un combo est un Product normal (même panier/ticket/facturation) — is_combo sert uniquement
    *  à savoir qu'il faut charger/afficher sa composition, notamment pour l'éclater en plats
    *  individuels au Kitchen Display (voir erp_kitchen_display/kitchen-board.ts). */

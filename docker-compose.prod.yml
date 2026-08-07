@@ -139,6 +139,9 @@ services:
     restart: unless-stopped
     environment:
       API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
+      REVERB_HOST: ws.${DOMAIN:?DOMAIN doit être défini dans .env}
+      REVERB_PORT: 443
+      REVERB_APP_KEY: ${REVERB_APP_KEY}
     depends_on:
       - api
 

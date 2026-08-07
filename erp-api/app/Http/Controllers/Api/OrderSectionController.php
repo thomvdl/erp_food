@@ -6,7 +6,9 @@ use App\Events\OrderKitchenUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderSection;
+use App\Support\StockManager;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -84,6 +86,12 @@ class OrderSectionController extends Controller
      * "Valider" (voir Readme.md) : verrouille la section (plus modifiable, voir
      * OrderLineController::assertEditable) et l'envoie sur le kitchen display — mais ne la met
      * pas encore dans la file d'attente active des postes, voir ::demander pour ça.
+     *
+     * Voir App\Support\StockManager : c'est ICI, pas au paiement final (qui peut arriver bien
+     * plus tard), que le stock des produits suivis est vérifié PUIS décrémenté — une fois validée
+     * la section part en cuisine, c'est le vrai moment de consommation physique. `stock_consumed`
+     * posé dans la même transaction évite qu'OrderController::pay() ne décrémente une seconde
+     * fois cette section au paiement.
      */
     public function valider(OrderSection $orderSection)
     {
@@ -93,13 +101,21 @@ class OrderSectionController extends Controller
             ]);
         }
 
-        if ($orderSection->lines()->doesntExist()) {
+        $orderSection->load('lines');
+
+        if ($orderSection->lines->isEmpty()) {
             throw ValidationException::withMessages([
                 'state' => ['Ajoute au moins un article avant de valider cette section.'],
             ]);
         }
 
-        $orderSection->update(['state' => 'send']);
+        DB::transaction(function () use ($orderSection) {
+            StockManager::consume(
+                $orderSection->lines->map(fn ($line) => ['product_id' => $line->product_id, 'quantity' => $line->quantity])->all(),
+            );
+
+            $orderSection->forceFill(['state' => 'send', 'stock_consumed' => true])->save();
+        });
 
         event(new OrderKitchenUpdated($orderSection->order_id));
 

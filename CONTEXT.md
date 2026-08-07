@@ -1127,3 +1127,164 @@ les 3 apps — vérifié par hash MD5). Demandé : un favicon cohérent avec l'i
   confirme des ICO valides ("MS Windows icon resource, 3 icons") ; titres d'onglet corrects via
   Playwright (`ERP v2` / `Kitchen Display — ERP v2` / `Contrôle d'accès — ERP v2`) ; build Angular
   propre dans les 3 conteneurs (bind-mountés, rechargement à chaud).
+
+## Trou de documentation (2026-07-30 → 2026-08-06) : `erp_self_order`, `erp_kiosk`, réductions, combos, corrections
+
+**Cette doc n'a pas été tenue à jour pendant environ une semaine.** Les migrations montrent que
+plusieurs fonctionnalités majeures ont été construites dans cet intervalle (deux nouvelles apps —
+`erp_self_order` et `erp_kiosk` — le système de codes de réduction, les combos/menus, les
+corrections de commande post-envoi cuisine...), mais aucune session correspondante n'a été
+narrée ici. Plutôt que d'inventer un déroulé de session que je n'ai pas vécu, ce qui suit est un
+**état des lieux factuel** (lu directement dans le code actuel, pas une reconstruction narrative)
+— voir `Readme.md` (mis à jour en même temps que cette entrée) pour la description complète et à
+jour de ces fonctionnalités côté utilisateur/schéma. Si une session future a besoin du *pourquoi*
+de ces choix (pourquoi `erp_self_order` est une app séparée, pourquoi les combos s'éclatent en
+lignes par composant, etc.), il faudra le redemander à l'utilisateur — cette doc ne peut pas le
+reconstituer de façon fiable.
+
+- **`erp_self_order`** (Angular, app dédiée) : commande client 100% publique par QR (table/chambre),
+  aucune authentification embarquée, jamais de paiement — passe directement en "demandée" en
+  cuisine. Backend : `SelfOrderController` (routes hors `auth:sanctum`, `qr_token` fait office de
+  capacité). Voir `Readme.md` > ERP Self Order.
+- **`erp_kiosk`** (Angular, app dédiée, staff authentifié) : volontairement séparée de
+  `erp_self_order` pour ne jamais exposer le code d'authentification/encaissement à un appareil
+  client. Encaisse immédiatement (contrairement au mode QR) tout en restant visible en cuisine.
+  Voir `Readme.md` > ERP Kiosk pour le détail des deux variants de paiement.
+- **Réductions** (`discounts`, `DiscountCalculator`) : codes promo (pourcentage/montant fixe/
+  produit gratuit), seuil d'éligibilité optionnel, période de validité, réservés à superviseur+.
+  Calcul partagé entre l'aperçu live et les 4 points d'encaissement réels. Voir `Readme.md` >
+  section Réductions (déjà à jour, schéma complet).
+- **Combos/menus** (`products.is_combo`, `product_components`) : un produit composé de plusieurs
+  autres, jamais ajouté à une commande comme une ligne opaque — éclaté en une ligne `order_line`
+  par composant (taguée `combo_id`), pour que chaque poste de cuisine voie ses composants comme
+  n'importe quel autre produit.
+- **Corrections de commande** (`order_lines`/`ticket_lines.is_correction`) : une fois une section
+  envoyée en cuisine, ses lignes ne sont plus modifiables (garde-fou anti-désync) — une correction
+  ajoute une nouvelle ligne flaguée plutôt que de toucher à l'originale, déduite du total au
+  paiement, jamais renvoyée en cuisine.
+
+## Paiement Stripe/Bancontact QR pour le kiosque, points fidélité, upload d'image produit, catalogues multi-actifs (2026-08-07)
+
+Plusieurs demandes distinctes traitées dans la continuité d'une même session (voir `Readme.md`
+pour la description utilisateur/schéma à jour de chacune — cette entrée se concentre sur le
+*pourquoi* et les pièges rencontrés).
+
+### Paiement Stripe Bancontact QR (kiosque, variant "QR code")
+Demandé : un vrai paiement Bancontact au kiosque, via QR scanné par le client sur son propre
+téléphone (le variant "Terminal" existant reste simulé — pas de SDK Stripe Terminal). Laravel
+Cashier + Stripe Checkout (`Checkout::guest()`, mode `payment`, `payment_method_types:
+['bancontact']`), session à durée de vie courte (30 min — QR affiché sur un appareil non
+surveillé). `KioskCheckoutController::store` fige la vente (lignes, prix, réduction, points) dans
+un nouveau `KioskCheckout` `pending` au moment du scan ; `StripeWebhookController` la matérialise
+(Ticket + Order réels, via `App\Support\KioskSaleRecorder`, factorisé pour être identique au
+variant Terminal) une fois le paiement confirmé.
+- **Bug corrigé avant tout test** : hypothèse initiale erronée que Bancontact serait asynchrone
+  comme SEPA (écoute uniquement de `checkout.session.async_payment_succeeded`). Vérifié auprès de
+  la doc Stripe que Bancontact confirme en fait "en direct" via `checkout.session.completed`
+  (`payment_status: paid`) — ajouté un `handleCompleted()`, gardé les handlers async en filet de
+  sécurité. Repéré en anticipant la question "tu es sûr que ça marche pour succès ET échec ?"
+  plutôt qu'après un vrai échec en prod.
+- **Piège d'environnement** : `stripe listen` lancé sans `--forward-to` ne relaie rien — silence
+  total côté API (aucune erreur, juste rien ne se passe après paiement). Diagnostiqué via
+  `docker compose logs api` (aucune requête webhook reçue) puis `ps` (processus `stripe listen`
+  tournait sans argument de destination).
+- Confirmation temps réel via Reverb (canal `kiosk-checkout.{id}`, event `KioskCheckoutPaid`) +
+  polling de secours (`GET /kiosk-checkouts/{id}`) côté kiosque, appareil non surveillé donc pas
+  fiable de compter uniquement sur le WebSocket.
+
+### Programme de fidélité (points)
+`App\Support\LoyaltyPoints` (1 pt/€ gagné, 100 pts = 5€ de réduction), ledger
+`client_point_movements` + colonne dénormalisée `clients.points_balance`. Intégré aux 5 points
+d'encaissement (POS Vente directe, POS Restaurant, Kiosk Terminal, Kiosk QR + son webhook).
+**Choix explicites de l'utilisateur** : programme réel (pas juste un affichage), points
+utilisables par **n'importe quel rôle** (contrairement aux codes promo, réservés à superviseur+ —
+ce n'est pas une dérogation commerciale, juste la conversion d'un solde déjà acquis), et
+**rejet** (422) si les points demandés dépassent ce qu'il resterait à payer — jamais un
+plafonnage silencieux comme un code promo. Nouvelle page `ClientDetail` (`/clients/:id`, fiche
+360°) côté `erp-app`.
+
+### Upload image/icône (produits + catégories)
+Premier vrai upload de fichier du projet. `icon` (emoji) et `image_path`/`image_url` (accessor
+dérivé) sur `products`/`product_categories`, mutuellement exclusifs (choix explicite de
+l'utilisateur : "Les deux : image OU icône au choix"). `App\Support\ImageUpload` + volume Docker
+nommé `api_storage` (persistant à travers un rebuild d'image, contrairement à un simple bind mount
+du repo) + `storage:link` dans `docker/entrypoint.sh`. 4 sites d'affichage produit mis à jour
+(kiosk, self-order, pos-vente, order-builder) avec fallback image → icône → rotation d'emoji.
+Persistance du volume vérifiée par un `--force-recreate` complet du conteneur (pas juste un
+restart de process).
+- **Piège retrouvé une 2ᵉ fois** : `SelfOrderController::show` a une whitelist explicite de
+  colonnes (`->get(['products.id', 'products.name', ...])`) qui aurait silencieusement exclu
+  `icon`/`image_path` si non ajoutées à la liste — même classe de piège que le whitelisting de
+  colonnes documenté ailleurs dans ce fichier.
+
+### Catalogues multi-actifs par contexte (au lieu d'un seul exclusif)
+Demandé : *"plus de systheme ou tu active un catologue par composant"* — remplacer l'activation
+exclusive (activer un catalogue désactivait tous les autres pour ce contexte) par un vrai
+multi-sélection. Aucune migration nécessaire : les 4 colonnes (`active_restaurant`/
+`active_direct_sale`/`active_kiosk`/`active_self_order`) étaient déjà des booléens indépendants
+sans contrainte d'unicité — l'exclusivité n'existait qu'en code applicatif
+(`ProductCatalogController::activateForX`, transaction "désactiver tous les autres"). Retirée ;
+les 4 méthodes renommées `setActiveForX`, deviennent de vrais toggles (`PUT` + `{active: bool}`
+au lieu de `POST` sans body). 4 points de consommation (`SelfOrderController::show`/`store`,
+`KioskOrderController::store`, `KioskCheckoutController::store`) passent d'un `->first()` sur un
+catalogue unique à `Product::whereHas('catalogs', fn ($q) => $q->whereIn(...))` sur l'**union**
+des catalogues actifs. Frontend (`erp-app` catalog-list, `pos-vente`, `order-builder`,
+`erp_kiosk` kiosk-order) : `signal<number | null>` → `signal<number[]>`, cases à cocher
+indépendantes remplaçant les boutons "Activer" exclusifs.
+- **Vérifié via `curl`+Tinker** (pas de navigateur disponible cette session) : deux catalogues
+  activés simultanément pour le même contexte restent bien tous les deux actifs (union de
+  produits sans doublon, confirmée avec un produit présent dans un seul des deux) ; désactiver
+  l'un n'affecte pas l'autre ; le message "Aucun catalogue disponible" réapparaît bien si les
+  deux sont désactivés ; une commande kiosque réelle avec un produit du 2ᵉ catalogue seulement
+  est rejetée tant que ce catalogue n'est pas actif, acceptée une fois réactivé.
+
+### Catalogue "Boissons" séparé (2026-08-07)
+Suite immédiate, demandé : *"crée un catalogue boisson et séparé les boissons"*. Nouveau catalogue
+créé par `ProductCatalogSeeder` (idempotent via `wasRecentlyCreated`), activé à la création pour
+exactement les mêmes contextes que le catalogue de base (copie dynamique de ses 4 flags — pas de
+valeurs codées en dur — pour ne rien faire disparaître des écrans de vente existants).
+`DemoSeeder::seedProducts` détache maintenant les produits des catégories Boissons chaudes/
+froides/Vins & Bières du catalogue de base et les rattache exclusivement au catalogue Boissons.
+Rend possible, par ex., de désactiver les boissons du self-order sans toucher au POS, grâce au
+multi-catalogue ci-dessus.
+- **Piège de vérification** : `erp-api` n'a aucun bind mount (voir mise en garde en tête de ce
+  fichier) — un premier test via Tinker après avoir édité les seeders a échoué silencieusement
+  (catalogue jamais créé) car le conteneur tournait encore sur l'ancienne image. `docker compose
+  build api && docker compose up -d --force-recreate api` avant de re-tester a confirmé la
+  création + le détachement (0 boisson restante dans le catalogue de base, union kiosque
+  toujours correcte : base + boissons = même total qu'avant).
+
+### Autres ajustements plus mineurs de la même session
+- **Kitchen display** : panneau "à préparer" (résumé produits pending/actifs, restreint à la
+  perspective du poste courant), page fixe (`overflow:hidden` + scroll interne, pas de scroll de
+  page — même pattern que POS Vente directe/Restaurant).
+- **Kiosk** : "connexion" client par téléphone (`GET /clients/lookup`, correspondance exacte) à la
+  place d'une liste de clients cherchable — retour utilisateur explicite : *"il ne faut pas
+  laisser de liste de client mais plustôt un systheme de connectection pour les client"* (fuite de
+  confidentialité inacceptable sur un appareil public). Bouton "Nouveau client" masqué
+  temporairement (logique conservée, juste pas rendu).
+- **Événements** : vue calendrier sur `/vente-de-places` (toggle liste/calendrier), nombre de
+  places vendues/restantes affiché, bouton "Vendre des places" retiré de `/evenements`, page
+  déplacée en top-level `/vente-de-places` (séparée de `/evenements`, retour utilisateur : *"Dans
+  le routeur sépare la page Evenement et vente de place"*).
+- **Formulaire produit** : réorganisé en sections (`.form-section`, même pattern que
+  `user-form.html`), fond carte uniforme (bordure+ombre+radius) plutôt que des couleurs
+  distinctes par section — l'utilisateur avait demandé "des fonds différents" mais l'implémentation
+  retenue reste un style de carte cohérent, appliqué globalement à la classe partagée.
+- **Miniatures** sur les listes admin `/produits` et `/parametres/categories` (nouvelle classe
+  `.list-thumb`).
+- **Rapports** (`/rapports`, nouveau) : `ReportController::summary`, comparaison de période
+  (jour/semaine/mois vs **même durée écoulée** sur la période précédente, pas la période
+  précédente entière) + meilleures ventes par CA (gestion correcte du signe `is_correction` en
+  SQL brut). Page Angular avec tuiles stat (delta ▲/▼) et une liste à barres horizontales
+  maison (pas de librairie de graphiques ajoutée). **Piège Angular évité** : `@if (x; as y)` avec
+  `x` potentiellement `0` (delta exactement nul) aurait sauté le rendu (falsy) — `computeDelta()`
+  renvoie un objet `{percent, up} | null` plutôt qu'un nombre brut, toujours truthy si non-null.
+- **Seeders** : `DemoSeeder`/`ProductCategorySeeder` — icônes emoji cohérentes par produit/
+  catégorie, backfill idempotent (`if (!$product->icon && !$product->image_path) { ... }`) qui ne
+  touche jamais une personnalisation déjà faite à la main.
+
+**Aucun outil navigateur disponible cette session** (confirmé en début de session) — toutes les
+vérifications UI se sont faites par `tsc --noEmit`/`ng build` + tests `curl`/Tinker contre l'API
+réelle, jamais par capture d'écran ou interaction navigateur réelle ; limitation signalée à
+l'utilisateur à chaque étape concernée.

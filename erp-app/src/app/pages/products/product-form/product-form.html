@@ -31,6 +31,21 @@
       <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
       Actif (visible en caisse)
     </label>
+
+    <label class="field">
+      Stock restant
+      <input
+        class="input"
+        type="number"
+        step="1"
+        min="0"
+        name="stock_quantity"
+        placeholder="Non renseigné — stock illimité, jamais en rupture"
+        [ngModel]="stockQuantity()"
+        (ngModelChange)="stockQuantity.set($event === null || $event === '' ? null : +$event)"
+      />
+      <p class="text-muted text-xs">Décrémenté automatiquement à chaque vente. Laisser vide pour un stock illimité.</p>
+    </label>
   </section>
 
   <section class="form-section">
@@ -122,7 +137,7 @@
         name="preparation_time"
         placeholder="Non renseigné — pas de minuteur en cuisine"
         [ngModel]="preparationTime()"
-        (ngModelChange)="preparationTime.set($event === '' ? null : +$event)"
+        (ngModelChange)="preparationTime.set($event === null || $event === '' ? null : +$event)"
       />
     </label>
   </section>

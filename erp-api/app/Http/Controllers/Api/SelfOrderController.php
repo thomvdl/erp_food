@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Events\OrderKitchenUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\ProductCatalog;
 use App\Models\TableElement;
 use App\Support\Qr;
+use App\Support\StockManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -31,24 +33,24 @@ use Illuminate\Validation\ValidationException;
 class SelfOrderController extends Controller
 {
     /**
-     * Contexte pour composer une commande : la table/référence visée + le catalogue produit
-     * self-order actuellement actif (voir ProductCatalogController::activateForSelfOrder).
-     * Ne renvoie que ce dont erp_self_order a besoin, pas les modèles complets (pas de coût
-     * matière, pas d'autres catalogues) — c'est une route publique.
+     * Contexte pour composer une commande : la table/référence visée + l'union des produits de
+     * tous les catalogues actuellement actifs pour le self-order (voir
+     * ProductCatalogController::setActiveForSelfOrder — plusieurs catalogues peuvent l'être à la
+     * fois). Ne renvoie que ce dont erp_self_order a besoin, pas les modèles complets (pas de
+     * coût matière) — c'est une route publique.
      */
     public function show(string $qrToken)
     {
         $table = TableElement::query()->where('qr_token', $qrToken)->where('active', true)->firstOrFail();
 
-        $catalog = ProductCatalog::query()->where('active_self_order', true)->where('active', true)->first();
+        $catalogIds = ProductCatalog::query()->where('active_self_order', true)->where('active', true)->pluck('id');
 
-        $products = $catalog
-            ? $catalog->products()
-                ->where('products.active', true)
-                ->with(['tax', 'category'])
-                ->orderBy('name')
-                ->get(['products.id', 'products.name', 'products.description', 'products.price', 'products.tax_id', 'products.product_category_id', 'products.icon', 'products.image_path'])
-            : collect();
+        $products = Product::query()
+            ->whereHas('catalogs', fn ($query) => $query->whereIn('product_catalogs.id', $catalogIds))
+            ->where('products.active', true)
+            ->with(['tax', 'category'])
+            ->orderBy('name')
+            ->get(['products.id', 'products.name', 'products.description', 'products.price', 'products.tax_id', 'products.product_category_id', 'products.icon', 'products.image_path', 'products.stock_quantity']);
 
         return response()->json([
             'table' => [
@@ -69,9 +71,9 @@ class SelfOrderController extends Controller
     {
         $table = TableElement::query()->where('qr_token', $qrToken)->where('active', true)->firstOrFail();
 
-        $catalog = ProductCatalog::query()->where('active_self_order', true)->where('active', true)->first();
+        $catalogIds = ProductCatalog::query()->where('active_self_order', true)->where('active', true)->pluck('id');
 
-        if (!$catalog) {
+        if ($catalogIds->isEmpty()) {
             throw ValidationException::withMessages([
                 'lines' => ['Aucun catalogue disponible pour le moment — demandez à un serveur.'],
             ]);
@@ -86,9 +88,13 @@ class SelfOrderController extends Controller
         ]);
 
         // Ne fait jamais confiance au front pour savoir quels produits sont vraiment
-        // self-order — un client ne doit pouvoir commander que ce que le catalogue actif expose,
-        // même si un id de produit "deviné" existe par ailleurs dans un autre catalogue.
-        $allowedProductIds = $catalog->products()->where('products.active', true)->pluck('products.id');
+        // self-order — un client ne doit pouvoir commander que ce que l'union des catalogues
+        // actifs expose, même si un id de produit "deviné" existe par ailleurs dans un autre
+        // catalogue non actif pour ce contexte.
+        $allowedProductIds = Product::query()
+            ->whereHas('catalogs', fn ($query) => $query->whereIn('product_catalogs.id', $catalogIds))
+            ->where('products.active', true)
+            ->pluck('products.id');
 
         foreach ($data['lines'] as $line) {
             if (!$allowedProductIds->contains($line['product_id'])) {
@@ -121,12 +127,22 @@ class SelfOrderController extends Controller
                 ]);
             }
 
+            // Voir App\Support\StockManager — vérifie ET décrémente ICI, pas différé au paiement :
+            // une commande self-order part directement en 'ask' (juste en dessous), un cran plus
+            // engagée qu'une simple section "validée" côté POS Restaurant, qui décrémente déjà à
+            // ce stade (voir OrderSectionController::valider()) — même moment de consommation
+            // physique, donc même règle. `stock_consumed` évite qu'OrderController::pay() ne
+            // décrémente une seconde fois cette section au paiement.
+            StockManager::consume(
+                collect($data['lines'])->map(fn (array $line) => ['product_id' => $line['product_id'], 'quantity' => $line['quantity']])->all(),
+            );
+
             // "Self order demande automatiquement sa commande en cuisine" (retour utilisateur) :
             // contrairement à une section ajoutée depuis order-builder (en_attente, un serveur
             // doit valider puis demander), une commande client passe directement en 'ask' — même
             // transition que OrderSectionController::valider()+demander() enchaînées, sans
             // attendre d'action du personnel.
-            $section->update(['state' => 'ask', 'asked_at' => now()]);
+            $section->forceFill(['state' => 'ask', 'asked_at' => now(), 'stock_consumed' => true])->save();
             if ($order->state === 'send') {
                 $order->update(['state' => 'ask']);
             }

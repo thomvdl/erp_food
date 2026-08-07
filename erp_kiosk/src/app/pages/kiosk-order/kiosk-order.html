@@ -54,8 +54,10 @@
       <section class="kiosk-menu">
         <div class="kiosk-menu__grid">
           @for (product of filteredProducts(); track product.id) {
-            <button type="button" class="kiosk-product-card" (click)="addToCart(product)">
-              @if (quantityInCart(product) > 0) {
+            <button type="button" class="kiosk-product-card" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
+              @if (isOutOfStock(product)) {
+                <span class="kiosk-product-card__out-of-stock">Rupture de stock</span>
+              } @else if (quantityInCart(product) > 0) {
                 <span class="kiosk-product-card__badge">{{ quantityInCart(product) }}</span>
               }
               @if (product.image_url) {
@@ -65,6 +67,13 @@
               }
               <span class="kiosk-product-card__name">{{ product.name }}</span>
               <span class="kiosk-product-card__price">{{ formatMoney(product.price) }}</span>
+              @if (remainingStock(product); as remaining) {
+                @if (remaining > 0) {
+                  <span class="kiosk-product-card__stock" [class.kiosk-product-card__stock--low]="isLowStock(product)">
+                    {{ remaining }} en stock
+                  </span>
+                }
+              }
             </button>
           } @empty {
             <p class="text-muted">Aucun produit dans cette catégorie.</p>
@@ -87,7 +96,7 @@
                 <div class="qty-stepper">
                   <button type="button" class="qty-stepper__btn" (click)="decrementCartLine(line.product)">−</button>
                   <span>{{ line.quantity }}</span>
-                  <button type="button" class="qty-stepper__btn" (click)="addToCart(line.product)">+</button>
+                  <button type="button" class="qty-stepper__btn" [disabled]="isOutOfStock(line.product)" (click)="addToCart(line.product)">+</button>
                 </div>
                 <span class="kiosk-cart__line-total">{{ formatMoney(lineTotal(line)) }}</span>
                 <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeCartLine(line.product)">✕</button>

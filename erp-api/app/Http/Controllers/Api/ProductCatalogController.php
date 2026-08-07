@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ProductCatalog;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class ProductCatalogController extends Controller
 {
@@ -42,59 +41,50 @@ class ProductCatalogController extends Controller
     }
 
     /**
-     * Un seul catalogue actif à la fois pour le POS Restaurant — indépendant du catalogue actif
-     * pour le POS Vente directe (voir activateForDirectSale). "active_restaurant" est exclu du
-     * #[Fillable] du modèle, donc forceFill() est nécessaire pour contourner la protection de
-     * mass-assignment.
+     * Plusieurs catalogues peuvent être actifs à la fois pour le POS Restaurant (voir Readme.md)
+     * — indépendant des autres contextes (voir setActiveForDirectSale/setActiveForSelfOrder/
+     * setActiveForKiosk), chacun a son propre jeu de catalogues actifs. "active_restaurant" est
+     * exclu du #[Fillable] du modèle, donc forceFill() est nécessaire pour contourner la
+     * protection de mass-assignment — ne doit jamais transiter par store/update classiques.
      */
-    public function activateForRestaurant(ProductCatalog $productCatalog)
+    public function setActiveForRestaurant(Request $request, ProductCatalog $productCatalog)
     {
-        DB::transaction(function () use ($productCatalog) {
-            ProductCatalog::query()->where('id', '!=', $productCatalog->id)->update(['active_restaurant' => false]);
-            $productCatalog->forceFill(['active_restaurant' => true])->save();
-        });
+        $data = $request->validate(['active' => ['required', 'boolean']]);
+        $productCatalog->forceFill(['active_restaurant' => $data['active']])->save();
+
+        return $productCatalog->refresh();
+    }
+
+    /** Même principe que setActiveForRestaurant, pour le POS Vente directe. */
+    public function setActiveForDirectSale(Request $request, ProductCatalog $productCatalog)
+    {
+        $data = $request->validate(['active' => ['required', 'boolean']]);
+        $productCatalog->forceFill(['active_direct_sale' => $data['active']])->save();
 
         return $productCatalog->refresh();
     }
 
     /**
-     * Même principe que activateForRestaurant, mais pour le POS Vente directe — les deux
-     * sélections sont indépendantes, un même catalogue peut être actif pour les deux à la fois.
+     * Même principe, pour erp_self_order (mode QR) — voir SelfOrderController, qui expose
+     * l'union des produits de tous les catalogues actifs pour ce contexte.
      */
-    public function activateForDirectSale(ProductCatalog $productCatalog)
+    public function setActiveForSelfOrder(Request $request, ProductCatalog $productCatalog)
     {
-        DB::transaction(function () use ($productCatalog) {
-            ProductCatalog::query()->where('id', '!=', $productCatalog->id)->update(['active_direct_sale' => false]);
-            $productCatalog->forceFill(['active_direct_sale' => true])->save();
-        });
+        $data = $request->validate(['active' => ['required', 'boolean']]);
+        $productCatalog->forceFill(['active_self_order' => $data['active']])->save();
 
         return $productCatalog->refresh();
     }
 
     /**
-     * Même principe, pour erp_self_order (QR et kiosque) — voir SelfOrderController, qui lit
-     * exclusivement ce flag pour savoir quel catalogue exposer publiquement.
+     * Même principe, pour erp_kiosk — voir KioskOrderController/KioskCheckoutController, qui
+     * exposent l'union des produits de tous les catalogues actifs pour ce contexte (indépendant
+     * du contexte self_order/QR).
      */
-    public function activateForSelfOrder(ProductCatalog $productCatalog)
+    public function setActiveForKiosk(Request $request, ProductCatalog $productCatalog)
     {
-        DB::transaction(function () use ($productCatalog) {
-            ProductCatalog::query()->where('id', '!=', $productCatalog->id)->update(['active_self_order' => false]);
-            $productCatalog->forceFill(['active_self_order' => true])->save();
-        });
-
-        return $productCatalog->refresh();
-    }
-
-    /**
-     * Même principe, pour erp_kiosk — voir KioskOrderController, qui lit exclusivement ce flag
-     * pour savoir quel catalogue exposer au kiosque (indépendant du catalogue self_order/QR).
-     */
-    public function activateForKiosk(ProductCatalog $productCatalog)
-    {
-        DB::transaction(function () use ($productCatalog) {
-            ProductCatalog::query()->where('id', '!=', $productCatalog->id)->update(['active_kiosk' => false]);
-            $productCatalog->forceFill(['active_kiosk' => true])->save();
-        });
+        $data = $request->validate(['active' => ['required', 'boolean']]);
+        $productCatalog->forceFill(['active_kiosk' => $data['active']])->save();
 
         return $productCatalog->refresh();
     }

@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { SelfOrderService } from '../../core/self-order.service';
+import { ProductStockEchoService } from '../../core/product-stock-echo.service';
 import { SelfOrderContext, SelfOrderProduct } from '../../core/models/self-order.model';
 
 interface CartLine {
@@ -19,6 +20,10 @@ interface CategoryFilter {
 
 const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜', '🥐', '🍦', '🥙'];
 
+/** En dessous de ce nombre restant, le stock affiché passe en couleur d'alerte — purement
+ *  visuel, n'affecte ni la commande ni le calcul. */
+const LOW_STOCK_THRESHOLD = 3;
+
 /**
  * Mode QR (voir Readme du projet) : un client anonyme scanne le QR d'une table, arrive ici via
  * app.routes.ts (route générique `:qrToken`), compose sa commande, l'envoie. Pas d'authentification,
@@ -33,6 +38,7 @@ const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜
 export class Order {
   private readonly route = inject(ActivatedRoute);
   private readonly selfOrderService = inject(SelfOrderService);
+  private readonly productStockEcho = inject(ProductStockEchoService);
 
   private qrToken = '';
 
@@ -78,6 +84,20 @@ export class Order {
       this.qrToken = token;
       this.loadContext();
     });
+
+    // Voir App\Events\ProductStockUpdated — grise/dégrise une tuile produit en direct pendant que
+    // le client compose sa commande, sans qu'il ait à re-scanner le QR pour recharger le menu.
+    this.productStockEcho.listen();
+    this.productStockEcho.stockUpdated.pipe(takeUntilDestroyed()).subscribe(({ productId, stockQuantity }) => {
+      const context = this.context();
+      if (!context) return;
+      this.context.set({
+        ...context,
+        products: context.products.map((product) =>
+          product.id === productId ? { ...product, stock_quantity: stockQuantity } : product,
+        ),
+      });
+    });
   }
 
   private loadContext(): void {
@@ -108,6 +128,26 @@ export class Order {
     return this.cart().find((line) => line.product.id === product.id)?.quantity ?? 0;
   }
 
+  /** `null` = stock non suivi, jamais affiché/décompté — même principe que pos-vente.ts côté
+   *  erp-app. Mis à jour en temps réel par ProductStockEchoService (voir constructor()) à chaque
+   *  vente ou réapprovisionnement ailleurs dans l'ERP. Purement indicatif : le staff qui encaisse
+   *  (voir OrderController::pay côté API) reste la seule source de vérité, cette app n'a jamais
+   *  géré de paiement elle-même. */
+  remainingStock(product: SelfOrderProduct): number | null {
+    return product.stock_quantity === null ? null : product.stock_quantity - this.quantityInCart(product);
+  }
+
+  isOutOfStock(product: SelfOrderProduct): boolean {
+    const remaining = this.remainingStock(product);
+    return remaining !== null && remaining <= 0;
+  }
+
+  /** Repère visuel (couleur d'alerte) en dessous de ce seuil — purement visuel. */
+  isLowStock(product: SelfOrderProduct): boolean {
+    const remaining = this.remainingStock(product);
+    return remaining !== null && remaining > 0 && remaining <= LOW_STOCK_THRESHOLD;
+  }
+
   formatMoney(value: number | string): string {
     return Number(value).toFixed(2) + ' €';
   }
@@ -117,6 +157,10 @@ export class Order {
   }
 
   addToCart(product: SelfOrderProduct): void {
+    if (this.isOutOfStock(product)) {
+      return;
+    }
+
     const current = this.cart();
     const existing = current.find((line) => line.product.id === product.id);
     if (existing) {

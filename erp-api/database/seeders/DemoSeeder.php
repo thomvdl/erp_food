@@ -185,6 +185,12 @@ class DemoSeeder extends Seeder
         $stations = Station::query()->get()->keyBy('slug');
         $categories = ProductCategory::query()->get()->keyBy('name');
         $catalog = ProductCatalog::query()->where('slug', Str::slug('Catalogue de base'))->first();
+        $drinksCatalog = ProductCatalog::query()->where('slug', Str::slug('Boissons'))->first();
+
+        // Catégories dont les produits vont dans le catalogue Boissons (voir
+        // ProductCatalogSeeder) plutôt que le catalogue de base — retour utilisateur "séparer les
+        // boissons".
+        $drinkCategoryNames = ['Boissons chaudes', 'Boissons froides', 'Vins & Bières'];
 
         // Taux belges (voir TaxSeeder) : 12% pour la nourriture (HORECA), 21% pour les boissons
         // alcoolisées. Deux stations seulement (voir StationSeeder) : tout ce qui se prépare en
@@ -257,6 +263,7 @@ class DemoSeeder extends Seeder
 
         foreach ($defs as $categoryName => $items) {
             $category = $categories->get($categoryName);
+            $isDrink = in_array($categoryName, $drinkCategoryNames, true);
 
             foreach ($items as [$name, $price, $taxSlug, $stationSlug, $icon]) {
                 $product = Product::query()->firstOrCreate(
@@ -280,8 +287,18 @@ class DemoSeeder extends Seeder
                 }
 
                 // Many-to-many désormais (voir Product::catalogs()) : syncWithoutDetaching plutôt
-                // qu'une simple FK, un produit de démo peut appartenir à plusieurs catalogues.
-                if ($catalog) {
+                // qu'une simple FK, un produit de démo peut appartenir à plusieurs catalogues. Les
+                // boissons vont dans leur catalogue séparé, pas dans le catalogue de base (detach
+                // explicite : rattrape aussi les installs existantes où elles y étaient déjà
+                // avant l'ajout du catalogue Boissons).
+                if ($isDrink) {
+                    if ($drinksCatalog) {
+                        $product->catalogs()->syncWithoutDetaching([$drinksCatalog->id]);
+                    }
+                    if ($catalog) {
+                        $product->catalogs()->detach($catalog->id);
+                    }
+                } elseif ($catalog) {
                     $product->catalogs()->syncWithoutDetaching([$catalog->id]);
                 }
             }

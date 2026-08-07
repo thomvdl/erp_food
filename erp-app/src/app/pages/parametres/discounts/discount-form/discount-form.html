@@ -37,7 +37,7 @@
         max="100"
         name="value"
         [ngModel]="value()"
-        (ngModelChange)="value.set($event === '' ? null : +$event)"
+        (ngModelChange)="value.set($event === null || $event === '' ? null : +$event)"
         required
       />
     </label>
@@ -51,7 +51,7 @@
         min="0"
         name="value"
         [ngModel]="value()"
-        (ngModelChange)="value.set($event === '' ? null : +$event)"
+        (ngModelChange)="value.set($event === null || $event === '' ? null : +$event)"
         required
       />
     </label>
@@ -77,7 +77,7 @@
       name="minimum_total"
       placeholder="Aucun minimum"
       [ngModel]="minimumTotal()"
-      (ngModelChange)="minimumTotal.set($event === '' ? null : +$event)"
+      (ngModelChange)="minimumTotal.set($event === null || $event === '' ? null : +$event)"
     />
     <span class="text-muted text-xs">
       Le code n'est utilisable qu'à partir de ce montant de panier — une fois atteint, la réduction s'applique en entier (ex. "10 € offerts dès 15 € d'achat" donne bien 10 €, jamais moins).

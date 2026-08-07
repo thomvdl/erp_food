@@ -19,7 +19,7 @@
             min="0"
             step="0.01"
             [ngModel]="openingAmount()"
-            (ngModelChange)="openingAmount.set($event === '' ? null : +$event)"
+            (ngModelChange)="openingAmount.set($event === null || $event === '' ? null : +$event)"
           />
         </div>
         @if (error()) {

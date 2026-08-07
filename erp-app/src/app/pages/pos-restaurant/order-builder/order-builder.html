@@ -50,7 +50,7 @@
     <p class="error-text">{{ error() }}</p>
   }
 
-  @if (activeRestaurantCatalogId() === null) {
+  @if (activeRestaurantCatalogIds().length === 0) {
     <div class="card card-body">
       <p>
         Aucun catalogue n'est actif pour le POS Restaurant. Active-en un depuis
@@ -93,7 +93,15 @@
 
         <div class="pos-grid">
           @for (product of filteredProducts(); track product.id) {
-            <button type="button" class="pos-product-card" [disabled]="!activeSection() || !activeSectionEditable()" (click)="addProduct(product)">
+            <button
+              type="button"
+              class="pos-product-card"
+              [disabled]="!activeSection() || !activeSectionEditable() || isOutOfStock(product)"
+              (click)="addProduct(product)"
+            >
+              @if (isOutOfStock(product)) {
+                <span class="pos-product-card__out-of-stock">Rupture de stock</span>
+              }
               @if (product.image_url) {
                 <img class="pos-product-card__thumb" style="width: 2rem; height: 2rem; object-fit: cover; border-radius: var(--radius-sm)" [src]="product.image_url" alt="" />
               } @else {
@@ -101,6 +109,13 @@
               }
               <span class="pos-product-card__name">{{ product.name }}</span>
               <span class="pos-product-card__price">{{ formatMoney(product.price) }}</span>
+              @if (remainingStock(product); as remaining) {
+                @if (remaining > 0) {
+                  <span class="pos-product-card__stock" [class.pos-product-card__stock--low]="isLowStock(product)">
+                    {{ remaining }} en stock
+                  </span>
+                }
+              }
             </button>
           } @empty {
             <p class="text-muted">Aucun produit ne correspond à cette recherche.</p>
@@ -191,7 +206,12 @@
                     <div class="qty-stepper">
                       <button type="button" class="qty-stepper__btn" [disabled]="!activeSectionEditable()" (click)="decrementLine(line.id, line.quantity)">−</button>
                       <span>{{ line.quantity }}</span>
-                      <button type="button" class="qty-stepper__btn" [disabled]="!activeSectionEditable()" (click)="incrementLine(line.id, line.quantity)">+</button>
+                      <button
+                        type="button"
+                        class="qty-stepper__btn"
+                        [disabled]="!activeSectionEditable() || (line.product && isOutOfStock(line.product))"
+                        (click)="incrementLine(line.id, line.quantity)"
+                      >+</button>
                     </div>
                     <span class="pos-cart__line-total">{{ formatMoney(lineTotal(line)) }}</span>
                     <button type="button" class="btn btn-ghost btn-sm btn-icon" [disabled]="!activeSectionEditable()" (click)="removeLine(line.id)">✕</button>

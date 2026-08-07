@@ -1,13 +1,15 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ProductService } from '../../../core/product.service';
 import { ProductCatalogService } from '../../../core/product-catalog.service';
 import { ProductCategoryService } from '../../../core/product-category.service';
+import { ProductStockEchoService } from '../../../core/product-stock-echo.service';
 import { Product } from '../../../core/models/product.model';
 import { ProductCatalog, ProductCategory } from '../../../core/models/catalog.model';
 
-type SortField = 'name' | 'category' | 'catalogs' | 'station' | 'price' | 'active';
+type SortField = 'name' | 'category' | 'catalogs' | 'station' | 'price' | 'stock' | 'active';
 type SortDir = 'asc' | 'desc';
 
 @Component({
@@ -20,6 +22,7 @@ export class ProductList {
   private readonly productService = inject(ProductService);
   private readonly catalogService = inject(ProductCatalogService);
   private readonly categoryService = inject(ProductCategoryService);
+  private readonly productStockEcho = inject(ProductStockEchoService);
 
   readonly products = signal<Product[]>([]);
   readonly catalogs = signal<ProductCatalog[]>([]);
@@ -52,6 +55,15 @@ export class ProductList {
     this.refresh();
     this.catalogService.list().subscribe((catalogs) => this.catalogs.set(catalogs));
     this.categoryService.list().subscribe((categories) => this.categories.set(categories));
+
+    // Voir App\Events\ProductStockUpdated — la colonne Stock se met à jour en direct à chaque
+    // vente ou réapprovisionnement ailleurs dans l'ERP, sans recharger la page.
+    this.productStockEcho.listen();
+    this.productStockEcho.stockUpdated.pipe(takeUntilDestroyed()).subscribe(({ productId, stockQuantity }) => {
+      this.products.set(
+        this.products().map((product) => (product.id === productId ? { ...product, stock_quantity: stockQuantity } : product)),
+      );
+    });
   }
 
   formatPrice(product: Product): string {
@@ -90,6 +102,10 @@ export class ProductList {
     switch (field) {
       case 'price':
         return Number(a.price) - Number(b.price);
+      case 'stock':
+        // null (illimité) trié comme "infini" — toujours après n'importe quel stock fini en tri
+        // ascendant, cohérent avec l'idée qu'un stock illimité n'est jamais "le plus bas".
+        return (a.stock_quantity ?? Infinity) - (b.stock_quantity ?? Infinity);
       case 'category':
         return (a.category?.name ?? '').localeCompare(b.category?.name ?? '');
       case 'catalogs':

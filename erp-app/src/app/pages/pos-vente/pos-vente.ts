@@ -1,10 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { ProductService } from '../../core/product.service';
 import { ProductCatalogService } from '../../core/product-catalog.service';
+import { ProductStockEchoService } from '../../core/product-stock-echo.service';
 import { PaymentMethodService } from '../../core/payment-method.service';
 import { ClientService } from '../../core/client.service';
 import { TicketService } from '../../core/ticket.service';
@@ -36,6 +38,10 @@ interface CategoryFilter {
  *  icônes emoji déjà utilisées partout ailleurs dans l'app (sidebar, hub Paramètres). */
 const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜', '🥐', '🍦', '🥙'];
 
+/** En dessous de ce nombre restant, le stock affiché passe en couleur d'alerte (voir
+ *  isLowStock()) — purement visuel, n'affecte ni la vente ni le calcul. */
+const LOW_STOCK_THRESHOLD = 3;
+
 @Component({
   selector: 'app-pos-vente',
   standalone: true,
@@ -45,6 +51,7 @@ const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜
 export class PosVente {
   private readonly productService = inject(ProductService);
   private readonly catalogService = inject(ProductCatalogService);
+  private readonly productStockEcho = inject(ProductStockEchoService);
   private readonly paymentMethodService = inject(PaymentMethodService);
   private readonly clientService = inject(ClientService);
   private readonly ticketService = inject(TicketService);
@@ -53,7 +60,9 @@ export class PosVente {
   readonly authService = inject(AuthService);
 
   readonly allProducts = signal<Product[]>([]);
-  readonly activeDirectSaleCatalogId = signal<number | null>(null);
+  /** Plusieurs catalogues peuvent être actifs à la fois pour le POS Vente directe, voir
+   *  ProductCatalog.active_direct_sale. */
+  readonly activeDirectSaleCatalogIds = signal<number[]>([]);
   readonly paymentMethods = signal<PaymentMethod[]>([]);
 
   readonly searchTerm = signal('');
@@ -97,16 +106,17 @@ export class PosVente {
 
   private readonly clientSearch$ = new Subject<string>();
 
-  /** Produits actifs rattachés au catalogue actif pour le POS Vente directe — indépendant du
-   *  catalogue actif pour le POS Restaurant, voir ProductCatalog.active_direct_sale. */
+  /** Produits actifs rattachés à l'UN des catalogues actifs pour le POS Vente directe (union,
+   *  pas un catalogue exclusif) — indépendant du POS Restaurant, voir
+   *  ProductCatalog.active_direct_sale. */
   readonly availableProducts = computed(() => {
-    const catalogId = this.activeDirectSaleCatalogId();
-    if (catalogId === null) {
+    const catalogIds = this.activeDirectSaleCatalogIds();
+    if (catalogIds.length === 0) {
       return [];
     }
 
     return this.allProducts().filter(
-      (product) => product.active && (product.catalogs ?? []).some((catalog) => catalog.id === catalogId),
+      (product) => product.active && (product.catalogs ?? []).some((catalog) => catalogIds.includes(catalog.id)),
     );
   });
 
@@ -183,7 +193,9 @@ export class PosVente {
     this.productService.list().subscribe((products) => this.allProducts.set(products));
     this.catalogService
       .list()
-      .subscribe((catalogs) => this.activeDirectSaleCatalogId.set(catalogs.find((c) => c.active_direct_sale)?.id ?? null));
+      .subscribe((catalogs) =>
+        this.activeDirectSaleCatalogIds.set(catalogs.filter((c) => c.active_direct_sale).map((c) => c.id)),
+      );
     this.paymentMethodService.list().subscribe((methods) => this.paymentMethods.set(methods));
 
     this.clientSearch$
@@ -193,6 +205,15 @@ export class PosVente {
         switchMap((query) => this.clientService.search(query)),
       )
       .subscribe((results) => this.clientResults.set(results));
+
+    // Voir App\Events\ProductStockUpdated — grise/dégrise une tuile produit en direct (vente
+    // depuis un autre poste, ou réapprovisionnement admin) sans recharger toute la liste produits.
+    this.productStockEcho.listen();
+    this.productStockEcho.stockUpdated.pipe(takeUntilDestroyed()).subscribe(({ productId, stockQuantity }) => {
+      this.allProducts.set(
+        this.allProducts().map((product) => (product.id === productId ? { ...product, stock_quantity: stockQuantity } : product)),
+      );
+    });
   }
 
   productEmoji(product: Product): string {
@@ -212,7 +233,31 @@ export class PosVente {
     return this.cart().find((line) => line.product.id === product.id)?.quantity ?? 0;
   }
 
+  /** `null` = stock non suivi, jamais affiché/décompté (voir Product.stock_quantity). Tient
+   *  compte de ce qui est déjà dans le panier (pas encore vendu, mais déjà "réservé" à l'écran) —
+   *  mis à jour en temps réel par ProductStockEchoService (voir constructor()) à chaque vente ou
+   *  réapprovisionnement, sur ce poste comme sur n'importe quel autre. */
+  remainingStock(product: Product): number | null {
+    return product.stock_quantity === null ? null : product.stock_quantity - this.quantityInCart(product);
+  }
+
+  isOutOfStock(product: Product): boolean {
+    const remaining = this.remainingStock(product);
+    return remaining !== null && remaining <= 0;
+  }
+
+  /** Repère visuel (couleur d'alerte) en dessous de ce seuil — n'affecte ni la vente ni le calcul,
+   *  juste l'attention du vendeur avant que ça tombe à zéro. */
+  isLowStock(product: Product): boolean {
+    const remaining = this.remainingStock(product);
+    return remaining !== null && remaining > 0 && remaining <= LOW_STOCK_THRESHOLD;
+  }
+
   addToCart(product: Product): void {
+    if (this.isOutOfStock(product)) {
+      return;
+    }
+
     const current = this.cart();
     const existing = current.find((line) => line.product.id === product.id);
 

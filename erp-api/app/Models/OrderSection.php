@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+// "stock_consumed" volontairement absent : jamais posé via un payload client, uniquement par
+// OrderSectionController::valider()/OrderController::pay via forceFill() — voir
+// App\Support\StockManager.
 #[Fillable(['name', 'order_id', 'state', 'asked_at'])]
 class OrderSection extends Model
 {
@@ -14,6 +17,7 @@ class OrderSection extends Model
     {
         return [
             'asked_at' => 'datetime',
+            'stock_consumed' => 'boolean',
         ];
     }
 

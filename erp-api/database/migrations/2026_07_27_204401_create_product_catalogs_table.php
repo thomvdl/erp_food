@@ -16,11 +16,11 @@ return new class extends Migration
             $table->string('name');
             $table->string('slug')->unique();
             // Deux sélections indépendantes plutôt qu'un seul `active` générique : le POS
-            // Restaurant et le POS Vente directe peuvent chacun afficher un catalogue différent
-            // en même temps (voir ProductCatalogController@activateForRestaurant/
-            // activateForDirectSale) — un seul catalogue actif À LA FOIS PAR CONTEXTE, pas un
-            // seul catalogue actif globalement. false par défaut, même raison que l'ancien
-            // `active` : un nouveau catalogue ne doit jamais naître déjà actif quelque part.
+            // Restaurant et le POS Vente directe peuvent chacun afficher plusieurs catalogues
+            // actifs en même temps (voir ProductCatalogController@setActiveForRestaurant/
+            // setActiveForDirectSale) — booléens indépendants par catalogue, pas une sélection
+            // exclusive. false par défaut, même raison que l'ancien `active` : un nouveau
+            // catalogue ne doit jamais naître déjà actif quelque part.
             $table->boolean('active_restaurant')->default(false);
             $table->boolean('active_direct_sale')->default(false);
             $table->timestamps();

@@ -37,6 +37,10 @@ export interface Product {
   category?: ProductCategory | null;
   catalogs?: ProductCatalog[];
   tax?: Tax | null;
+  /** Stock suivi pour ce produit — `null` = non suivi (disponibilité illimitée). Décrémenté côté
+   *  serveur à chaque vente (voir App\Support\StockManager), le serveur reste la seule source de
+   *  vérité au paiement. */
+  stock_quantity: number | null;
   /** Voir ProductCategory.icon ci-dessus — même principe. Repli : voir productEmoji() dans kiosk-order.ts. */
   icon: string | null;
   image_url: string | null;

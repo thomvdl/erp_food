@@ -110,10 +110,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('product-categories/{product_category}/image', [ProductCategoryController::class, 'uploadImage']);
         Route::delete('product-categories/{product_category}/image', [ProductCategoryController::class, 'removeImage']);
         Route::apiResource('product-catalogs', ProductCatalogController::class)->except(['destroy', 'index']);
-        Route::post('product-catalogs/{product_catalog}/activate-restaurant', [ProductCatalogController::class, 'activateForRestaurant']);
-        Route::post('product-catalogs/{product_catalog}/activate-direct-sale', [ProductCatalogController::class, 'activateForDirectSale']);
-        Route::post('product-catalogs/{product_catalog}/activate-self-order', [ProductCatalogController::class, 'activateForSelfOrder']);
-        Route::post('product-catalogs/{product_catalog}/activate-kiosk', [ProductCatalogController::class, 'activateForKiosk']);
+        // PUT + { active: bool } : chaque contexte accepte maintenant plusieurs catalogues actifs
+        // à la fois (voir ProductCatalogController::setActiveForX), plus une activation exclusive.
+        Route::put('product-catalogs/{product_catalog}/active-restaurant', [ProductCatalogController::class, 'setActiveForRestaurant']);
+        Route::put('product-catalogs/{product_catalog}/active-direct-sale', [ProductCatalogController::class, 'setActiveForDirectSale']);
+        Route::put('product-catalogs/{product_catalog}/active-self-order', [ProductCatalogController::class, 'setActiveForSelfOrder']);
+        Route::put('product-catalogs/{product_catalog}/active-kiosk', [ProductCatalogController::class, 'setActiveForKiosk']);
         Route::apiResource('users', UserController::class)->except(['destroy']);
         Route::post('users/{user}/qr-code', [UserController::class, 'generateQrCode']);
         Route::get('users/{user}/qr', [UserController::class, 'qr']);

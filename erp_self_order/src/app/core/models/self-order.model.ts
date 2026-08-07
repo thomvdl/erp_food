@@ -23,6 +23,10 @@ export interface SelfOrderProduct {
    *  App\Support\ImageUpload côté API). Repli si les deux sont absents : voir productEmoji() dans order.ts. */
   icon: string | null;
   image_url: string | null;
+  /** Stock suivi pour ce produit — `null` = non suivi (disponibilité illimitée). Décrémenté côté
+   *  serveur à chaque vente (voir App\Support\StockManager) ; le staff qui encaisse reste la
+   *  seule source de vérité (voir OrderController::pay), cette valeur n'est qu'indicative ici. */
+  stock_quantity: number | null;
 }
 
 export interface SelfOrderContext {

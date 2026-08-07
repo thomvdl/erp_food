@@ -42,6 +42,8 @@ export class ProductForm {
   readonly preparationTime = signal<number | null>(null);
   readonly sku = signal('');
   readonly active = signal(true);
+  /** Voir Product.stock_quantity — `null` = stock non suivi (illimité), jamais un 0 par défaut. */
+  readonly stockQuantity = signal<number | null>(null);
   readonly categoryId = signal<number | null>(null);
   readonly catalogIds = signal<number[]>([]);
   readonly stationId = signal<number | null>(null);
@@ -124,6 +126,7 @@ export class ProductForm {
             this.preparationTime.set(product.preparation_time);
             this.sku.set(product.sku ?? '');
             this.active.set(product.active);
+            this.stockQuantity.set(product.stock_quantity);
             this.categoryId.set(product.product_category_id);
             this.catalogIds.set((product.catalogs ?? []).map((catalog) => catalog.id));
             this.stationId.set(product.station_id);
@@ -184,6 +187,7 @@ export class ProductForm {
       preparation_time: this.preparationTime(),
       sku: this.sku() || null,
       active: this.active(),
+      stock_quantity: this.stockQuantity(),
       icon: this.icon().trim() || null,
       product_category_id: this.categoryId(),
       catalog_ids: this.catalogIds(),

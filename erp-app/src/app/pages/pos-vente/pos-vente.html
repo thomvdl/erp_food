@@ -34,7 +34,7 @@
   }
 </div>
 
-@if (activeDirectSaleCatalogId() === null) {
+@if (activeDirectSaleCatalogIds().length === 0) {
   <div class="card card-body">
     <p>
       Aucun catalogue n'est actif pour le POS Vente directe. Active-en un depuis
@@ -77,8 +77,10 @@
 
       <div class="pos-grid">
         @for (product of filteredProducts(); track product.id) {
-          <button type="button" class="pos-product-card" (click)="addToCart(product)">
-            @if (quantityInCart(product) > 0) {
+          <button type="button" class="pos-product-card" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
+            @if (isOutOfStock(product)) {
+              <span class="pos-product-card__out-of-stock">Rupture de stock</span>
+            } @else if (quantityInCart(product) > 0) {
               <span class="pos-product-card__badge">{{ quantityInCart(product) }}</span>
             }
             @if (product.image_url) {
@@ -88,6 +90,13 @@
             }
             <span class="pos-product-card__name">{{ product.name }}</span>
             <span class="pos-product-card__price">{{ formatMoney(product.price) }}</span>
+            @if (remainingStock(product); as remaining) {
+              @if (remaining > 0) {
+                <span class="pos-product-card__stock" [class.pos-product-card__stock--low]="isLowStock(product)">
+                  {{ remaining }} en stock
+                </span>
+              }
+            }
           </button>
         } @empty {
           <p class="text-muted">Aucun produit ne correspond à cette recherche.</p>
@@ -181,7 +190,7 @@
               <div class="qty-stepper">
                 <button type="button" class="qty-stepper__btn" (click)="decrementCartLine(line.product)">−</button>
                 <span>{{ line.quantity }}</span>
-                <button type="button" class="qty-stepper__btn" (click)="addToCart(line.product)">+</button>
+                <button type="button" class="qty-stepper__btn" [disabled]="isOutOfStock(line.product)" (click)="addToCart(line.product)">+</button>
               </div>
               <span class="pos-cart__line-total">{{ formatMoney(lineTotal(line)) }}</span>
               <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeCartLine(line.product)">✕</button>

@@ -8,35 +8,35 @@ import { ProductCatalog } from './models/catalog.model';
 export class ProductCatalogService extends CachedResourceService<ProductCatalog> {
   protected readonly endpoint = 'product-catalogs';
 
-  /** Rend ce catalogue actif pour le POS Restaurant (voir ProductCatalogController@activateForRestaurant)
-   *  — invalide le cache puisque tous les autres catalogues viennent de repasser à
-   *  `active_restaurant: false` côté serveur. Indépendant de activateForDirectSale. */
-  activateForRestaurant(id: number): Observable<ProductCatalog> {
+  /** Bascule ce catalogue actif/inactif pour le POS Restaurant (voir
+   *  ProductCatalogController@setActiveForRestaurant) — plusieurs catalogues peuvent être actifs
+   *  à la fois pour ce contexte, indépendant de setActiveForDirectSale. */
+  setActiveForRestaurant(id: number, active: boolean): Observable<ProductCatalog> {
     return this.http
-      .post<ProductCatalog>(`${API_URL}/product-catalogs/${id}/activate-restaurant`, {})
+      .put<ProductCatalog>(`${API_URL}/product-catalogs/${id}/active-restaurant`, { active })
       .pipe(tap(() => this.invalidate()));
   }
 
   /** Même principe pour le POS Vente directe. */
-  activateForDirectSale(id: number): Observable<ProductCatalog> {
+  setActiveForDirectSale(id: number, active: boolean): Observable<ProductCatalog> {
     return this.http
-      .post<ProductCatalog>(`${API_URL}/product-catalogs/${id}/activate-direct-sale`, {})
+      .put<ProductCatalog>(`${API_URL}/product-catalogs/${id}/active-direct-sale`, { active })
       .pipe(tap(() => this.invalidate()));
   }
 
-  /** Même principe pour erp_kiosk (voir ProductCatalogController@activateForKiosk) — indépendant
+  /** Même principe pour erp_kiosk (voir ProductCatalogController@setActiveForKiosk) — indépendant
    *  du catalogue self_order/QR. */
-  activateForKiosk(id: number): Observable<ProductCatalog> {
+  setActiveForKiosk(id: number, active: boolean): Observable<ProductCatalog> {
     return this.http
-      .post<ProductCatalog>(`${API_URL}/product-catalogs/${id}/activate-kiosk`, {})
+      .put<ProductCatalog>(`${API_URL}/product-catalogs/${id}/active-kiosk`, { active })
       .pipe(tap(() => this.invalidate()));
   }
 
-  /** Même principe pour erp_self_order (mode QR — voir ProductCatalogController@activateForSelfOrder),
+  /** Même principe pour erp_self_order (mode QR — voir ProductCatalogController@setActiveForSelfOrder),
    *  indépendant du catalogue kiosque. */
-  activateForSelfOrder(id: number): Observable<ProductCatalog> {
+  setActiveForSelfOrder(id: number, active: boolean): Observable<ProductCatalog> {
     return this.http
-      .post<ProductCatalog>(`${API_URL}/product-catalogs/${id}/activate-self-order`, {})
+      .put<ProductCatalog>(`${API_URL}/product-catalogs/${id}/active-self-order`, { active })
       .pipe(tap(() => this.invalidate()));
   }
 }

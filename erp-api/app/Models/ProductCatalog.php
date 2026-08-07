@@ -9,8 +9,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 // "active_restaurant"/"active_direct_sale"/"active_self_order"/"active_kiosk" volontairement
 // absents du Fillable : ne doivent jamais transiter par les payloads store/update classiques,
-// seulement être écrits par ProductCatalogController@activateForRestaurant/activateForDirectSale/
-// activateForSelfOrder/activateForKiosk.
+// seulement être écrits par ProductCatalogController@setActiveForRestaurant/setActiveForDirectSale/
+// setActiveForSelfOrder/setActiveForKiosk. Plusieurs catalogues peuvent être actifs à la fois pour
+// un même contexte (voir Readme.md) — ces 4 flags sont juste des booléens indépendants par
+// catalogue, pas une sélection exclusive.
 #[Fillable(['name', 'slug', 'active'])]
 class ProductCatalog extends Model
 {

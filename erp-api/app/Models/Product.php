@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
     'name', 'slug', 'description', 'price', 'sku', 'active', 'is_combo', 'tax_id', 'station_id',
-    'product_category_id', 'preparation_time', 'icon', 'image_path',
+    'product_category_id', 'preparation_time', 'icon', 'image_path', 'stock_quantity',
 ])]
 class Product extends Model
 {
@@ -28,6 +28,7 @@ class Product extends Model
             'active' => 'boolean',
             'is_combo' => 'boolean',
             'preparation_time' => 'integer',
+            'stock_quantity' => 'integer',
         ];
     }
 

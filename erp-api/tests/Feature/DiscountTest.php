@@ -398,7 +398,7 @@ class DiscountTest extends TestCase
         ]);
 
         // active_kiosk est volontairement absent du Fillable (voir ProductCatalog) — doit
-        // passer par forceFill, comme ProductCatalogController::activateForKiosk.
+        // passer par forceFill, comme ProductCatalogController::setActiveForKiosk.
         $catalog = ProductCatalog::query()->create(['name' => 'Kiosk', 'slug' => 'kiosk', 'active' => true]);
         $catalog->forceFill(['active_kiosk' => true])->save();
         $catalog->products()->attach($this->product->id);

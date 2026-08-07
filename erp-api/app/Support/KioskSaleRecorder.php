@@ -41,6 +41,10 @@ class KioskSaleRecorder
         float $pointsRedeemedAmount = 0.0,
     ): array {
         return DB::transaction(function () use ($lines, $cashSession, $discount, $discountAmount, $client, $payments, $pointsEarned, $pointsRedeemed, $pointsRedeemedAmount) {
+            // Voir App\Support\StockManager — couvre les deux variants de paiement kiosque
+            // (Terminal et QR, ce dernier via StripeWebhookController qui appelle ce même record()).
+            StockManager::consume($lines);
+
             $ticket = Ticket::query()->create([
                 'paid_at' => now(),
                 'client_id' => $client?->id,
@@ -80,6 +84,12 @@ class KioskSaleRecorder
             // l'id de cette Order (purement interne, sans lien visible pour le client).
             $order = Order::query()->create(['state' => 'ask', 'ticket_id' => $ticket->id, 'source' => 'kiosk']);
             $section = $order->sections()->create(['name' => 'Kiosque', 'state' => 'ask', 'asked_at' => now()]);
+            // Voir order_sections.stock_consumed — déjà décrémenté juste au-dessus
+            // (StockManager::consume($lines)), purement pour cohérence de la donnée (cette Order
+            // ne passe jamais par OrderController::pay/destroy, qui sont les seuls lecteurs de ce
+            // flag, mais autant ne pas laisser une section au stock réellement consommé marquée
+            // comme si elle ne l'était pas).
+            $section->forceFill(['stock_consumed' => true])->save();
 
             foreach ($lines as $line) {
                 $section->lines()->create([

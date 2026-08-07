@@ -11,6 +11,7 @@ use App\Models\Ticket;
 use App\Models\TicketPayment;
 use App\Support\DiscountCalculator;
 use App\Support\LoyaltyPoints;
+use App\Support\StockManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -114,11 +115,36 @@ class OrderController extends Controller
     /**
      * Annule la commande et libère la table — les sections/lignes sont supprimées en cascade
      * (voir migrations order_sections/order_lines, cascadeOnDelete sur order_id/order_section_id).
+     *
+     * Voir App\Support\StockManager : une section déjà validée (`stock_consumed`, voir
+     * OrderSectionController::valider()) a déjà décrémenté son stock — l'annuler sans rien
+     * redonner perdrait ce stock pour de bon. Lignes de correction exclues du calcul (elles ne
+     * correspondent à aucun décrément d'origine, voir ::correction) : seules les lignes
+     * d'origine, telles que décrémentées à la validation, sont restituées.
      */
     public function destroy(Order $order)
     {
         $orderId = $order->id;
-        $order->delete();
+
+        $order->load('sections.lines');
+
+        $stockLines = [];
+        foreach ($order->sections as $section) {
+            if (!$section->stock_consumed) {
+                continue;
+            }
+            foreach ($section->lines as $line) {
+                if ($line->is_correction) {
+                    continue;
+                }
+                $stockLines[] = ['product_id' => $line->product_id, 'quantity' => $line->quantity];
+            }
+        }
+
+        DB::transaction(function () use ($order, $stockLines) {
+            StockManager::restore($stockLines);
+            $order->delete();
+        });
 
         event(new OrderKitchenUpdated($orderId));
 
@@ -174,9 +200,15 @@ class OrderController extends Controller
         }
 
         $lines = [];
+        // Sous-ensemble de $lines dont le stock n'a PAS déjà été décrémenté plus tôt — voir
+        // order_sections.stock_consumed, posé par OrderSectionController::valider() (POS
+        // Restaurant, à la validation) et par SelfOrderController::store() (self-order, à la
+        // soumission). Ne reste ici que les tables déjà ouvertes avant l'introduction de cette
+        // colonne — filet de sécurité, pas un chemin normal une fois toutes en circulation.
+        $stockLines = [];
         foreach ($order->sections as $section) {
             foreach ($section->lines as $line) {
-                $lines[] = [
+                $lineData = [
                     'product_id' => $line->product_id,
                     // Une ligne de correction (voir ::correction) reste stockée avec une quantity
                     // POSITIVE en base (colonne unsignedInteger, jamais de quantité négative
@@ -185,6 +217,11 @@ class OrderController extends Controller
                     'quantity' => $line->is_correction ? -$line->quantity : $line->quantity,
                     'unit_price' => (float) $line->product->price,
                 ];
+                $lines[] = $lineData;
+
+                if (!$section->stock_consumed) {
+                    $stockLines[] = $lineData;
+                }
             }
         }
 
@@ -221,7 +258,14 @@ class OrderController extends Controller
             ]);
         }
 
-        $ticket = DB::transaction(function () use ($order, $data, $cashSession, $discount, $discountAmount, $client, $pointsRedeemed, $pointsRedeemedAmount, $total) {
+        $ticket = DB::transaction(function () use ($order, $data, $stockLines, $cashSession, $discount, $discountAmount, $client, $pointsRedeemed, $pointsRedeemedAmount, $total) {
+            // Voir App\Support\StockManager — ne décrémente QUE les sections pas encore
+            // consommées (voir $stockLines plus haut), la quasi-totalité l'ont déjà été à la
+            // validation (POS Restaurant) ou à la soumission (self-order). $stockLines porte déjà
+            // le signe des lignes de correction (voir plus haut), une correction ne redonne donc
+            // jamais plus de stock que ce qui a été décrémenté sur ce même paiement.
+            StockManager::consume($stockLines);
+
             // Gagnés sur le montant net final (après promo ET points) — voir TicketController::store.
             $pointsEarned = $client ? LoyaltyPoints::earned($total) : 0;
 

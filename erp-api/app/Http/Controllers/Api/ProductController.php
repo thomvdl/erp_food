@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\ProductStockUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Support\ImageUpload;
@@ -44,9 +45,18 @@ class ProductController extends Controller
         unset($data['catalog_ids'], $data['component_ids']);
         $data = array_merge($data, ImageUpload::clearIfIconChosen($product, $data['icon'] ?? null));
 
+        $previousStock = $product->stock_quantity;
+
         $product->update($data);
         $product->catalogs()->sync($catalogIds);
         $product->components()->sync($this->syncableComponents($components));
+
+        // Réapprovisionnement/correction manuelle depuis Paramètres > Produits — voir
+        // App\Events\ProductStockUpdated, même diffusion qu'une vente (App\Support\StockManager),
+        // pour que les écrans de vente déjà ouverts dégrisent le produit sans recharger la page.
+        if ($product->stock_quantity !== $previousStock) {
+            event(new ProductStockUpdated($product->id, $product->stock_quantity));
+        }
 
         return $product->load(self::WITH);
     }
@@ -90,6 +100,9 @@ class ProductController extends Controller
             'preparation_time' => ['nullable', 'integer', 'min:0'],
             'sku' => ['nullable', 'string', 'max:100'],
             'active' => ['boolean'],
+            // null = stock non suivi pour ce produit (disponibilité illimitée, comportement
+            // actuel) — voir App\Support\StockManager, jamais un simple 0 par défaut.
+            'stock_quantity' => ['nullable', 'integer', 'min:0'],
             // Choix volontaire d'icône — mutuellement exclusif avec l'upload
             // d'image (voir ImageUpload::store/clearIfIconChosen) : en choisir une ici efface une
             // éventuelle image existante (voir ::update ci-dessus), mais un champ vide ne touche

@@ -12,6 +12,7 @@ use App\Models\TicketPayment;
 use App\Models\TicketSection;
 use App\Support\DiscountCalculator;
 use App\Support\LoyaltyPoints;
+use App\Support\StockManager;
 use App\Support\ThermalReceipt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -121,7 +122,11 @@ class TicketController extends Controller
             ]);
         }
 
-        $ticket = DB::transaction(function () use ($data, $products, $cashSession, $discount, $discountAmount, $client, $pointsRedeemed, $pointsRedeemedAmount, $total) {
+        $ticket = DB::transaction(function () use ($data, $lines, $products, $cashSession, $discount, $discountAmount, $client, $pointsRedeemed, $pointsRedeemedAmount, $total) {
+            // Voir App\Support\StockManager — rejette (422) si un produit à stock suivi n'a plus
+            // assez d'unités, avant toute écriture.
+            StockManager::consume($lines);
+
             // Gagnés sur le montant net final (après promo ET points) — jamais de gain sur la
             // part payée en points (voir App\Support\LoyaltyPoints::earned).
             $pointsEarned = $client ? LoyaltyPoints::earned($total) : 0;

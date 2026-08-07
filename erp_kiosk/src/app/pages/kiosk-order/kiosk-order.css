@@ -158,6 +158,33 @@
   transform: translateY(-1px) scale(0.98);
 }
 
+/* Stock épuisé (voir App\Support\StockManager côté API) — bouton natif :disabled. */
+.kiosk-product-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(60%);
+}
+
+.kiosk-product-card:disabled:hover,
+.kiosk-product-card:disabled:active {
+  box-shadow: var(--shadow-sm);
+  transform: none;
+  border-color: var(--border-color);
+}
+
+.kiosk-product-card__out-of-stock {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  padding: 0.2rem 0.6rem;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  box-shadow: var(--shadow-md);
+}
+
 .kiosk-product-card__badge {
   position: absolute;
   top: -10px;
@@ -190,6 +217,18 @@
   color: var(--color-primary-fill);
   font-size: var(--font-size-lg);
   font-weight: 800;
+}
+
+/* Stock restant (produit à stock suivi, voir App\Events\ProductStockUpdated côté API) — mis à
+   jour en temps réel, jamais affiché pour un produit non suivi (stock_quantity null). */
+.kiosk-product-card__stock {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.kiosk-product-card__stock--low {
+  color: var(--color-warning-text);
+  font-weight: 700;
 }
 
 /* ---------- Panier ---------- */

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CashSession;
 use App\Models\Client;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\ProductCatalog;
 use App\Support\DiscountCalculator;
 use App\Support\KioskSaleRecorder;
@@ -59,17 +60,22 @@ class KioskOrderController extends Controller
             ]);
         }
 
-        $catalog = ProductCatalog::query()->where('active_kiosk', true)->where('active', true)->first();
+        $catalogIds = ProductCatalog::query()->where('active_kiosk', true)->where('active', true)->pluck('id');
 
-        if (!$catalog) {
+        if ($catalogIds->isEmpty()) {
             throw ValidationException::withMessages([
                 'lines' => ['Aucun catalogue disponible pour le moment.'],
             ]);
         }
 
         // Même garde-fou que SelfOrderController::store : ne fait jamais confiance au front pour
-        // savoir quels produits sont vraiment self-order.
-        $products = $catalog->products()->where('products.active', true)->get()->keyBy('id');
+        // savoir quels produits sont vraiment self-order — union des catalogues actifs pour le
+        // kiosque, pas un seul catalogue exclusif.
+        $products = Product::query()
+            ->whereHas('catalogs', fn ($query) => $query->whereIn('product_catalogs.id', $catalogIds))
+            ->where('products.active', true)
+            ->get()
+            ->keyBy('id');
 
         foreach ($data['lines'] as $line) {
             if (!$products->has($line['product_id'])) {

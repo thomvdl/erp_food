@@ -1218,6 +1218,33 @@ textarea.input {
   border-color: var(--color-primary-400);
 }
 
+/* Stock épuisé (voir App\Support\StockManager) — bouton natif :disabled, pas de classe séparée à
+   synchroniser avec [disabled]. */
+.pos-product-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(60%);
+}
+
+.pos-product-card:disabled:hover {
+  box-shadow: var(--shadow-sm);
+  transform: none;
+  border-color: var(--border-color);
+}
+
+.pos-product-card__out-of-stock {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  padding: 0.15rem 0.5rem;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+
 .pos-product-card__badge {
   position: absolute;
   top: -8px;
@@ -1249,6 +1276,18 @@ textarea.input {
 .pos-product-card__price {
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+/* Stock restant (produit à stock suivi, voir App\Events\ProductStockUpdated) — mis à jour en
+   temps réel, jamais affiché pour un produit non suivi (stock_quantity null). */
+.pos-product-card__stock {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.pos-product-card__stock--low {
+  color: var(--color-warning-text);
   font-weight: 600;
 }
 

@@ -23,6 +23,7 @@ import { Room, TableElement } from '../../../core/models/floor-plan.model';
 import { Client, PaymentMethod, Ticket } from '../../../core/models/ticket.model';
 import { ValidateDiscountResponse } from '../../../core/models/discount.model';
 import { KitchenEchoService } from '../../../core/kitchen-echo.service';
+import { ProductStockEchoService } from '../../../core/product-stock-echo.service';
 import { formatMoney } from '../../../core/ticket-print.util';
 import { TicketReceipt } from '../../../shared/ticket-receipt/ticket-receipt';
 import { computeFitScale } from '../../../core/utils/fit-scale';
@@ -39,6 +40,10 @@ interface PaymentLine {
 }
 
 const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜', '🥐', '🍦', '🥙'];
+
+/** En dessous de ce nombre restant, le stock affiché passe en couleur d'alerte (voir
+ *  isLowStock()) — purement visuel, n'affecte ni la commande ni le calcul. */
+const LOW_STOCK_THRESHOLD = 3;
 
 /**
  * Sélection de produits d'une table ouverte, répartis en sections (voir Readme.md :
@@ -69,6 +74,7 @@ export class OrderBuilder implements OnDestroy {
   readonly activeCashierService = inject(ActiveCashierService);
   readonly authService = inject(AuthService);
   private readonly kitchenEcho = inject(KitchenEchoService);
+  private readonly productStockEcho = inject(ProductStockEchoService);
   private readonly roomService = inject(RoomService);
 
   private readonly orderId = Number(this.route.snapshot.paramMap.get('orderId'));
@@ -78,7 +84,9 @@ export class OrderBuilder implements OnDestroy {
   readonly activeSectionId = signal<number | null>(null);
 
   readonly allProducts = signal<Product[]>([]);
-  readonly activeRestaurantCatalogId = signal<number | null>(null);
+  /** Plusieurs catalogues peuvent être actifs à la fois pour le POS Restaurant, voir
+   *  ProductCatalog.active_restaurant. */
+  readonly activeRestaurantCatalogIds = signal<number[]>([]);
 
   readonly searchTerm = signal('');
   readonly selectedCategoryId = signal<number | null>(null);
@@ -207,14 +215,15 @@ export class OrderBuilder implements OnDestroy {
   /** Une section "demandée"/"faite" est déjà partie en cuisine — plus modifiable (voir OrderLineController::assertEditable côté backend, source de vérité). */
   readonly activeSectionEditable = computed(() => this.activeSection()?.state === 'en_attente');
 
-  /** Même principe que pos-vente (active_direct_sale) mais pour le POS Restaurant. */
+  /** Même principe que pos-vente (active_direct_sale) mais pour le POS Restaurant — union de
+   *  tous les catalogues actifs, pas un seul catalogue exclusif. */
   readonly availableProducts = computed(() => {
-    const catalogId = this.activeRestaurantCatalogId();
-    if (catalogId === null) {
+    const catalogIds = this.activeRestaurantCatalogIds();
+    if (catalogIds.length === 0) {
       return [];
     }
     return this.allProducts().filter(
-      (product) => product.active && (product.catalogs ?? []).some((catalog) => catalog.id === catalogId),
+      (product) => product.active && (product.catalogs ?? []).some((catalog) => catalogIds.includes(catalog.id)),
     );
   });
 
@@ -285,7 +294,9 @@ export class OrderBuilder implements OnDestroy {
     this.productService.list().subscribe((products) => this.allProducts.set(products));
     this.catalogService
       .list()
-      .subscribe((catalogs) => this.activeRestaurantCatalogId.set(catalogs.find((c) => c.active_restaurant)?.id ?? null));
+      .subscribe((catalogs) =>
+        this.activeRestaurantCatalogIds.set(catalogs.filter((c) => c.active_restaurant).map((c) => c.id)),
+      );
     this.paymentMethodService.list().subscribe((methods) => this.paymentMethods.set(methods));
 
     this.clientSearch$
@@ -311,6 +322,15 @@ export class OrderBuilder implements OnDestroy {
       if (orderId === this.orderId && !this.paying() && !this.paidTicket()) {
         this.refreshOrder();
       }
+    });
+
+    // Voir App\Events\ProductStockUpdated — grise/dégrise une tuile produit en direct (vente
+    // depuis un autre poste, ou réapprovisionnement admin) sans recharger toute la liste produits.
+    this.productStockEcho.listen();
+    this.productStockEcho.stockUpdated.pipe(takeUntilDestroyed()).subscribe(({ productId, stockQuantity }) => {
+      this.allProducts.set(
+        this.allProducts().map((product) => (product.id === productId ? { ...product, stock_quantity: stockQuantity } : product)),
+      );
     });
   }
 
@@ -373,9 +393,45 @@ export class OrderBuilder implements OnDestroy {
     });
   }
 
+  /** Quantité déjà commandée pour ce produit sur CETTE commande, toutes sections confondues (y
+   *  compris déjà envoyées en cuisine — elles consommeront quand même le stock au paiement, voir
+   *  OrderController::pay). Lignes de correction exclues : elles n'ajoutent jamais de nouvelle
+   *  consommation, voir App\Support\StockManager. */
+  private quantityInOrder(product: Product): number {
+    return this.sections().reduce(
+      (sum, section) =>
+        sum +
+        section.lines
+          .filter((line) => line.product_id === product.id && !line.is_correction)
+          .reduce((lineSum, line) => lineSum + line.quantity, 0),
+      0,
+    );
+  }
+
+  /** `null` = stock non suivi, jamais affiché/décompté. Contrairement à pos-vente.ts (panier
+   *  local), chaque ajout persiste directement en base (voir addProduct()) — la quantité déjà
+   *  commandée sur cette table (quantityInOrder ci-dessus) tient donc lieu de "panier". Mis à
+   *  jour en temps réel par ProductStockEchoService (voir constructor()) à chaque vente ou
+   *  réapprovisionnement, sur ce poste comme sur n'importe quel autre. */
+  remainingStock(product: Product): number | null {
+    return product.stock_quantity === null ? null : product.stock_quantity - this.quantityInOrder(product);
+  }
+
+  isOutOfStock(product: Product): boolean {
+    const remaining = this.remainingStock(product);
+    return remaining !== null && remaining <= 0;
+  }
+
+  /** Repère visuel (couleur d'alerte) en dessous de ce seuil — n'affecte ni la commande ni le
+   *  calcul, juste l'attention du serveur avant que ça tombe à zéro. */
+  isLowStock(product: Product): boolean {
+    const remaining = this.remainingStock(product);
+    return remaining !== null && remaining > 0 && remaining <= LOW_STOCK_THRESHOLD;
+  }
+
   addProduct(product: Product): void {
     const section = this.activeSection();
-    if (!section || !this.activeSectionEditable()) {
+    if (!section || !this.activeSectionEditable() || this.isOutOfStock(product)) {
       return;
     }
 
@@ -448,7 +504,10 @@ export class OrderBuilder implements OnDestroy {
     this.error.set(null);
     this.orderSectionService.valider(section.id).subscribe({
       next: () => this.refreshOrder(),
-      error: (err) => this.error.set(err.error?.errors?.state?.[0] ?? "Impossible de valider cette section."),
+      // errors.lines : voir App\Support\StockManager — un stock insuffisant rejette la
+      // validation sous cette clé, pas errors.state (réservée aux erreurs de cycle de section).
+      error: (err) =>
+        this.error.set(err.error?.errors?.state?.[0] ?? err.error?.errors?.lines?.[0] ?? "Impossible de valider cette section."),
     });
   }
 

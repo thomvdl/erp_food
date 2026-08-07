@@ -6,6 +6,7 @@ import { forkJoin } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { KioskPaymentEchoService } from '../../core/kiosk-payment-echo.service';
 import { KioskService } from '../../core/kiosk.service';
+import { ProductStockEchoService } from '../../core/product-stock-echo.service';
 import { Client, KioskCheckout, KioskCheckoutState, PaymentMethod, Product, Ticket, ValidateDiscountResponse } from '../../core/models/kiosk.model';
 import { TicketReceipt } from '../../shared/ticket-receipt/ticket-receipt';
 
@@ -27,12 +28,17 @@ type PaymentVariant = 'qr' | 'terminal';
 
 const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜', '🥐', '🍦', '🥙'];
 
+/** En dessous de ce nombre restant, le stock affiché passe en couleur d'alerte — purement
+ *  visuel, n'affecte ni la commande ni le calcul. */
+const LOW_STOCK_THRESHOLD = 3;
+
 /**
  * Écran client du kiosque — "comme dans un fast food" (voir Readme du projet) : vente directe en
  * self-service, paiement immédiat au kiosque (contrairement au mode QR, qui n'encaisse jamais).
- * Catalogue utilisé : celui marqué active_kiosk (voir ProductCatalogController::activateForKiosk),
- * indépendant du catalogue active_self_order utilisé par le mode QR — voir Paramètres > Catalogue
- * dans erp-app pour choisir quel catalogue est actif pour le kiosque.
+ * Catalogues utilisés : l'union de tous ceux marqués active_kiosk (voir
+ * ProductCatalogController::setActiveForKiosk — plusieurs catalogues peuvent l'être à la fois),
+ * indépendant des catalogues active_self_order utilisés par le mode QR — voir Paramètres >
+ * Catalogue dans erp-app pour choisir quels catalogues sont actifs pour le kiosque.
  *
  * "Seulement deux moyens de paiement pour le kiosque : QR code ou terminal Bancontact" (retour
  * utilisateur) — pas d'espèces (kiosque non surveillé, pas de fond de caisse à gérer) ni de choix
@@ -55,6 +61,7 @@ export class KioskOrder implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly kioskService = inject(KioskService);
   private readonly kioskPaymentEcho = inject(KioskPaymentEchoService);
+  private readonly productStockEcho = inject(ProductStockEchoService);
   private readonly router = inject(Router);
 
   /** Retour auto à "Nouvelle commande" 10s après le paiement — voir Readme.md. */
@@ -73,13 +80,24 @@ export class KioskOrder implements OnInit, OnDestroy {
     // ici, juste de rafraîchir l'état depuis le serveur (source de vérité, jamais le payload de
     // l'event — voir refreshCheckoutStatus()).
     this.kioskPaymentEcho.events.pipe(takeUntilDestroyed()).subscribe(() => this.refreshCheckoutStatus());
+
+    // Voir App\Events\ProductStockUpdated — grise/dégrise une tuile produit en direct (vente
+    // depuis un autre poste, ou réapprovisionnement admin) sans recharger tout le menu.
+    this.productStockEcho.listen();
+    this.productStockEcho.stockUpdated.pipe(takeUntilDestroyed()).subscribe(({ productId, stockQuantity }) => {
+      this.allProducts.set(
+        this.allProducts().map((product) => (product.id === productId ? { ...product, stock_quantity: stockQuantity } : product)),
+      );
+    });
   }
 
   readonly loading = signal(true);
   readonly loadError = signal<string | null>(null);
 
   private readonly allProducts = signal<Product[]>([]);
-  private readonly activeCatalogId = signal<number | null>(null);
+  /** Plusieurs catalogues peuvent être actifs à la fois pour le kiosque, voir
+   *  ProductCatalog.active_kiosk. */
+  private readonly activeCatalogIds = signal<number[]>([]);
   private readonly paymentMethods = signal<PaymentMethod[]>([]);
   private cashSessionId: number | null = null;
 
@@ -133,9 +151,9 @@ export class KioskOrder implements OnInit, OnDestroy {
   readonly qrCodeMethod = computed(() => this.paymentMethods().find((method) => method.slug === 'qr-code') ?? null);
 
   readonly availableProducts = computed(() => {
-    const catalogId = this.activeCatalogId();
-    if (catalogId === null) return [];
-    return this.allProducts().filter((product) => product.active && (product.catalogs ?? []).some((catalog) => catalog.id === catalogId));
+    const catalogIds = this.activeCatalogIds();
+    if (catalogIds.length === 0) return [];
+    return this.allProducts().filter((product) => product.active && (product.catalogs ?? []).some((catalog) => catalogIds.includes(catalog.id)));
   });
 
   readonly categories = computed<CategoryFilter[]>(() => {
@@ -188,9 +206,9 @@ export class KioskOrder implements OnInit, OnDestroy {
         this.cashSessionId = session.id;
         this.allProducts.set(products);
         this.paymentMethods.set(paymentMethods);
-        this.activeCatalogId.set(catalogs.find((catalog) => catalog.active_kiosk)?.id ?? null);
+        this.activeCatalogIds.set(catalogs.filter((catalog) => catalog.active_kiosk).map((catalog) => catalog.id));
         this.loading.set(false);
-        if (this.activeCatalogId() === null) {
+        if (this.activeCatalogIds().length === 0) {
           this.loadError.set('Aucun catalogue disponible pour le moment — contactez le personnel.');
         }
       },
@@ -225,7 +243,29 @@ export class KioskOrder implements OnInit, OnDestroy {
     return this.cart().find((line) => line.product.id === product.id)?.quantity ?? 0;
   }
 
+  /** `null` = stock non suivi, jamais affiché/décompté — voir pos-vente.ts côté erp-app, même
+   *  principe. Mis à jour en temps réel par ProductStockEchoService (voir constructor()) à
+   *  chaque vente ou réapprovisionnement, sur ce kiosque comme sur n'importe quel autre poste. */
+  remainingStock(product: Product): number | null {
+    return product.stock_quantity === null ? null : product.stock_quantity - this.quantityInCart(product);
+  }
+
+  isOutOfStock(product: Product): boolean {
+    const remaining = this.remainingStock(product);
+    return remaining !== null && remaining <= 0;
+  }
+
+  /** Repère visuel (couleur d'alerte) en dessous de ce seuil — purement visuel. */
+  isLowStock(product: Product): boolean {
+    const remaining = this.remainingStock(product);
+    return remaining !== null && remaining > 0 && remaining <= LOW_STOCK_THRESHOLD;
+  }
+
   addToCart(product: Product): void {
+    if (this.isOutOfStock(product)) {
+      return;
+    }
+
     const current = this.cart();
     const existing = current.find((line) => line.product.id === product.id);
     if (existing) {
