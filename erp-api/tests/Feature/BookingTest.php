@@ -4,10 +4,8 @@ namespace Tests\Feature;
 
 use App\Mail\BookingConfirmationMail;
 use App\Models\Client;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class BookingTest extends TestCase
@@ -18,7 +16,7 @@ class BookingTest extends TestCase
     {
         parent::setUp();
 
-        Sanctum::actingAs(User::factory()->create());
+        $this->actingAsAdmin();
     }
 
     public function test_create_booking(): void

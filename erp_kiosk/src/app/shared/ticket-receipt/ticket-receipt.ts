@@ -5,6 +5,7 @@ import {
   formatTicketDate,
   ticketArticleCount,
   ticketLineTotal,
+  ticketNetTotal,
   ticketTaxBreakdown,
   ticketTotal,
 } from '../../core/ticket-print.util';
@@ -29,6 +30,7 @@ export class TicketReceipt {
   readonly formatTicketDate = formatTicketDate;
   readonly ticketArticleCount = ticketArticleCount;
   readonly ticketTotal = ticketTotal;
+  readonly ticketNetTotal = ticketNetTotal;
   readonly ticketLineTotal = ticketLineTotal;
   readonly ticketTaxBreakdown = ticketTaxBreakdown;
 }

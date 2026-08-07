@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Role;
-use Illuminate\Http\Request;
 
-// CRUD complet, contrairement à ERP/ où RoleController est volontairement lecture seule (rôles
-// seedés) — ici demandé explicitement ("gérer les utilisateurs ET les différents rôles").
+// Lecture seule (voir Readme.md, "il n'y aura que trois rôles") — les trois rôles
+// (admin/superviseur/user, voir RoleSeeder) sont fixes, plus de création/modification depuis
+// l'app, même principe que ERP/ où RoleController était déjà volontairement lecture seule.
 class RoleController extends Controller
 {
     public function index()
@@ -15,30 +15,8 @@ class RoleController extends Controller
         return Role::query()->orderBy('name')->get();
     }
 
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'active' => ['boolean'],
-        ]);
-
-        return response()->json(Role::query()->create($data), 201);
-    }
-
     public function show(Role $role)
     {
-        return $role;
-    }
-
-    public function update(Request $request, Role $role)
-    {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'active' => ['boolean'],
-        ]);
-
-        $role->update($data);
-
         return $role;
     }
 }

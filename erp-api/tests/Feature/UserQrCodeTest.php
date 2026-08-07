@@ -6,7 +6,6 @@ use App\Mail\UserQrCodeMail;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class UserQrCodeTest extends TestCase
@@ -15,7 +14,7 @@ class UserQrCodeTest extends TestCase
 
     public function test_generating_a_qr_code_sets_a_barcode(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $this->actingAsAdmin();
         $user = User::factory()->create(['barcode' => null]);
 
         $response = $this->postJson("/api/users/{$user->id}/qr-code");
@@ -27,7 +26,7 @@ class UserQrCodeTest extends TestCase
 
     public function test_regenerating_replaces_the_previous_barcode(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $this->actingAsAdmin();
         $user = User::factory()->create(['barcode' => 'OLD0000000001']);
 
         $response = $this->postJson("/api/users/{$user->id}/qr-code");
@@ -38,7 +37,7 @@ class UserQrCodeTest extends TestCase
 
     public function test_qr_image_returns_a_png_once_generated(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $this->actingAsAdmin();
         $user = User::factory()->create(['barcode' => 'ABCDEF1234567']);
 
         $this->get("/api/users/{$user->id}/qr")->assertOk()->assertHeader('Content-Type', 'image/png');
@@ -46,7 +45,7 @@ class UserQrCodeTest extends TestCase
 
     public function test_qr_image_is_404_before_any_code_is_generated(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $this->actingAsAdmin();
         $user = User::factory()->create(['barcode' => null]);
 
         $this->get("/api/users/{$user->id}/qr")->assertNotFound();
@@ -63,7 +62,7 @@ class UserQrCodeTest extends TestCase
 
     public function test_sending_the_qr_by_email_requires_a_code_to_exist_first(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $this->actingAsAdmin();
         Mail::fake();
         $user = User::factory()->create(['barcode' => null]);
 
@@ -76,7 +75,7 @@ class UserQrCodeTest extends TestCase
 
     public function test_sending_the_qr_by_email_dispatches_the_mailable(): void
     {
-        Sanctum::actingAs(User::factory()->create());
+        $this->actingAsAdmin();
         Mail::fake();
         $user = User::factory()->create(['barcode' => 'ABCDEF1234567', 'email' => 'staff@example.test']);
 

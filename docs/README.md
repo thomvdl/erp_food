@@ -106,9 +106,13 @@ scanné le QR de la table — voir plus bas) :
 
 ![POS Restaurant — commande en cours](screenshots/erp-app-04-pos-restaurant-order-builder.png)
 
+Au moment du paiement, un code de réduction peut être saisi (voir Paramètres > Réductions) : le
+montant déduit est toujours recalculé côté serveur, jamais celui affiché côté front.
+
 ### POS - Vente directe
 
-Vente au comptoir, sans table ni suivi cuisine — encaissement immédiat :
+Vente au comptoir, sans table ni suivi cuisine — encaissement immédiat. Même possibilité
+d'appliquer un code de réduction au paiement que POS - Restaurant :
 
 ![POS Vente directe](screenshots/erp-app-05-pos-vente.png)
 
@@ -127,9 +131,20 @@ vente directe, POS Restaurant, self-order (QR) ou kiosque.
 
 ![Liste des tickets](screenshots/erp-app-07-gestion-tickets.png)
 
-Détail d'un ticket, avec le reçu imprimable (répartition HT/TVA, moyens de paiement) :
+Détail d'un ticket, avec le reçu imprimable (répartition HT/TVA, moyens de paiement). Si une
+réduction a été appliquée, elle apparaît en ligne à part et le total affiché est le montant net
+réellement encaissé :
 
 ![Détail d'un ticket](screenshots/erp-app-08-ticket-detail.png)
+
+### Paramètres > Réductions
+
+Gestion des codes de réduction (Paramètres > Réductions) : code, type (pourcentage, montant fixe
+ou produit offert), période de validité, et un seuil d'éligibilité optionnel — un montant d'achat
+minimum requis pour pouvoir utiliser le code (une fois ce montant atteint, la réduction s'applique
+toujours en entier, jamais plafonnée). Ces codes sont utilisables au paiement dans POS - Vente
+directe, POS - Restaurant et `erp_kiosk` (`erp_self_order` ne gère jamais de paiement lui-même, il
+n'a donc pas d'UI dédiée aux réductions).
 
 ### Paramètres > Salles
 
@@ -257,8 +272,10 @@ Le kiosque affiche ensuite un écran client en self-service, catalogue + panier 
 
 ![Panier kiosque](screenshots/self-order-08-kiosk-panier.png)
 
-Seuls deux moyens de paiement sont proposés au kiosque — QR code ou terminal Bancontact (aucun
-vrai terminal n'étant intégré, chaque option ouvre un écran de simulation) :
+Comme dans `erp-app`, un code de réduction peut être saisi avant de choisir un moyen de paiement
+(voir Paramètres > Réductions). Seuls deux moyens de paiement sont proposés au kiosque — QR code
+ou terminal Bancontact (aucun vrai terminal n'étant intégré, chaque option ouvre un écran de
+simulation) :
 
 ![Choix du paiement](screenshots/self-order-09-kiosk-choix-paiement.png)
 

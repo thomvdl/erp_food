@@ -18,19 +18,33 @@
         </include>
     </source>
     <php>
-        <env name="APP_ENV" value="testing"/>
-        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
-        <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="BROADCAST_CONNECTION" value="null"/>
-        <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
-        <env name="DB_URL" value=""/>
-        <env name="MAIL_MAILER" value="array"/>
-        <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="SESSION_DRIVER" value="array"/>
-        <env name="PULSE_ENABLED" value="false"/>
-        <env name="TELESCOPE_ENABLED" value="false"/>
-        <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!--
+            force="true" partout ici : docker-compose.yml fixe DB_CONNECTION/DB_HOST/DB_PORT/
+            SESSION_DRIVER/CACHE_STORE/QUEUE_CONNECTION comme vraies variables d'environnement du
+            conteneur `api` (voir "environment:" du service, pour l'usage normal en dev — pas
+            de .env à éditer pour ce wiring). Sans force="true", PHPUnit <env> ne réécrit PAS une
+            variable déjà présente dans l'environnement du process — nos valeurs de test étaient
+            donc silencieusement ignorées, et `php artisan test` (RefreshDatabase) tournait
+            réellement contre erp_v2 sur MySQL au lieu de sqlite :memory:, jusqu'à vider la vraie
+            base de dev à chaque run (incident constaté : plus aucun utilisateur en base après un
+            `php artisan test` dans le conteneur `api`, alors que DB_HOST/DB_DATABASE ci-dessous
+            pointaient bien vers sqlite en apparence).
+        -->
+        <env name="APP_ENV" value="testing" force="true"/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file" force="true"/>
+        <env name="BCRYPT_ROUNDS" value="4" force="true"/>
+        <env name="BROADCAST_CONNECTION" value="null" force="true"/>
+        <env name="CACHE_STORE" value="array" force="true"/>
+        <env name="DB_CONNECTION" value="sqlite" force="true"/>
+        <env name="DB_DATABASE" value=":memory:" force="true"/>
+        <env name="DB_HOST" value="" force="true"/>
+        <env name="DB_PORT" value="" force="true"/>
+        <env name="DB_URL" value="" force="true"/>
+        <env name="MAIL_MAILER" value="array" force="true"/>
+        <env name="QUEUE_CONNECTION" value="sync" force="true"/>
+        <env name="SESSION_DRIVER" value="array" force="true"/>
+        <env name="PULSE_ENABLED" value="false" force="true"/>
+        <env name="TELESCOPE_ENABLED" value="false" force="true"/>
+        <env name="NIGHTWATCH_ENABLED" value="false" force="true"/>
     </php>
 </phpunit>

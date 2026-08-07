@@ -105,6 +105,55 @@
     Actif (visible en caisse)
   </label>
 
+  <label class="checkbox-field">
+    <input type="checkbox" name="is_combo" [ngModel]="isCombo()" (ngModelChange)="isCombo.set($event)" />
+    Ceci est un combo (composé de plusieurs produits)
+  </label>
+
+  @if (isCombo()) {
+    <div class="field">
+      Produits du combo
+
+      <div class="search-input">
+        <span class="icon">🔍</span>
+        <input
+          class="input"
+          type="text"
+          placeholder="Rechercher un produit à ajouter…"
+          [ngModel]="componentSearch()"
+          [ngModelOptions]="{ standalone: true }"
+          (ngModelChange)="componentSearch.set($event)"
+        />
+      </div>
+
+      @if (componentSearchResults().length > 0) {
+        <div class="combo-picker__results">
+          @for (product of componentSearchResults(); track product.id) {
+            <button type="button" class="combo-picker__result" (click)="addComponent(product.id)">
+              {{ product.name }}
+            </button>
+          }
+        </div>
+      }
+
+      <div class="combo-picker__selected">
+        @for (item of selectedComponents(); track item.product.id) {
+          <div class="combo-picker__line">
+            <span class="font-medium">{{ item.product.name }}</span>
+            <div class="qty-stepper">
+              <button type="button" class="qty-stepper__btn" (click)="setComponentQuantity(item.product.id, item.quantity - 1)">−</button>
+              <span>{{ item.quantity }}</span>
+              <button type="button" class="qty-stepper__btn" (click)="setComponentQuantity(item.product.id, item.quantity + 1)">+</button>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeComponent(item.product.id)">✕</button>
+          </div>
+        } @empty {
+          <span class="text-muted text-sm">Aucun produit ajouté au combo pour le moment.</span>
+        }
+      </div>
+    </div>
+  }
+
   @if (error()) {
     <p class="error-text">{{ error() }}</p>
   }

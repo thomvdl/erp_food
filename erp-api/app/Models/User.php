@@ -49,6 +49,21 @@ class User extends Authenticatable
         return $this->roles->whereIn('slug', $slugs)->isNotEmpty();
     }
 
+    /**
+     * Hiérarchie fixe des 3 rôles (voir Readme.md, "il n'y aura que trois rôles") : admin ⊇
+     * superviseur ⊇ user — admin passe toujours, pas besoin de lister 'admin' explicitement
+     * partout où 'superviseur' est autorisé (voir EnsureUserHasRole).
+     */
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('admin');
+    }
+
+    public function isAtLeastSuperviseur(): bool
+    {
+        return $this->isAdmin() || $this->hasRole('superviseur');
+    }
+
     public function cashSessions(): HasMany
     {
         return $this->hasMany(CashSession::class);

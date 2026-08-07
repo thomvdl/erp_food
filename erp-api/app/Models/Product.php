@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['name', 'slug', 'description', 'price', 'sku', 'active', 'tax_id', 'station_id', 'product_category_id', 'preparation_time'])]
+#[Fillable(['name', 'slug', 'description', 'price', 'sku', 'active', 'is_combo', 'tax_id', 'station_id', 'product_category_id', 'preparation_time'])]
 class Product extends Model
 {
     use HasSlug;
@@ -18,6 +18,7 @@ class Product extends Model
         return [
             'price' => 'decimal:2',
             'active' => 'boolean',
+            'is_combo' => 'boolean',
             'preparation_time' => 'integer',
         ];
     }
@@ -40,5 +41,15 @@ class Product extends Model
     public function catalogs(): BelongsToMany
     {
         return $this->belongsToMany(ProductCatalog::class, 'catalog_product');
+    }
+
+    /**
+     * Produits qui composent CE combo (voir product_components) — vide pour un produit normal.
+     * `quantity` sur le pivot : ex. un combo peut inclure 2× frites.
+     */
+    public function components(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_components', 'combo_id', 'component_product_id')
+            ->withPivot('quantity');
     }
 }

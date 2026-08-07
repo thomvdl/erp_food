@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Ticket;
 use App\Models\TicketPayment;
 use App\Models\TicketSection;
+use App\Support\DiscountCalculator;
 use App\Support\ThermalReceipt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,7 @@ class TicketController extends Controller
 {
     // product.tax nécessaire pour la répartition HT/Taux/TVA/TTC du reçu imprimable (voir
     // core/ticket-print.util.ts côté erp-app, réutilisé par order-builder.ts et ticket-list.ts).
-    private const WITH = ['client', 'table', 'sections.lines.product.tax', 'payments.paymentMethod'];
+    private const WITH = ['client', 'table', 'sections.lines.product.tax', 'payments.paymentMethod', 'discount'];
 
     /**
      * Derniers tickets encaissés (dashboard) — ou historique complet ("Gestion des tickets",
@@ -51,6 +52,7 @@ class TicketController extends Controller
         $data = $request->validate([
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'cash_session_id' => ['required', 'integer', 'exists:cash_sessions,id'],
+            'discount_code' => ['nullable', 'string'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
@@ -75,9 +77,25 @@ class TicketController extends Controller
 
         $products = Product::query()->whereIn('id', collect($data['lines'])->pluck('product_id'))->get()->keyBy('id');
 
-        $total = 0;
-        foreach ($data['lines'] as $line) {
-            $total += (float) $products[$line['product_id']]->price * $line['quantity'];
+        $lines = collect($data['lines'])->map(fn (array $line) => [
+            'product_id' => $line['product_id'],
+            'quantity' => $line['quantity'],
+            'unit_price' => (float) $products[$line['product_id']]->price,
+        ])->all();
+
+        $total = array_sum(array_map(fn (array $line) => $line['unit_price'] * $line['quantity'], $lines));
+
+        // Réduction recalculée côté serveur (voir DiscountCalculator) — jamais un montant/total
+        // envoyé par le client, même principe que les prix produits juste au-dessus. Réservé à
+        // superviseur+ (voir Readme.md, "il n'y aura que trois rôles") : un simple user peut
+        // vendre/encaisser mais pas appliquer de code promo.
+        $discount = null;
+        $discountAmount = 0.0;
+        if (!empty($data['discount_code'])) {
+            abort_unless($request->user()->isAtLeastSuperviseur(), 403, "Seul un superviseur peut appliquer un code de réduction.");
+            $discount = DiscountCalculator::resolve($data['discount_code']);
+            $discountAmount = DiscountCalculator::amountOff($discount, $lines, $total);
+            $total = max(round($total - $discountAmount, 2), 0);
         }
 
         $paidTotal = collect($data['payments'])->sum('value');
@@ -88,11 +106,13 @@ class TicketController extends Controller
             ]);
         }
 
-        $ticket = DB::transaction(function () use ($data, $products, $cashSession) {
+        $ticket = DB::transaction(function () use ($data, $products, $cashSession, $discount, $discountAmount) {
             $ticket = Ticket::query()->create([
                 'paid_at' => now(),
                 'client_id' => $data['client_id'] ?? null,
                 'source' => 'pos_vente_directe',
+                'discount_id' => $discount?->id,
+                'discount_amount' => $discount ? round($discountAmount, 2) : null,
             ]);
 
             $section = TicketSection::query()->create([

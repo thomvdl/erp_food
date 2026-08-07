@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth.guard';
+import { roleGuard } from './core/role.guard';
 
 export const routes: Routes = [
   {
@@ -13,10 +14,12 @@ export const routes: Routes = [
     children: [
       {
         path: '',
+        canActivate: [roleGuard('superviseur')],
         loadComponent: () => import('./pages/dashboard/dashboard').then((m) => m.Dashboard),
       },
       {
         path: 'parametres',
+        canActivate: [roleGuard('admin')],
         children: [
           {
             path: '',
@@ -56,14 +59,6 @@ export const routes: Routes = [
           {
             path: 'roles',
             loadComponent: () => import('./pages/parametres/roles/role-list/role-list').then((m) => m.RoleList),
-          },
-          {
-            path: 'roles/nouveau',
-            loadComponent: () => import('./pages/parametres/roles/role-form/role-form').then((m) => m.RoleForm),
-          },
-          {
-            path: 'roles/:id',
-            loadComponent: () => import('./pages/parametres/roles/role-form/role-form').then((m) => m.RoleForm),
           },
           {
             path: 'utilisateurs',
@@ -137,6 +132,18 @@ export const routes: Routes = [
             path: 'taxes/:id',
             loadComponent: () => import('./pages/parametres/taxes/tax-form/tax-form').then((m) => m.TaxForm),
           },
+          {
+            path: 'reductions',
+            loadComponent: () => import('./pages/parametres/discounts/discount-list/discount-list').then((m) => m.DiscountList),
+          },
+          {
+            path: 'reductions/nouveau',
+            loadComponent: () => import('./pages/parametres/discounts/discount-form/discount-form').then((m) => m.DiscountForm),
+          },
+          {
+            path: 'reductions/:id',
+            loadComponent: () => import('./pages/parametres/discounts/discount-form/discount-form').then((m) => m.DiscountForm),
+          },
         ],
       },
       {
@@ -162,6 +169,7 @@ export const routes: Routes = [
       },
       {
         path: 'produits',
+        canActivate: [roleGuard('superviseur')],
         children: [
           {
             path: '',
@@ -179,6 +187,7 @@ export const routes: Routes = [
       },
       {
         path: 'clients',
+        canActivate: [roleGuard('superviseur')],
         children: [
           {
             path: '',
@@ -199,23 +208,29 @@ export const routes: Routes = [
         children: [
           {
             path: '',
+            canActivate: [roleGuard('superviseur')],
             loadComponent: () => import('./pages/events/event-list/event-list').then((m) => m.EventList),
           },
           {
             path: 'nouveau',
+            canActivate: [roleGuard('superviseur')],
             loadComponent: () => import('./pages/events/event-form/event-form').then((m) => m.EventForm),
           },
           {
+            // Vente de place : ouverte à tous les rôles (voir Readme.md) — gérer l'événement lui-même
+            // (créer/modifier/lister, voir les autres routes ci-dessus/dessous) reste superviseur+.
             path: 'vente',
             loadComponent: () =>
               import('./pages/events/event-date-select/event-date-select').then((m) => m.EventDateSelect),
           },
           {
             path: ':id/modifier',
+            canActivate: [roleGuard('superviseur')],
             loadComponent: () => import('./pages/events/event-form/event-form').then((m) => m.EventForm),
           },
           {
             path: ':id',
+            canActivate: [roleGuard('superviseur')],
             loadComponent: () => import('./pages/events/event-detail/event-detail').then((m) => m.EventDetail),
           },
           {
@@ -226,6 +241,7 @@ export const routes: Routes = [
       },
       {
         path: 'caisse',
+        canActivate: [roleGuard('superviseur')],
         children: [
           {
             path: '',
@@ -258,6 +274,7 @@ export const routes: Routes = [
       },
       {
         path: 'tickets',
+        canActivate: [roleGuard('superviseur')],
         children: [
           {
             path: '',

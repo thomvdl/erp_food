@@ -37,9 +37,16 @@ export class OrderList {
     this.kitchenEcho.orderUpdated.pipe(takeUntilDestroyed()).subscribe(() => this.refresh());
   }
 
+  /** Une ligne de correction (voir OrderController::correction) est stockée avec une quantity
+   *  POSITIVE — c'est ici que son effet sur le total est inversé, jamais en base. */
   orderTotal(order: Order): number {
     return order.sections.reduce(
-      (sum, section) => sum + section.lines.reduce((lineSum, line) => lineSum + Number(line.product?.price ?? 0) * line.quantity, 0),
+      (sum, section) =>
+        sum +
+        section.lines.reduce(
+          (lineSum, line) => lineSum + (line.is_correction ? -1 : 1) * Number(line.product?.price ?? 0) * line.quantity,
+          0,
+        ),
       0,
     );
   }

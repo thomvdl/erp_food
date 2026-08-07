@@ -7,6 +7,7 @@ import { TicketService } from '../../core/ticket.service';
 import { Booking, BookingType } from '../../core/models/booking.model';
 import { EventDate } from '../../core/models/event.model';
 import { Ticket } from '../../core/models/ticket.model';
+import { ticketTotal as sharedTicketTotal } from '../../core/ticket-print.util';
 
 const BOOKING_TYPE_LABELS: Record<BookingType, string> = {
   breakfast: 'Petit déjeuner',
@@ -90,10 +91,7 @@ export class Dashboard {
   }
 
   ticketTotal(ticket: Ticket): number {
-    return ticket.sections.reduce(
-      (sum, section) => sum + section.lines.reduce((lineSum, line) => lineSum + Number(line.unit_price) * line.quantity, 0),
-      0,
-    );
+    return sharedTicketTotal(ticket);
   }
 
   formatPrice(value: number): string {

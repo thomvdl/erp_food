@@ -10,6 +10,7 @@ use App\Models\ProductCatalog;
 use App\Models\Ticket;
 use App\Models\TicketPayment;
 use App\Models\TicketSection;
+use App\Support\DiscountCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -31,13 +32,14 @@ use Illuminate\Validation\ValidationException;
  */
 class KioskOrderController extends Controller
 {
-    private const TICKET_WITH = ['client', 'sections.lines.product.tax', 'payments.paymentMethod'];
+    private const TICKET_WITH = ['client', 'sections.lines.product.tax', 'payments.paymentMethod', 'discount'];
 
     public function store(Request $request)
     {
         $data = $request->validate([
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'cash_session_id' => ['required', 'integer', 'exists:cash_sessions,id'],
+            'discount_code' => ['nullable', 'string'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
@@ -74,9 +76,24 @@ class KioskOrderController extends Controller
             }
         }
 
-        $total = 0;
-        foreach ($data['lines'] as $line) {
-            $total += (float) $products[$line['product_id']]->price * $line['quantity'];
+        $lines = collect($data['lines'])->map(fn (array $line) => [
+            'product_id' => $line['product_id'],
+            'quantity' => $line['quantity'],
+            'unit_price' => (float) $products[$line['product_id']]->price,
+        ])->all();
+
+        $total = array_sum(array_map(fn (array $line) => $line['unit_price'] * $line['quantity'], $lines));
+
+        // Réduction recalculée côté serveur (voir DiscountCalculator) — même principe que
+        // TicketController::store/OrderController::pay : jamais un montant/total envoyé par le
+        // client. Réservé à superviseur+ (voir Readme.md).
+        $discount = null;
+        $discountAmount = 0.0;
+        if (!empty($data['discount_code'])) {
+            abort_unless($request->user()->isAtLeastSuperviseur(), 403, "Seul un superviseur peut appliquer un code de réduction.");
+            $discount = DiscountCalculator::resolve($data['discount_code']);
+            $discountAmount = DiscountCalculator::amountOff($discount, $lines, $total);
+            $total = max(round($total - $discountAmount, 2), 0);
         }
 
         $paidTotal = collect($data['payments'])->sum('value');
@@ -87,11 +104,13 @@ class KioskOrderController extends Controller
             ]);
         }
 
-        [$ticket, $order] = DB::transaction(function () use ($data, $products, $cashSession) {
+        [$ticket, $order] = DB::transaction(function () use ($data, $products, $cashSession, $discount, $discountAmount) {
             $ticket = Ticket::query()->create([
                 'paid_at' => now(),
                 'client_id' => $data['client_id'] ?? null,
                 'source' => 'kiosk',
+                'discount_id' => $discount?->id,
+                'discount_amount' => $discount ? round($discountAmount, 2) : null,
             ]);
 
             $ticketSection = TicketSection::query()->create([

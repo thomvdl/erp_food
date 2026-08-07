@@ -6,7 +6,6 @@ use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class CashSessionTest extends TestCase
@@ -22,8 +21,7 @@ class CashSessionTest extends TestCase
     {
         parent::setUp();
 
-        $this->user = User::factory()->create();
-        Sanctum::actingAs($this->user);
+        $this->user = $this->actingAsAdmin();
 
         $this->cash = PaymentMethod::query()->create(['name' => 'Espèces', 'slug' => 'especes']);
         $this->card = PaymentMethod::query()->create(['name' => 'Carte bancaire', 'slug' => 'carte-bancaire']);

@@ -22,6 +22,12 @@ export function ticketTotal(ticket: Ticket): number {
   return ticket.sections.reduce((sum, section) => sum + ticketSectionTotal(section), 0);
 }
 
+/** Total réellement payé après réduction (voir DiscountCalculator côté API) — ticketTotal()
+ *  reste le sous-total brut (utilisé aussi pour la répartition TVA). */
+export function ticketNetTotal(ticket: Ticket): number {
+  return ticketTotal(ticket) - Number(ticket.discount_amount ?? 0);
+}
+
 export function ticketArticleCount(ticket: Ticket): number {
   return ticket.sections.reduce((sum, section) => sum + section.lines.reduce((lineSum, line) => lineSum + line.quantity, 0), 0);
 }

@@ -8,6 +8,8 @@ interface NavItem {
   label: string;
   path: string;
   exact?: boolean;
+  /** Voir role.guard.ts — absent = accessible à tous les rôles authentifiés (les deux POS). */
+  requiredRole?: 'admin' | 'superviseur';
 }
 
 const COLLAPSED_KEY = 'erp-v2-sidebar-collapsed';
@@ -33,19 +35,34 @@ export class Shell {
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
 
-  protected readonly navItems: NavItem[] = [
-    { icon: '🏠', label: 'Dashboard', path: '/', exact: true },
+  private readonly allNavItems: NavItem[] = [
+    { icon: '🏠', label: 'Dashboard', path: '/', exact: true, requiredRole: 'superviseur' },
     { icon: '🪑', label: 'POS - Restaurant', path: '/pos-restaurant' },
     { icon: '🏷️​', label: 'POS - Vente directe', path: '/pos-vente' },
-    { icon: '🎫', label: 'Événements', path: '/evenements' },
+    { icon: '🎫', label: 'Événements', path: '/evenements', requiredRole: 'superviseur' },
+    { icon: '🎟️', label: 'Vente de place', path: '/evenements/vente' },
     { icon: '📅', label: 'Réservations', path: '/reservations' },
-    { icon: '💶', label: 'Fond de caisse', path: '/caisse' },
+    { icon: '💶', label: 'Fond de caisse', path: '/caisse', requiredRole: 'superviseur' },
     { icon: '📋', label: 'Gestion des commandes', path: '/commandes' },
-    { icon: '🧾', label: 'Gestion des tickets', path: '/tickets' },
-    { icon: '🍔', label: 'Gestion des produits', path: '/produits' },
-    { icon: '👤', label: 'Gestion des clients', path: '/clients' },
-    { icon: '⚙️', label: 'Paramètres', path: '/parametres' },
+    { icon: '🧾', label: 'Gestion des tickets', path: '/tickets', requiredRole: 'superviseur' },
+    { icon: '🍔', label: 'Gestion des produits', path: '/produits', requiredRole: 'superviseur' },
+    { icon: '👤', label: 'Gestion des clients', path: '/clients', requiredRole: 'superviseur' },
+    { icon: '⚙️', label: 'Paramètres', path: '/parametres', requiredRole: 'admin' },
   ];
+
+  /** "Il n'y aura que trois rôles" (voir Readme.md) — même restriction que les routes elles-mêmes
+   *  (voir app.routes.ts/role.guard.ts), juste pour ne pas afficher un lien qui redirigerait. */
+  protected readonly navItems = computed(() =>
+    this.allNavItems.filter((item) => {
+      if (item.requiredRole === 'admin') {
+        return this.authService.isAdmin();
+      }
+      if (item.requiredRole === 'superviseur') {
+        return this.authService.isAtLeastSuperviseur();
+      }
+      return true;
+    }),
+  );
 
   readonly fixedLayout = signal(isFixedLayoutUrl(this.router.url));
 

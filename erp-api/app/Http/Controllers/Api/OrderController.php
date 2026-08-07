@@ -8,6 +8,7 @@ use App\Models\CashSession;
 use App\Models\Order;
 use App\Models\Ticket;
 use App\Models\TicketPayment;
+use App\Support\DiscountCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -142,6 +143,7 @@ class OrderController extends Controller
         $data = $request->validate([
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'cash_session_id' => ['required', 'integer', 'exists:cash_sessions,id'],
+            'discount_code' => ['nullable', 'string'],
             'payments' => ['required', 'array', 'min:1'],
             'payments.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'payments.*.value' => ['required', 'numeric', 'min:0.01'],
@@ -166,11 +168,35 @@ class OrderController extends Controller
             ]);
         }
 
-        $total = 0;
+        $lines = [];
         foreach ($order->sections as $section) {
             foreach ($section->lines as $line) {
-                $total += (float) $line->product->price * $line->quantity;
+                $lines[] = [
+                    'product_id' => $line->product_id,
+                    // Une ligne de correction (voir ::correction) reste stockée avec une quantity
+                    // POSITIVE en base (colonne unsignedInteger, jamais de quantité négative
+                    // persistée) — c'est ICI, au moment de calculer le total réellement dû, que son
+                    // effet est inversé.
+                    'quantity' => $line->is_correction ? -$line->quantity : $line->quantity,
+                    'unit_price' => (float) $line->product->price,
+                ];
             }
+        }
+
+        $total = array_sum(array_map(fn (array $line) => $line['unit_price'] * $line['quantity'], $lines));
+
+        // Réduction recalculée côté serveur (voir DiscountCalculator) — même principe que
+        // TicketController::store : jamais un montant/total envoyé par le client. C'est aussi le
+        // point d'entrée pour une réduction sur une commande composée en self-order (voir
+        // SelfOrderController, qui ne gère aucun paiement) puisque c'est ICI, à l'encaissement
+        // réel par le staff, que le code est appliqué. Réservé à superviseur+ (voir Readme.md).
+        $discount = null;
+        $discountAmount = 0.0;
+        if (!empty($data['discount_code'])) {
+            abort_unless($request->user()->isAtLeastSuperviseur(), 403, "Seul un superviseur peut appliquer un code de réduction.");
+            $discount = DiscountCalculator::resolve($data['discount_code']);
+            $discountAmount = DiscountCalculator::amountOff($discount, $lines, $total);
+            $total = max(round($total - $discountAmount, 2), 0);
         }
 
         $paidTotal = collect($data['payments'])->sum('value');
@@ -181,7 +207,7 @@ class OrderController extends Controller
             ]);
         }
 
-        $ticket = DB::transaction(function () use ($order, $data, $cashSession) {
+        $ticket = DB::transaction(function () use ($order, $data, $cashSession, $discount, $discountAmount) {
             $ticket = Ticket::query()->create([
                 'paid_at' => now(),
                 'client_id' => $data['client_id'] ?? null,
@@ -190,6 +216,8 @@ class OrderController extends Controller
                 // peut avoir été ouverte par le personnel OU par un client via QR (voir
                 // SelfOrderController::store), ce ticket doit refléter l'origine réelle.
                 'source' => $order->source,
+                'discount_id' => $discount?->id,
+                'discount_amount' => $discount ? round($discountAmount, 2) : null,
             ]);
 
             foreach ($order->sections as $orderSection) {
@@ -199,6 +227,7 @@ class OrderController extends Controller
                     $ticketSection->lines()->create([
                         'quantity' => $orderLine->quantity,
                         'note' => $orderLine->note,
+                        'is_correction' => $orderLine->is_correction,
                         'unit_price' => $orderLine->product->price,
                         'product_id' => $orderLine->product_id,
                     ]);
@@ -222,6 +251,89 @@ class OrderController extends Controller
 
         event(new OrderKitchenUpdated($order->id));
 
-        return response()->json($ticket->load(['client', 'table', 'sections.lines.product.tax', 'payments.paymentMethod']), 201);
+        return response()->json($ticket->load(['client', 'table', 'sections.lines.product.tax', 'payments.paymentMethod', 'discount']), 201);
+    }
+
+    /**
+     * "Corriger une commande si il y a un produit en trop" (retour utilisateur) : une fois une
+     * section envoyée en cuisine (state 'seed'), OrderLineController::assertEditable interdit
+     * d'en modifier/supprimer les lignes — ce qui est correct pour ne jamais désynchroniser ce
+     * que la cuisine a réellement préparé, mais laisse le vendeur sans recours pour corriger
+     * l'addition si un produit a été rentré en trop. Plutôt que de supprimer la ligne d'origine
+     * (perdrait la trace de ce qui a été demandé en cuisine), cette action ajoute une NOUVELLE
+     * ligne du même produit, flaguée `is_correction` — son montant est déduit du total (voir
+     * ::pay ci-dessus et order-builder.ts::lineTotal), jamais renvoyée en cuisine
+     * (`done`/`sent` forcés à true, et de toute façon exclue du kitchen display qui ignore déjà
+     * les sections 'seed', voir kitchen-board.ts).
+     *
+     * Autorisé seulement une fois TOUTES les sections envoyées ('seed', même garde-fou que
+     * ::pay) — avant ça, une section encore éditable peut simplement voir sa ligne
+     * décrémentée/supprimée normalement, et une section déjà 'ask'/'do' mais pas encore 'seed'
+     * resterait visible sur le kitchen display, où une ligne de correction n'aurait pas de sens
+     * (rien à préparer).
+     *
+     * Une même produit peut apparaître dans plusieurs sections (deux tournées de commande) : la
+     * quantité demandée est décomptée section par section, dans l'ordre, jusqu'à épuisement —
+     * refuse (422) si la quantité totale demandée dépasse ce qui a réellement été commandé.
+     */
+    public function correction(Request $request, Order $order)
+    {
+        $data = $request->validate([
+            'lines' => ['required', 'array', 'min:1'],
+            'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
+            'lines.*.quantity' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $order->load('sections.lines');
+
+        $sectionNotSent = $order->sections->first(fn ($section) => $section->state !== 'seed');
+        if ($sectionNotSent) {
+            throw ValidationException::withMessages([
+                'state' => ['Toutes les sections doivent être envoyées en cuisine avant de pouvoir corriger la commande.'],
+            ]);
+        }
+
+        $createdLines = [];
+
+        DB::transaction(function () use ($order, $data, &$createdLines) {
+            foreach ($data['lines'] as $requested) {
+                $remaining = $requested['quantity'];
+
+                foreach ($order->sections as $section) {
+                    if ($remaining <= 0) {
+                        break;
+                    }
+
+                    $net = $section->lines->where('product_id', $requested['product_id'])
+                        ->sum(fn ($line) => $line->is_correction ? -$line->quantity : $line->quantity);
+
+                    if ($net <= 0) {
+                        continue;
+                    }
+
+                    $take = min($net, $remaining);
+
+                    $line = $section->lines()->create([
+                        'product_id' => $requested['product_id'],
+                        'quantity' => $take,
+                    ]);
+                    $line->forceFill(['is_correction' => true, 'done' => true, 'sent' => true])->save();
+
+                    $createdLines[] = $line;
+                    $remaining -= $take;
+                }
+
+                if ($remaining > 0) {
+                    $corrected = $requested['quantity'] - $remaining;
+                    throw ValidationException::withMessages([
+                        'lines' => ["Impossible de corriger {$requested['quantity']} unité(s) de ce produit — seulement {$corrected} présente(s) dans la commande."],
+                    ]);
+                }
+            }
+        });
+
+        event(new OrderKitchenUpdated($order->id));
+
+        return response()->json(collect($createdLines)->map->load('product'), 201);
     }
 }

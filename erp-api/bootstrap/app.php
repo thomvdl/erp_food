@@ -21,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // explicite (ex. un simple curl) plante en 500 (RouteNotFoundException) au lieu du 401
         // attendu — AuthController::login (public) répond en JSON de toute façon.
         $middleware->redirectGuestsTo(fn () => null);
+
+        // Voir App\Http\Middleware\EnsureUserHasRole — "il n'y aura que trois rôles" (Readme.md).
+        $middleware->alias(['role' => \App\Http\Middleware\EnsureUserHasRole::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
