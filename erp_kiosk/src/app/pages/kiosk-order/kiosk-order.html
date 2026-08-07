@@ -174,13 +174,15 @@
 
               <div class="kiosk-terminal__device">
                 @if (simulatingVariant() === 'qr') {
-                  <div class="kiosk-terminal__qr">
-                    <span class="kiosk-terminal__qr-corner kiosk-terminal__qr-corner--tl"></span>
-                    <span class="kiosk-terminal__qr-corner kiosk-terminal__qr-corner--tr"></span>
-                    <span class="kiosk-terminal__qr-corner kiosk-terminal__qr-corner--bl"></span>
-                    <span class="kiosk-terminal__qr-corner kiosk-terminal__qr-corner--br"></span>
-                    <span class="kiosk-terminal__qr-icon">▦</span>
-                  </div>
+                  @if (activeCheckout(); as checkout) {
+                    <div class="kiosk-terminal__qr">
+                      <img class="kiosk-terminal__qr-img" [src]="checkout.qr" alt="QR code Bancontact" />
+                    </div>
+                  } @else {
+                    <div class="kiosk-terminal__qr">
+                      <span class="kiosk-terminal__qr-icon">▦</span>
+                    </div>
+                  }
                 } @else {
                   <p class="kiosk-terminal__card-icon">💳</p>
                 }
@@ -195,9 +197,11 @@
               </p>
               <p class="text-muted text-sm kiosk-terminal__hint">{{ terminalMessage(simulatingVariant()!) }}</p>
 
-              <button type="button" class="btn btn-primary btn-lg" [disabled]="submitting()" (click)="confirmSimulatedPayment()">
-                {{ submitting() ? 'Envoi…' : '✅ Simuler la validation du paiement' }}
-              </button>
+              @if (simulatingVariant() === 'terminal') {
+                <button type="button" class="btn btn-primary btn-lg" [disabled]="submitting()" (click)="confirmSimulatedPayment()">
+                  {{ submitting() ? 'Envoi…' : '✅ Simuler la validation du paiement' }}
+                </button>
+              }
             </div>
           }
 

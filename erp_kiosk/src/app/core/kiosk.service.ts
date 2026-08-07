@@ -4,7 +4,10 @@ import { Observable, map } from 'rxjs';
 import { API_URL } from './api-config';
 import {
   CashSession,
+  CreateKioskCheckoutPayload,
   CreateKioskOrderPayload,
+  KioskCheckout,
+  KioskCheckoutState,
   OpenCashSessionPayload,
   PaymentMethod,
   Product,
@@ -53,6 +56,19 @@ export class KioskService {
 
   createKioskOrder(payload: CreateKioskOrderPayload): Observable<Ticket> {
     return this.http.post<Ticket>(`${API_URL}/kiosk-orders`, payload);
+  }
+
+  /** Variant "QR code" (voir KioskCheckoutController côté API) — crée une session Stripe Checkout
+   *  et renvoie son QR déjà encodé, pas de Ticket créé ici (paiement asynchrone, voir
+   *  StripeWebhookController). */
+  createKioskCheckout(payload: CreateKioskCheckoutPayload): Observable<KioskCheckout> {
+    return this.http.post<KioskCheckout>(`${API_URL}/kiosk-checkouts`, payload);
+  }
+
+  /** Filet de secours (polling) en complément de l'écoute temps réel (voir
+   *  kiosk-payment-echo.service.ts) — même endpoint que le handler des events checkout.paid/failed. */
+  getKioskCheckout(id: number): Observable<KioskCheckoutState> {
+    return this.http.get<KioskCheckoutState>(`${API_URL}/kiosk-checkouts/${id}`);
   }
 
   /** Aperçu live d'un code promo avant paiement (voir DiscountController::validateCode) — le
