@@ -63,6 +63,28 @@ export interface CreateKioskOrderPayload {
   payments: { payment_method_id: number; value: number }[];
 }
 
+/** Même forme que CreateKioskOrderPayload sans `payments` — le variant QR est Bancontact only,
+ *  pas de choix de moyen de paiement (voir KioskCheckoutController côté API). */
+export type CreateKioskCheckoutPayload = Omit<CreateKioskOrderPayload, 'payments'>;
+
+/** Réponse de POST /kiosk-checkouts (KioskCheckoutController::store) — `qr` est un PNG encodé en
+ *  data URI, directement affichable dans un <img>, pas d'appel réseau séparé à authentifier. */
+export interface KioskCheckout {
+  id: number;
+  qr: string;
+  expires_at: string;
+}
+
+export type KioskCheckoutStatus = 'pending' | 'paid' | 'failed' | 'expired';
+
+/** Réponse de GET /kiosk-checkouts/:id (KioskCheckoutController::show) — utilisée à la fois par le
+ *  polling de secours et par le handler de l'event temps réel checkout.paid/checkout.failed (voir
+ *  kiosk-payment-echo.service.ts), un seul endpoint pour les deux. */
+export interface KioskCheckoutState {
+  status: KioskCheckoutStatus;
+  ticket: Ticket | null;
+}
+
 export type DiscountType = 'percentage' | 'fixed_amount' | 'free_product';
 
 export interface Discount {

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\DiscountController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\EventDateController;
 use App\Http\Controllers\Api\EventTicketController;
+use App\Http\Controllers\Api\KioskCheckoutController;
 use App\Http\Controllers\Api\KioskOrderController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderLineController;
@@ -22,11 +23,13 @@ use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\SelfOrderController;
 use App\Http\Controllers\Api\StationController;
+use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\TableElementController;
 use App\Http\Controllers\Api\TaxController;
 use App\Http\Controllers\Api\TicketController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
+use Laravel\Cashier\Http\Middleware\VerifyWebhookSignature;
 
 // Authentification par token Sanctum (voir Readme.md : "mettre en place l'authentification pour
 // app et validate event"). Connexion par nom d'utilisateur + mot de passe OU par scan d'un QR
@@ -54,6 +57,12 @@ Route::get('tables/{table}/qr', [SelfOrderController::class, 'qr']);
 // Écran public "suivi des commandes" du kiosque (voir KioskOrderController::status) — juste des
 // numéros de ticket déjà remis au client, rien à protéger.
 Route::get('kiosk-orders/status', [KioskOrderController::class, 'status']);
+
+// Webhook Stripe (paiement kiosque QR/Bancontact, voir KioskCheckoutController et
+// StripeWebhookController) — forcément public (appelé par Stripe, pas par un utilisateur de
+// l'app), authentifié autrement : signature HMAC vérifiée par le middleware Cashier
+// (STRIPE_WEBHOOK_SECRET), pas de Bearer token.
+Route::post('stripe/webhook', [StripeWebhookController::class, 'handle'])->middleware(VerifyWebhookSignature::class);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('auth/logout', [AuthController::class, 'logout']);
@@ -192,4 +201,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // en cuisine — ni orders/{order}/pay (bloque tant que non 'seed') ni tickets (jamais vu en
     // cuisine) ne suffisent seuls, voir docblock du contrôleur.
     Route::post('kiosk-orders', [KioskOrderController::class, 'store']);
+
+    // Variant "QR code" du paiement kiosque (voir KioskCheckoutController) : crée une session
+    // Stripe Checkout et fige la vente en attente — c'est StripeWebhookController (route publique
+    // ci-dessus) qui matérialise Ticket+Order une fois le paiement confirmé, pas cette route.
+    Route::post('kiosk-checkouts', [KioskCheckoutController::class, 'store']);
+    Route::get('kiosk-checkouts/{kiosk_checkout}', [KioskCheckoutController::class, 'show']);
 });
