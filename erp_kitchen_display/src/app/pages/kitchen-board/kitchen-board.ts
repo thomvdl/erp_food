@@ -43,6 +43,15 @@ interface DisplayOrder {
   sections: DisplaySection[];
 }
 
+/** Une ligne du récap produits à droite (voir pendingProducts()/activeProducts()) — quantités
+ *  cumulées entre toutes les commandes/sections visibles dans le filtre actif, pas juste une
+ *  ligne d'une section précise. */
+interface PrepListItem {
+  productId: number;
+  productName: string;
+  quantity: number;
+}
+
 /**
  * "On doit voir les stations et les passes : Tout - toutes les stations, chacune des différentes
  * stations - tous les passes, chacun des passes" (voir Readme.md) : deux dimensions de filtre
@@ -115,8 +124,11 @@ export class KitchenBoard implements OnDestroy {
     return null;
   });
 
-  /** Vrai si on regarde depuis la perspective "Postes" (précis ou "Tous les postes") — voir la règle "section prête" plus bas. */
-  private readonly isStationPerspective = computed(() => {
+  /** Vrai si on regarde depuis la perspective "Postes" (précis ou "Tous les postes") — voir la
+   *  règle "section prête" plus bas, utilisé aussi pour cantonner "Marquer prête" à cette
+   *  perspective (voir canMarkDone) et pour n'afficher le récap produits à droite que pour un
+   *  poste (voir showPrepList). */
+  readonly isStationPerspective = computed(() => {
     const current = this.filter();
     return current?.kind === 'station' || current?.kind === 'all-stations';
   });
@@ -179,6 +191,41 @@ export class KitchenBoard implements OnDestroy {
       })
       .filter((displayOrder) => displayOrder.sections.length > 0);
   });
+
+  /**
+   * Récap produits à droite — n'a de sens que pour un poste (voir Readme.md : "il n'y a que les
+   * stations qui peuvent marquer prête, pas les passes") : un passe n'a rien à "préparer", donc
+   * pas de panneau dans cette perspective (ni pour "Tout", écran de supervision sans action
+   * possible) — voir `isStationPerspective()`, utilisé directement dans le template pour
+   * conditionner l'affichage du panneau. Basé sur `displayOrders()` (déjà filtré par poste actif),
+   * pour rester cohérent avec ce que montre la grille principale.
+   */
+  readonly topProducts = computed<PrepListItem[]>(() => this.aggregateProducts(['send']));
+
+  readonly bottomProducts = computed<PrepListItem[]>(() => this.aggregateProducts(['ask']));
+
+  private aggregateProducts(states: OrderSection['state'][]): PrepListItem[] {
+    const quantities = new Map<number, PrepListItem>();
+
+    for (const displayOrder of this.displayOrders()) {
+      for (const displaySection of displayOrder.sections) {
+        if (!states.includes(displaySection.section.state)) continue;
+
+        for (const line of displaySection.section.lines) {
+          if (!displaySection.lineIds.has(line.id) || !line.product) continue;
+
+          const existing = quantities.get(line.product.id);
+          if (existing) {
+            existing.quantity += line.quantity;
+          } else {
+            quantities.set(line.product.id, { productId: line.product.id, productName: line.product.name, quantity: line.quantity });
+          }
+        }
+      }
+    }
+
+    return Array.from(quantities.values()).sort((a, b) => a.productName.localeCompare(b.productName));
+  }
 
   constructor() {
     this.refresh();
