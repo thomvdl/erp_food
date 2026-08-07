@@ -63,6 +63,10 @@ up -d api reverb` pour être prise en compte par les conteneurs déjà démarré
 
 ## Déploiement en production
 
+> Préparation du VPS (accès, sécurité de base, DNS, Docker) avant ce qui suit : voir
+> [`docs/deploy-ovh.md`](docs/deploy-ovh.md) (rédigé pour OVH, mais générique à n'importe quel VPS
+> Ubuntu à partir de l'étape Docker).
+
 `docker-compose.yml` (dev) sert les 5 apps Angular via `ng serve` — "un serveur simple pour tester
 en local, pas revu pour des questions de sécurité" selon son propre avertissement — donc jamais en
 prod tel quel. `docker-compose.prod.yml` est un fichier **séparé et autonome** (pas un override du
