@@ -38,6 +38,11 @@ export class EventDashboard implements OnDestroy {
   readonly eventDate = signal<EventDate | null>(null);
   readonly tickets = signal<EventTicket[]>([]);
 
+  /** Onglets "Vente de place" / "Valider une place" (demande explicite, voir Readme.md) — les
+   *  deux cartes vivaient sur un seul écran continu, séparées ici pour ne montrer que ce dont le
+   *  vendeur/valideur a besoin sur le moment. */
+  readonly activeTab = signal<'vente' | 'validation'>('vente');
+
   // --- Vente de places ---
   readonly clientSearch = signal('');
   readonly clientResults = signal<Client[]>([]);
@@ -132,6 +137,22 @@ export class EventDashboard implements OnDestroy {
         switchMap((query) => this.clientService.search(query)),
       )
       .subscribe((results) => this.clientResults.set(results));
+  }
+
+  setActiveTab(tab: 'vente' | 'validation'): void {
+    if (tab !== 'validation' && this.scanning()) {
+      this.stopScan();
+    }
+    this.activeTab.set(tab);
+
+    // Le plan de salle (#canvas) n'existe dans le DOM que sous l'onglet "Valider une place" —
+    // sans ça, computeFitScale() ne voit jamais le vrai conteneur (reste à 0×0, scale() retombe
+    // sur 1 par défaut) et le plan s'affiche à sa taille réelle en pixels au lieu d'être réduit
+    // pour tenir dans la carte (bug signalé : "elle s'affiche trop grande"). Laisser Angular
+    // rendre avant d'attacher le ResizeObserver, même principe que dans le constructeur.
+    if (tab === 'validation') {
+      setTimeout(() => this.observeCanvas());
+    }
   }
 
   formatDateTime(value: string | null): string {

@@ -144,6 +144,13 @@ export class KioskOrder implements OnInit, OnDestroy {
     return PRODUCT_EMOJIS[categoryId % PRODUCT_EMOJIS.length];
   }
 
+  /** Icône de la sidebar catégories — même logique que productEmoji() (stable par id), 🍽️ pour
+   *  "Tout"/catégories sans id ("Autres"), pour rester cohérent visuellement avec les vignettes
+   *  produit de la même catégorie. */
+  categoryEmoji(categoryId: number | null): string {
+    return categoryId === null ? '🍽️' : PRODUCT_EMOJIS[categoryId % PRODUCT_EMOJIS.length];
+  }
+
   formatMoney(value: number | string): string {
     return Number(value).toFixed(2) + ' €';
   }

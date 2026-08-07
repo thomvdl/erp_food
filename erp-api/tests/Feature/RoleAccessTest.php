@@ -210,4 +210,30 @@ class RoleAccessTest extends TestCase
             'hour' => '12:00',
         ])->assertCreated();
     }
+
+    // --- Vente de place (event) : ouverte à tous les rôles, gérer l'événement lui-même reste superviseur+ ---
+
+    public function test_user_can_sell_an_event_ticket(): void
+    {
+        $this->actingAsRole('user');
+        $client = \App\Models\Client::query()->create(['firstname' => 'Jean', 'lastname' => 'Dupont']);
+        $event = \App\Models\Event::query()->create(['name' => 'Concert', 'slug' => 'concert']);
+        $eventDate = \App\Models\EventDate::query()->create([
+            'event_id' => $event->id, 'date' => now()->addWeek()->toDateString(), 'start_hour' => '20:00',
+        ]);
+
+        $this->getJson('/api/event-dates')->assertOk();
+
+        $this->postJson('/api/event-tickets', [
+            'event_date_id' => $eventDate->id,
+            'client_id' => $client->id,
+        ])->assertCreated();
+    }
+
+    public function test_user_cannot_create_an_event(): void
+    {
+        $this->actingAsRole('user');
+
+        $this->postJson('/api/events', ['name' => 'Concert'])->assertStatus(403);
+    }
 }

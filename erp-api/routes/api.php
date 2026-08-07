@@ -130,17 +130,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('tickets', [TicketController::class, 'index']);
         Route::get('tickets/{ticket}', [TicketController::class, 'show']);
         Route::apiResource('events', EventController::class);
-        Route::get('event-dates', [EventDateController::class, 'index']);
         Route::post('events/{event}/dates', [EventDateController::class, 'store']);
-        Route::get('event-dates/{event_date}', [EventDateController::class, 'show']);
         Route::put('event-dates/{event_date}', [EventDateController::class, 'update']);
         Route::delete('event-dates/{event_date}', [EventDateController::class, 'destroy']);
-        Route::get('event-tickets', [EventTicketController::class, 'index']);
-        Route::post('event-tickets', [EventTicketController::class, 'store']);
         Route::post('event-tickets/validate', [EventTicketController::class, 'validateCode']);
         Route::post('event-tickets/{event_ticket}/assign-table', [EventTicketController::class, 'assignTable']);
-        Route::put('event-tickets/{event_ticket}', [EventTicketController::class, 'update']);
-        Route::delete('event-tickets/{event_ticket}', [EventTicketController::class, 'destroy']);
         // "Voir les rapports/historiques" : la liste/le détail des sessions passées, pas
         // l'ouverture elle-même (voir ::active plus haut, ouverte à tous — le POS a besoin de
         // savoir si UNE caisse est ouverte pour vendre, sans pouvoir en ouvrir/fermer une).
@@ -164,6 +158,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('bookings/{booking}', [BookingController::class, 'update']);
     Route::delete('bookings/{booking}', [BookingController::class, 'destroy']);
     Route::post('bookings/{booking}/validate', [BookingController::class, 'validateBooking']);
+
+    // Vente de place (voir Readme.md, "section vente de place où tous les rôles ont accès") :
+    // juste vendre une place sur une occurrence déjà créée (EventDashboard) — créer/modifier
+    // l'événement ou ses occurrences reste dans le groupe superviseur ci-dessus (voir
+    // events/{event}/dates, event-dates/{event_date} PUT/DELETE), même logique que
+    // bookings/orders déjà ouverts à tous.
+    Route::get('event-dates', [EventDateController::class, 'index']);
+    Route::get('event-dates/{event_date}', [EventDateController::class, 'show']);
+    Route::get('event-tickets', [EventTicketController::class, 'index']);
+    Route::post('event-tickets', [EventTicketController::class, 'store']);
+    Route::put('event-tickets/{event_ticket}', [EventTicketController::class, 'update']);
+    Route::delete('event-tickets/{event_ticket}', [EventTicketController::class, 'destroy']);
 
     // POS Restaurant (voir Readme.md) : une table ouverte = une Order (state par défaut 'send').
     Route::get('orders', [OrderController::class, 'index']);

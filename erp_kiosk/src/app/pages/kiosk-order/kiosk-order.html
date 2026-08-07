@@ -11,7 +11,7 @@
   <div class="kiosk-state">
     <div class="card card-elevated kiosk-success">
       <div class="card-body">
-        <p class="kiosk-success__icon">✅</p>
+        <span class="kiosk-success__seal">✓</span>
         <h1>Merci pour votre commande !</h1>
         <p class="kiosk-success__number">N° {{ ticket.id }}</p>
         <p class="text-muted">Retenez ce numéro, il sera annoncé au comptoir quand votre commande sera prête.</p>
@@ -25,51 +25,54 @@
     <app-ticket-receipt class="card card-body ticket-print ticket-receipt kiosk-success__receipt" [ticket]="ticket" />
   </div>
 } @else {
-  <div class="pos-page kiosk-page">
-    <div class="app-topbar">
-      <h1>Composez votre commande</h1>
+  <div class="kiosk-page">
+    <div class="kiosk-header">
+      <span class="kiosk-header__brand">🍽️ Bienvenue</span>
+      <h1 class="kiosk-header__title">Composez votre commande</h1>
     </div>
 
-    <div class="pos-layout">
-      <section class="pos-products">
-        <div class="pos-toolbar">
-          <div class="tab-group">
-            <button type="button" class="tab-pill" [class.is-active]="selectedCategoryId() === null" (click)="selectedCategoryId.set(null)">
-              Tout
-              <span class="tab-pill__count">{{ availableProducts().length }}</span>
-            </button>
-            @for (category of categories(); track category.id) {
-              <button type="button" class="tab-pill" [class.is-active]="selectedCategoryId() === category.id" (click)="selectedCategoryId.set(category.id)">
-                {{ category.name }}
-                <span class="tab-pill__count">{{ category.count }}</span>
-              </button>
-            }
-          </div>
-        </div>
+    <div class="kiosk-layout">
+      <nav class="kiosk-sidebar">
+        <button type="button" class="kiosk-sidebar__item" [class.is-active]="selectedCategoryId() === null" (click)="selectedCategoryId.set(null)">
+          <span class="kiosk-sidebar__icon">{{ categoryEmoji(null) }}</span>
+          <span class="kiosk-sidebar__label">Tout</span>
+          <span class="kiosk-sidebar__count">{{ availableProducts().length }}</span>
+        </button>
+        @for (category of categories(); track category.id) {
+          <button type="button" class="kiosk-sidebar__item" [class.is-active]="selectedCategoryId() === category.id" (click)="selectedCategoryId.set(category.id)">
+            <span class="kiosk-sidebar__icon">{{ categoryEmoji(category.id) }}</span>
+            <span class="kiosk-sidebar__label">{{ category.name }}</span>
+            <span class="kiosk-sidebar__count">{{ category.count }}</span>
+          </button>
+        }
+      </nav>
 
-        <div class="pos-grid">
+      <section class="kiosk-menu">
+        <div class="kiosk-menu__grid">
           @for (product of filteredProducts(); track product.id) {
-            <button type="button" class="pos-product-card" (click)="addToCart(product)">
+            <button type="button" class="kiosk-product-card" (click)="addToCart(product)">
               @if (quantityInCart(product) > 0) {
-                <span class="pos-product-card__badge">{{ quantityInCart(product) }}</span>
+                <span class="kiosk-product-card__badge">{{ quantityInCart(product) }}</span>
               }
-              <span class="pos-product-card__thumb">{{ productEmoji(product) }}</span>
-              <span class="pos-product-card__name">{{ product.name }}</span>
-              <span class="pos-product-card__price">{{ formatMoney(product.price) }}</span>
+              <span class="kiosk-product-card__thumb">{{ productEmoji(product) }}</span>
+              <span class="kiosk-product-card__name">{{ product.name }}</span>
+              <span class="kiosk-product-card__price">{{ formatMoney(product.price) }}</span>
             </button>
+          } @empty {
+            <p class="text-muted">Aucun produit dans cette catégorie.</p>
           }
         </div>
       </section>
 
-      <aside class="pos-cart card card-elevated">
+      <aside class="kiosk-cart card card-elevated">
         <div class="card-header">
-          <h2>Votre panier</h2>
+          <h2>🛒 Votre commande</h2>
         </div>
-        <div class="card-body pos-cart__body">
-          <div class="pos-cart__lines">
+        <div class="card-body kiosk-cart__body">
+          <div class="kiosk-cart__lines">
             @for (line of cart(); track line.product.id) {
-              <div class="pos-cart__line">
-                <div class="pos-cart__line-info">
+              <div class="kiosk-cart__line">
+                <div class="kiosk-cart__line-info">
                   <span class="font-medium">{{ line.product.name }}</span>
                   <span class="text-muted text-xs">{{ formatMoney(line.product.price) }} / unité</span>
                 </div>
@@ -78,20 +81,21 @@
                   <span>{{ line.quantity }}</span>
                   <button type="button" class="qty-stepper__btn" (click)="addToCart(line.product)">+</button>
                 </div>
-                <span class="pos-cart__line-total">{{ formatMoney(lineTotal(line)) }}</span>
+                <span class="kiosk-cart__line-total">{{ formatMoney(lineTotal(line)) }}</span>
                 <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeCartLine(line.product)">✕</button>
               </div>
             } @empty {
-              <p class="text-muted text-sm">Le panier est vide — sélectionnez des produits.</p>
+              <div class="kiosk-cart__empty">
+                <span>🛒</span>
+                <p class="text-muted text-sm">Votre panier est vide — touchez un produit pour l'ajouter.</p>
+              </div>
             }
           </div>
         </div>
         <div class="card-footer">
-          <div class="pos-cart__totals">
-            <div class="pos-cart__totals-row pos-cart__totals-row--grand">
-              <span>Total à payer</span>
-              <span>{{ formatMoney(cartTotal()) }}</span>
-            </div>
+          <div class="kiosk-cart__totals-row kiosk-cart__totals-row--grand">
+            <span>Total à payer</span>
+            <span>{{ formatMoney(cartTotal()) }}</span>
           </div>
           <button type="button" class="btn btn-accent btn-lg" [disabled]="cart().length === 0" (click)="openPaymentModal()">
             💳 Paiement — {{ formatMoney(cartTotal()) }}

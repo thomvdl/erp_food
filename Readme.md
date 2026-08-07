@@ -304,13 +304,14 @@ d'historique). `slug` est dérivé automatiquement de `name` à la création (vo
        Chaque rôle a un périmètre fixe (voir `EnsureUserHasRole` côté API, `role.guard.ts` côté
        front) : **admin** a accès à tout, y compris Paramètres ; **superviseur** a accès à tout
        sauf Paramètres (caisse, rapports/historiques — tickets —, réductions au paiement,
-       corrections de commande, événements, produits, clients) ; **user** a accès aux deux POS,
-       à Gestion des commandes et à Réservations, mais pas de réduction ni de correction
-       possibles, pas d'ouverture/fermeture de session de caisse (juste vendre une fois qu'un
-       superviseur en a ouvert une), et pas accès à Paramètres/Dashboard/Événements/Fond de
-       caisse/Gestion des tickets/Gestion des produits/Gestion des clients. Le serveur reste la
-       seule vraie barrière — le front ne fait que cacher les actions non permises pour ne pas
-       laisser deviner un 403.
+       corrections de commande, gestion des événements/produits/clients) ; **user** a accès aux
+       deux POS, à Gestion des commandes, à Réservations et à Vente de place (vendre une place
+       sur une occurrence déjà créée — créer/modifier un événement ou ses dates reste
+       superviseur+), mais pas de réduction ni de correction possibles, pas d'ouverture/fermeture
+       de session de caisse (juste vendre une fois qu'un superviseur en a ouvert une), et pas
+       accès à Paramètres/Dashboard/Événements (gestion)/Fond de caisse/Gestion des
+       tickets/Gestion des produits/Gestion des clients. Le serveur reste la seule vraie barrière
+       — le front ne fait que cacher les actions non permises pour ne pas laisser deviner un 403.
     5. ✅ Gestion des produits
     6. ✅ Gérer les stations (CRUD + choix du passe de chaque station)
     7. ✅ Gérer les passes (CRUD)

@@ -205,27 +205,32 @@ export const routes: Routes = [
       },
       {
         path: 'evenements',
-        canActivate: [roleGuard('superviseur')],
         children: [
           {
             path: '',
+            canActivate: [roleGuard('superviseur')],
             loadComponent: () => import('./pages/events/event-list/event-list').then((m) => m.EventList),
           },
           {
             path: 'nouveau',
+            canActivate: [roleGuard('superviseur')],
             loadComponent: () => import('./pages/events/event-form/event-form').then((m) => m.EventForm),
           },
           {
+            // Vente de place : ouverte à tous les rôles (voir Readme.md) — gérer l'événement lui-même
+            // (créer/modifier/lister, voir les autres routes ci-dessus/dessous) reste superviseur+.
             path: 'vente',
             loadComponent: () =>
               import('./pages/events/event-date-select/event-date-select').then((m) => m.EventDateSelect),
           },
           {
             path: ':id/modifier',
+            canActivate: [roleGuard('superviseur')],
             loadComponent: () => import('./pages/events/event-form/event-form').then((m) => m.EventForm),
           },
           {
             path: ':id',
+            canActivate: [roleGuard('superviseur')],
             loadComponent: () => import('./pages/events/event-detail/event-detail').then((m) => m.EventDetail),
           },
           {

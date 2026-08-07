@@ -20,7 +20,16 @@
   </div>
 </div>
 
-<div class="dashboard-grid">
+<div class="tab-group" style="margin-bottom: var(--space-4)">
+  <button type="button" class="tab-pill" [class.is-active]="activeTab() === 'vente'" (click)="setActiveTab('vente')">
+    🎟️ Vente de place
+  </button>
+  <button type="button" class="tab-pill" [class.is-active]="activeTab() === 'validation'" (click)="setActiveTab('validation')">
+    ✅ Valider une place
+  </button>
+</div>
+
+@if (activeTab() === 'vente') {
   <div class="card">
     <div class="card-header">
       <h2 class="text-lg">{{ editingTicketId() !== null ? 'Modifier la place' : 'Vendre des places' }}</h2>
@@ -143,7 +152,9 @@
       </div>
     </div>
   </div>
+}
 
+@if (activeTab() === 'validation') {
   <div class="card">
     <div class="card-header">
       <h2 class="text-lg">Valider une présence</h2>
@@ -211,9 +222,8 @@
       }
     </div>
   </div>
-</div>
 
-@if (eventDate()?.room_id) {
+  @if (eventDate()?.room_id) {
   <div class="card">
     <div class="card-header">
       <h2 class="text-lg">Plan de salle — {{ eventDate()?.room?.name }}</h2>
@@ -254,8 +264,10 @@
       </div>
     </div>
   </div>
+  }
 }
 
+@if (activeTab() === 'vente') {
 <div class="card">
   <div class="card-header">
     <h2 class="text-lg">Places vendues</h2>
@@ -304,3 +316,4 @@
     </table>
   </div>
 </div>
+}
