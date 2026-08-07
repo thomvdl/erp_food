@@ -81,7 +81,11 @@
             @if (quantityInCart(product) > 0) {
               <span class="pos-product-card__badge">{{ quantityInCart(product) }}</span>
             }
-            <span class="pos-product-card__thumb">{{ productEmoji(product) }}</span>
+            @if (product.image_url) {
+              <img class="pos-product-card__thumb" style="width: 2rem; height: 2rem; object-fit: cover; border-radius: var(--radius-sm)" [src]="product.image_url" alt="" />
+            } @else {
+              <span class="pos-product-card__thumb">{{ product.icon ?? productEmoji(product) }}</span>
+            }
             <span class="pos-product-card__name">{{ product.name }}</span>
             <span class="pos-product-card__price">{{ formatMoney(product.price) }}</span>
           </button>

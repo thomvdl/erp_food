@@ -59,6 +59,11 @@ services:
       QUEUE_CONNECTION: database
       LOG_CHANNEL: stack
       FILESYSTEM_DISK: local
+    # Images produits/catégories uploadées (voir App\Support\ImageUpload) — volume nommé plutôt
+    # qu'un simple bind mount du dossier du repo : survit à `docker compose up -d --build` (image
+    # reconstruite), contrairement au contenu de storage/ cuit dans l'image sinon.
+    volumes:
+      - api_storage:/var/www/html/storage/app/public
     ports:
       - "${API_PORT:-19001}:80"
 
@@ -156,6 +161,7 @@ services:
 
 volumes:
   db_data:
+  api_storage:
   app_node_modules:
   validate_event_node_modules:
   kitchen_display_node_modules:

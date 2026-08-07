@@ -18,6 +18,9 @@ interface CategoryFilter {
   id: number | null;
   name: string;
   count: number;
+  /** Voir ProductCategory.icon/image_url — absents pour l'entrée "Tout" (id null, pas de vraie catégorie derrière). */
+  icon: string | null;
+  image_url: string | null;
 }
 
 type PaymentVariant = 'qr' | 'terminal';
@@ -142,7 +145,7 @@ export class KioskOrder implements OnInit, OnDestroy {
       const key = category?.id ?? null;
       const existing = byId.get(key);
       if (existing) existing.count++;
-      else byId.set(key, { id: key, name: category?.name ?? 'Autres', count: 1 });
+      else byId.set(key, { id: key, name: category?.name ?? 'Autres', count: 1, icon: category?.icon ?? null, image_url: category?.image_url ?? null });
     }
     return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
   });

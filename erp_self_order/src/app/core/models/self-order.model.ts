@@ -19,6 +19,10 @@ export interface SelfOrderProduct {
   product_category_id: number | null;
   tax?: SelfOrderTax | null;
   category?: SelfOrderCategory | null;
+  /** Icône (emoji) choisie par l'admin — mutuellement exclusive avec image_url (voir
+   *  App\Support\ImageUpload côté API). Repli si les deux sont absents : voir productEmoji() dans order.ts. */
+  icon: string | null;
+  image_url: string | null;
 }
 
 export interface SelfOrderContext {

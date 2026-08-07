@@ -4,14 +4,22 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSlug;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name', 'slug', 'description', 'price', 'sku', 'active', 'is_combo', 'tax_id', 'station_id', 'product_category_id', 'preparation_time'])]
+#[Fillable([
+    'name', 'slug', 'description', 'price', 'sku', 'active', 'is_combo', 'tax_id', 'station_id',
+    'product_category_id', 'preparation_time', 'icon', 'image_path',
+])]
 class Product extends Model
 {
     use HasSlug;
+
+    /** image_url : calculé, jamais stocké — voir imageUrl() ci-dessous. */
+    protected $appends = ['image_url'];
 
     protected function casts(): array
     {
@@ -21,6 +29,15 @@ class Product extends Model
             'is_combo' => 'boolean',
             'preparation_time' => 'integer',
         ];
+    }
+
+    /** URL publique de l'image uploadée (voir App\Support\ImageUpload) — null si aucune image
+     *  (soit pas de visuel, soit un `icon` choisi à la place, les deux étant mutuellement
+     *  exclusifs). Toujours dérivée de `image_path`, jamais stockée telle quelle : reste valide
+     *  si APP_URL change entre environnements. */
+    protected function imageUrl(): Attribute
+    {
+        return Attribute::make(get: fn () => $this->image_path ? Storage::disk('public')->url($this->image_path) : null);
     }
 
     public function tax(): BelongsTo

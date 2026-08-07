@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Support\ImageUpload;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -41,6 +42,7 @@ class ProductController extends Controller
         $catalogIds = $data['catalog_ids'] ?? [];
         $components = $data['component_ids'] ?? [];
         unset($data['catalog_ids'], $data['component_ids']);
+        $data = array_merge($data, ImageUpload::clearIfIconChosen($product, $data['icon'] ?? null));
 
         $product->update($data);
         $product->catalogs()->sync($catalogIds);
@@ -57,6 +59,26 @@ class ProductController extends Controller
     }
 
     /**
+     * Endpoint séparé du store/update JSON ci-dessus : évite le multipart imbriqué qu'exigerait
+     * catalog_ids/component_ids si l'image partageait la même requête. Conséquence assumée côté
+     * front : pas d'image possible tant que le produit n'existe pas encore (voir product-form.ts).
+     */
+    public function uploadImage(Request $request, Product $product)
+    {
+        $request->validate(['image' => ['required', 'image', 'max:4096']]);
+        ImageUpload::store($product, $request->file('image'), 'products');
+
+        return $product->fresh()->load(self::WITH);
+    }
+
+    public function removeImage(Product $product)
+    {
+        ImageUpload::remove($product);
+
+        return $product->fresh()->load(self::WITH);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function validated(Request $request): array
@@ -68,6 +90,11 @@ class ProductController extends Controller
             'preparation_time' => ['nullable', 'integer', 'min:0'],
             'sku' => ['nullable', 'string', 'max:100'],
             'active' => ['boolean'],
+            // Choix volontaire d'icône — mutuellement exclusif avec l'upload
+            // d'image (voir ImageUpload::store/clearIfIconChosen) : en choisir une ici efface une
+            // éventuelle image existante (voir ::update ci-dessus), mais un champ vide ne touche
+            // jamais à une image déjà en place (une simple sauvegarde sans y toucher ne doit rien casser).
+            'icon' => ['nullable', 'string', 'max:8'],
             'tax_id' => ['nullable', 'integer', 'exists:taxes,id'],
             'station_id' => ['nullable', 'integer', 'exists:stations,id'],
             'product_category_id' => ['nullable', 'integer', 'exists:product_categories,id'],

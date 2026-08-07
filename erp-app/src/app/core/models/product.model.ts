@@ -36,6 +36,13 @@ export interface Product {
   tax_id: number | null;
   station_id: number | null;
   product_category_id: number | null;
+  /** Icône (emoji) choisie par l'admin — mutuellement exclusive avec image_url (voir
+   *  App\Support\ImageUpload côté API) : au plus un des deux est renseigné à la fois. */
+  icon: string | null;
+  /** URL publique de l'image uploadée (voir ProductController::uploadImage) — calculée côté
+   *  serveur, jamais construite ici. Repli existant si les deux sont absents : voir
+   *  productEmoji() dans chaque écran d'affichage (pos-vente.ts, order-builder.ts, etc). */
+  image_url: string | null;
   station?: Station | null;
   category?: ProductCategory | null;
   /** Many-to-many désormais : un produit peut appartenir à plusieurs catalogues. */

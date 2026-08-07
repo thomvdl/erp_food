@@ -64,6 +64,11 @@ services:
       APP_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env (voir Readme.md)}
       SELF_ORDER_URL: https://self-order.${DOMAIN:?DOMAIN doit être défini dans .env}
       CORS_ALLOWED_ORIGINS: https://app.${DOMAIN:?DOMAIN doit être défini dans .env},https://kiosk.${DOMAIN:?DOMAIN doit être défini dans .env},https://self-order.${DOMAIN:?DOMAIN doit être défini dans .env},https://kitchen.${DOMAIN:?DOMAIN doit être défini dans .env},https://validate-event.${DOMAIN:?DOMAIN doit être défini dans .env}
+    # Images produits/catégories uploadées (voir App\Support\ImageUpload) — même raisonnement que
+    # le compose dev : un volume nommé survit à un redéploiement (`up -d --build`), contrairement
+    # au contenu de storage/ cuit dans l'image.
+    volumes:
+      - api_storage:/var/www/html/storage/app/public
     # Pas de port hôte exposé — uniquement joignable via Caddy sur le réseau interne.
 
   reverb:
@@ -182,5 +187,6 @@ services:
 
 volumes:
   db_data:
+  api_storage:
   caddy_data:
   caddy_config:

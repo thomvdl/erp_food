@@ -21,6 +21,13 @@ export class CategoryForm {
   readonly active = signal(true);
   readonly error = signal<string | null>(null);
 
+  /** Voir product-form.ts — même pattern (icône = champ JSON normal, image = endpoint séparé,
+   *  disponible seulement en édition). */
+  readonly icon = signal('');
+  readonly imageUrl = signal<string | null>(null);
+  readonly uploadingImage = signal(false);
+  readonly imageError = signal<string | null>(null);
+
   constructor() {
     this.route.paramMap.subscribe((params) => {
       const idParam = params.get('id');
@@ -32,6 +39,8 @@ export class CategoryForm {
           next: (category) => {
             this.name.set(category.name);
             this.active.set(category.active);
+            this.icon.set(category.icon ?? '');
+            this.imageUrl.set(category.image_url);
           },
           error: () => this.error.set('Impossible de charger la catégorie.'),
         });
@@ -42,7 +51,7 @@ export class CategoryForm {
   submit(): void {
     this.error.set(null);
 
-    const payload = { name: this.name(), active: this.active() };
+    const payload = { name: this.name(), active: this.active(), icon: this.icon().trim() || null };
     const request =
       this.isEdit() && this.id !== null
         ? this.categoryService.update(this.id, payload)
@@ -51,6 +60,52 @@ export class CategoryForm {
     request.subscribe({
       next: () => this.router.navigateByUrl('/parametres/categories'),
       error: () => this.error.set("Impossible d'enregistrer la catégorie."),
+    });
+  }
+
+  /** Voir product-form.ts::onImageSelected — même logique. */
+  onImageSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || this.id === null) {
+      return;
+    }
+
+    this.uploadingImage.set(true);
+    this.imageError.set(null);
+
+    this.categoryService.uploadImage(this.id, file).subscribe({
+      next: (category) => {
+        this.uploadingImage.set(false);
+        this.imageUrl.set(category.image_url);
+        this.icon.set(category.icon ?? '');
+        input.value = '';
+      },
+      error: () => {
+        this.uploadingImage.set(false);
+        this.imageError.set("Impossible d'envoyer l'image.");
+        input.value = '';
+      },
+    });
+  }
+
+  removeImage(): void {
+    if (this.id === null) {
+      return;
+    }
+
+    this.uploadingImage.set(true);
+    this.imageError.set(null);
+
+    this.categoryService.removeImage(this.id).subscribe({
+      next: (category) => {
+        this.uploadingImage.set(false);
+        this.imageUrl.set(category.image_url);
+      },
+      error: () => {
+        this.uploadingImage.set(false);
+        this.imageError.set("Impossible de supprimer l'image.");
+      },
     });
   }
 }

@@ -32,6 +32,20 @@ export abstract class ResourceService<T extends { id: number }> {
     return this.http.delete<void>(`${API_URL}/${this.endpoint}/${id}`).pipe(tap(() => this.invalidate()));
   }
 
+  /** Voir App\Support\ImageUpload côté API — endpoint séparé de create/update (pas de multipart
+   *  imbriqué pour les ressources qui ont des tableaux dans leur payload, ex. Product.catalog_ids).
+   *  Pas de Content-Type explicite : HttpClient le déduit tout seul (avec le bon `boundary`) à
+   *  partir d'un corps FormData, le fixer à la main casserait l'encodage multipart. */
+  uploadImage(id: number, file: File): Observable<T> {
+    const formData = new FormData();
+    formData.append('image', file);
+    return this.http.post<T>(`${API_URL}/${this.endpoint}/${id}/image`, formData).pipe(tap(() => this.invalidate()));
+  }
+
+  removeImage(id: number): Observable<T> {
+    return this.http.delete<T>(`${API_URL}/${this.endpoint}/${id}/image`).pipe(tap(() => this.invalidate()));
+  }
+
   /** No-op here; overridden by CachedResourceService to clear its cache. */
   protected invalidate(): void {}
 }

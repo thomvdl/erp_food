@@ -47,6 +47,14 @@ export class ProductForm {
   readonly stationId = signal<number | null>(null);
   readonly taxId = signal<number | null>(null);
 
+  /** Icône/image (voir Product.icon/image_url, App\Support\ImageUpload côté API) — l'icône fait
+   *  partie du payload JSON normal (submit()), l'image passe par un endpoint séparé
+   *  (uploadImage/removeImage), disponible seulement en édition (voir imageUrl()/onImageSelected()). */
+  readonly icon = signal('');
+  readonly imageUrl = signal<string | null>(null);
+  readonly uploadingImage = signal(false);
+  readonly imageError = signal<string | null>(null);
+
   /** Combo = produit composé de plusieurs autres (voir Product.components) — la sélection de
    *  composants réutilise la liste des produits déjà chargés par ce même formulaire de gestion. */
   readonly isCombo = signal(false);
@@ -120,6 +128,8 @@ export class ProductForm {
             this.catalogIds.set((product.catalogs ?? []).map((catalog) => catalog.id));
             this.stationId.set(product.station_id);
             this.taxId.set(product.tax_id);
+            this.icon.set(product.icon ?? '');
+            this.imageUrl.set(product.image_url);
             this.isCombo.set(product.is_combo);
             this.componentQuantities.set(new Map((product.components ?? []).map((c) => [c.id, c.pivot.quantity])));
           },
@@ -174,6 +184,7 @@ export class ProductForm {
       preparation_time: this.preparationTime(),
       sku: this.sku() || null,
       active: this.active(),
+      icon: this.icon().trim() || null,
       product_category_id: this.categoryId(),
       catalog_ids: this.catalogIds(),
       station_id: this.stationId(),
@@ -194,6 +205,54 @@ export class ProductForm {
       error: () => {
         this.saving.set(false);
         this.error.set("Impossible d'enregistrer le produit.");
+      },
+    });
+  }
+
+  /** Uniquement disponible en édition (voir template, `id` est toujours non-null ici puisque le
+   *  bloc image n'est affiché que si isEdit()). Efface l'icône en mémoire au retour : le serveur
+   *  vient de la vider lui-même (voir ImageUpload::store, mutuellement exclusif). */
+  onImageSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || this.id === null) {
+      return;
+    }
+
+    this.uploadingImage.set(true);
+    this.imageError.set(null);
+
+    this.productService.uploadImage(this.id, file).subscribe({
+      next: (product) => {
+        this.uploadingImage.set(false);
+        this.imageUrl.set(product.image_url);
+        this.icon.set(product.icon ?? '');
+        input.value = '';
+      },
+      error: () => {
+        this.uploadingImage.set(false);
+        this.imageError.set("Impossible d'envoyer l'image.");
+        input.value = '';
+      },
+    });
+  }
+
+  removeImage(): void {
+    if (this.id === null) {
+      return;
+    }
+
+    this.uploadingImage.set(true);
+    this.imageError.set(null);
+
+    this.productService.removeImage(this.id).subscribe({
+      next: (product) => {
+        this.uploadingImage.set(false);
+        this.imageUrl.set(product.image_url);
+      },
+      error: () => {
+        this.uploadingImage.set(false);
+        this.imageError.set("Impossible de supprimer l'image.");
       },
     });
   }

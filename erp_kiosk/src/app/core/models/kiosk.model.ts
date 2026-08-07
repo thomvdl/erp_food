@@ -9,6 +9,10 @@ export interface ProductCategory {
   name: string;
   slug: string;
   active: boolean;
+  /** Icône (emoji) choisie par l'admin — mutuellement exclusive avec image_url (voir
+   *  App\Support\ImageUpload côté API). Repli si les deux sont absents : voir categoryEmoji() dans kiosk-order.ts. */
+  icon: string | null;
+  image_url: string | null;
 }
 
 export interface ProductCatalog {
@@ -33,6 +37,9 @@ export interface Product {
   category?: ProductCategory | null;
   catalogs?: ProductCatalog[];
   tax?: Tax | null;
+  /** Voir ProductCategory.icon ci-dessus — même principe. Repli : voir productEmoji() dans kiosk-order.ts. */
+  icon: string | null;
+  image_url: string | null;
 }
 
 export interface PaymentMethod {

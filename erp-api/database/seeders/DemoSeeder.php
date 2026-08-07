@@ -189,73 +189,76 @@ class DemoSeeder extends Seeder
         // Taux belges (voir TaxSeeder) : 12% pour la nourriture (HORECA), 21% pour les boissons
         // alcoolisées. Deux stations seulement (voir StationSeeder) : tout ce qui se prépare en
         // cuisine part sur 'cuisine', tout ce qui se sert directement part sur 'bar'.
+        // 5e élément de chaque ligne : icône (emoji) cohérente avec le produit (voir
+        // App\Support\ImageUpload) — juste un repère visuel de démo, l'admin reste libre de la
+        // changer ou d'uploader une vraie image depuis erp-app.
         $defs = [
             'Entrées' => [
-                ['Salade César', 7.50, 'tva-12', 'cuisine'],
-                ["Soupe à l'oignon", 6.00, 'tva-12', 'cuisine'],
-                ['Assiette de charcuterie', 9.00, 'tva-12', 'cuisine'],
-                ['Croquettes de fromage (x3)', 8.00, 'tva-12', 'cuisine'],
-                ['Salade de chèvre chaud', 8.50, 'tva-12', 'cuisine'],
-                ['Carpaccio de bœuf', 10.50, 'tva-12', 'cuisine'],
-                ['Tomate-mozzarella', 7.00, 'tva-12', 'cuisine'],
+                ['Salade César', 7.50, 'tva-12', 'cuisine', '🥗'],
+                ["Soupe à l'oignon", 6.00, 'tva-12', 'cuisine', '🍲'],
+                ['Assiette de charcuterie', 9.00, 'tva-12', 'cuisine', '🍖'],
+                ['Croquettes de fromage (x3)', 8.00, 'tva-12', 'cuisine', '🧀'],
+                ['Salade de chèvre chaud', 8.50, 'tva-12', 'cuisine', '🥗'],
+                ['Carpaccio de bœuf', 10.50, 'tva-12', 'cuisine', '🥩'],
+                ['Tomate-mozzarella', 7.00, 'tva-12', 'cuisine', '🍅'],
             ],
             'Plats' => [
-                ['Steak-frites', 16.50, 'tva-12', 'cuisine'],
-                ['Saumon grillé', 18.00, 'tva-12', 'cuisine'],
-                ['Burger maison', 14.00, 'tva-12', 'cuisine'],
-                ['Pâtes carbonara', 13.50, 'tva-12', 'cuisine'],
-                ['Vol-au-vent', 15.50, 'tva-12', 'cuisine'],
-                ['Moules-frites', 19.00, 'tva-12', 'cuisine'],
-                ['Escalope à la crème', 15.00, 'tva-12', 'cuisine'],
-                ['Lasagnes maison', 13.00, 'tva-12', 'cuisine'],
-                ['Poulet rôti, gratin dauphinois', 16.00, 'tva-12', 'cuisine'],
-                ['Risotto aux champignons', 14.50, 'tva-12', 'cuisine'],
+                ['Steak-frites', 16.50, 'tva-12', 'cuisine', '🥩'],
+                ['Saumon grillé', 18.00, 'tva-12', 'cuisine', '🐟'],
+                ['Burger maison', 14.00, 'tva-12', 'cuisine', '🍔'],
+                ['Pâtes carbonara', 13.50, 'tva-12', 'cuisine', '🍝'],
+                ['Vol-au-vent', 15.50, 'tva-12', 'cuisine', '🥧'],
+                ['Moules-frites', 19.00, 'tva-12', 'cuisine', '🦪'],
+                ['Escalope à la crème', 15.00, 'tva-12', 'cuisine', '🍗'],
+                ['Lasagnes maison', 13.00, 'tva-12', 'cuisine', '🍝'],
+                ['Poulet rôti, gratin dauphinois', 16.00, 'tva-12', 'cuisine', '🍗'],
+                ['Risotto aux champignons', 14.50, 'tva-12', 'cuisine', '🍄'],
             ],
             'Desserts' => [
-                ['Tarte tatin', 6.50, 'tva-12', 'cuisine'],
-                ['Mousse au chocolat', 5.50, 'tva-12', 'cuisine'],
-                ['Crème brûlée', 6.00, 'tva-12', 'cuisine'],
-                ['Tiramisu', 6.00, 'tva-12', 'cuisine'],
-                ['Gaufre de Liège', 5.00, 'tva-12', 'cuisine'],
-                ['Coupe de glace (3 boules)', 6.50, 'tva-12', 'cuisine'],
+                ['Tarte tatin', 6.50, 'tva-12', 'cuisine', '🥧'],
+                ['Mousse au chocolat', 5.50, 'tva-12', 'cuisine', '🍫'],
+                ['Crème brûlée', 6.00, 'tva-12', 'cuisine', '🍮'],
+                ['Tiramisu', 6.00, 'tva-12', 'cuisine', '🍰'],
+                ['Gaufre de Liège', 5.00, 'tva-12', 'cuisine', '🧇'],
+                ['Coupe de glace (3 boules)', 6.50, 'tva-12', 'cuisine', '🍨'],
             ],
             'Boissons chaudes' => [
-                ['Café', 2.00, 'tva-12', 'bar'],
-                ['Thé', 2.50, 'tva-12', 'bar'],
-                ['Cappuccino', 3.00, 'tva-12', 'bar'],
-                ['Chocolat chaud', 3.00, 'tva-12', 'bar'],
+                ['Café', 2.00, 'tva-12', 'bar', '☕'],
+                ['Thé', 2.50, 'tva-12', 'bar', '🍵'],
+                ['Cappuccino', 3.00, 'tva-12', 'bar', '☕'],
+                ['Chocolat chaud', 3.00, 'tva-12', 'bar', '🍫'],
             ],
             'Boissons froides' => [
-                ['Coca-Cola', 3.00, 'tva-12', 'bar'],
-                ['Eau minérale', 2.50, 'tva-12', 'bar'],
-                ["Jus d'orange", 3.50, 'tva-12', 'bar'],
-                ['Ice Tea', 3.00, 'tva-12', 'bar'],
-                ['Fanta', 3.00, 'tva-12', 'bar'],
-                ['Eau pétillante', 2.50, 'tva-12', 'bar'],
+                ['Coca-Cola', 3.00, 'tva-12', 'bar', '🥤'],
+                ['Eau minérale', 2.50, 'tva-12', 'bar', '💧'],
+                ["Jus d'orange", 3.50, 'tva-12', 'bar', '🧃'],
+                ['Ice Tea', 3.00, 'tva-12', 'bar', '🧊'],
+                ['Fanta', 3.00, 'tva-12', 'bar', '🥤'],
+                ['Eau pétillante', 2.50, 'tva-12', 'bar', '💧'],
             ],
             'Vins & Bières' => [
-                ['Verre de vin rouge', 4.50, 'tva-21', 'bar'],
-                ['Verre de vin blanc', 4.50, 'tva-21', 'bar'],
-                ['Verre de vin rosé', 4.50, 'tva-21', 'bar'],
-                ['Bière pression 25cl', 4.00, 'tva-21', 'bar'],
-                ['Bière pression 50cl', 6.50, 'tva-21', 'bar'],
-                ['Bière trappiste 33cl', 5.50, 'tva-21', 'bar'],
-                ['Bière kriek 25cl', 4.50, 'tva-21', 'bar'],
+                ['Verre de vin rouge', 4.50, 'tva-21', 'bar', '🍷'],
+                ['Verre de vin blanc', 4.50, 'tva-21', 'bar', '🥂'],
+                ['Verre de vin rosé', 4.50, 'tva-21', 'bar', '🍷'],
+                ['Bière pression 25cl', 4.00, 'tva-21', 'bar', '🍺'],
+                ['Bière pression 50cl', 6.50, 'tva-21', 'bar', '🍺'],
+                ['Bière trappiste 33cl', 5.50, 'tva-21', 'bar', '🍻'],
+                ['Bière kriek 25cl', 4.50, 'tva-21', 'bar', '🍒'],
             ],
             'Snacking' => [
-                ['Frites', 4.00, 'tva-12', 'cuisine'],
-                ['Croque-monsieur', 7.00, 'tva-12', 'cuisine'],
-                ['Mini croquettes (x6)', 6.50, 'tva-12', 'cuisine'],
-                ['Assiette de fromages', 9.50, 'tva-12', 'cuisine'],
-                ['Planche apéro', 12.00, 'tva-12', 'cuisine'],
-                ['Nachos, sauce fromagère', 8.00, 'tva-12', 'cuisine'],
+                ['Frites', 4.00, 'tva-12', 'cuisine', '🍟'],
+                ['Croque-monsieur', 7.00, 'tva-12', 'cuisine', '🥪'],
+                ['Mini croquettes (x6)', 6.50, 'tva-12', 'cuisine', '🧀'],
+                ['Assiette de fromages', 9.50, 'tva-12', 'cuisine', '🧀'],
+                ['Planche apéro', 12.00, 'tva-12', 'cuisine', '🧺'],
+                ['Nachos, sauce fromagère', 8.00, 'tva-12', 'cuisine', '🧀'],
             ],
         ];
 
         foreach ($defs as $categoryName => $items) {
             $category = $categories->get($categoryName);
 
-            foreach ($items as [$name, $price, $taxSlug, $stationSlug]) {
+            foreach ($items as [$name, $price, $taxSlug, $stationSlug, $icon]) {
                 $product = Product::query()->firstOrCreate(
                     ['slug' => Str::slug($name)],
                     [
@@ -267,6 +270,14 @@ class DemoSeeder extends Seeder
                         'station_id' => $stations->get($stationSlug)?->id,
                     ],
                 );
+
+                // firstOrCreate ne retouche jamais une ligne déjà existante : les produits de démo
+                // créés avant l'ajout du champ icon (voir migration
+                // add_icon_and_image_path_to_products_table) n'en ont pas encore — on les complète
+                // ici, mais jamais si une icône/image a déjà été choisie à la main entretemps.
+                if (!$product->icon && !$product->image_path) {
+                    $product->update(['icon' => $icon]);
+                }
 
                 // Many-to-many désormais (voir Product::catalogs()) : syncWithoutDetaching plutôt
                 // qu'une simple FK, un produit de démo peut appartenir à plusieurs catalogues.

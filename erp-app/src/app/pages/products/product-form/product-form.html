@@ -3,156 +3,214 @@
 <h1 class="text-2xl">{{ isEdit() ? 'Modifier le produit' : 'Nouveau produit' }}</h1>
 
 <form class="form" (ngSubmit)="submit()">
-  <label class="field">
-    Nom
-    <input class="input" type="text" name="name" [ngModel]="name()" (ngModelChange)="name.set($event)" required />
-  </label>
+  <section class="form-section">
+    <h2 class="form-section-title">Informations générales</h2>
 
-  <label class="field">
-    Description
-    <textarea
-      class="input"
-      name="description"
-      rows="3"
-      [ngModel]="description()"
-      (ngModelChange)="description.set($event)"
-    ></textarea>
-  </label>
+    <label class="field">
+      Nom
+      <input class="input" type="text" name="name" [ngModel]="name()" (ngModelChange)="name.set($event)" required />
+    </label>
 
-  <label class="field">
-    Prix (€)
-    <input
-      class="input"
-      type="number"
-      step="0.01"
-      min="0"
-      name="price"
-      [ngModel]="price()"
-      (ngModelChange)="price.set($event)"
-      required
-    />
-  </label>
+    <label class="field">
+      Description
+      <textarea
+        class="input"
+        name="description"
+        rows="3"
+        [ngModel]="description()"
+        (ngModelChange)="description.set($event)"
+      ></textarea>
+    </label>
 
-  <label class="field">
-    Temps de préparation (minutes)
-    <input
-      class="input"
-      type="number"
-      step="1"
-      min="0"
-      name="preparation_time"
-      placeholder="Non renseigné — pas de minuteur en cuisine"
-      [ngModel]="preparationTime()"
-      (ngModelChange)="preparationTime.set($event === '' ? null : +$event)"
-    />
-  </label>
+    <label class="field">
+      SKU
+      <input class="input" type="text" name="sku" [ngModel]="sku()" (ngModelChange)="sku.set($event)" />
+    </label>
 
-  <label class="field">
-    SKU
-    <input class="input" type="text" name="sku" [ngModel]="sku()" (ngModelChange)="sku.set($event)" />
-  </label>
+    <label class="checkbox-field">
+      <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
+      Actif (visible en caisse)
+    </label>
+  </section>
 
-  <label class="field">
-    Catégorie
-    <select class="select" name="category" [ngModel]="categoryId()" (ngModelChange)="categoryId.set($event)">
-      <option [ngValue]="null">— Aucune —</option>
-      @for (category of selectableCategories(); track category.id) {
-        <option [ngValue]="category.id">{{ category.name }}</option>
+  <section class="form-section">
+    <h2 class="form-section-title">Prix &amp; TVA</h2>
+
+    <label class="field">
+      Prix (€)
+      <input
+        class="input"
+        type="number"
+        step="0.01"
+        min="0"
+        name="price"
+        [ngModel]="price()"
+        (ngModelChange)="price.set($event)"
+        required
+      />
+    </label>
+
+    <label class="field">
+      Taxe
+      <select class="select" name="tax" [ngModel]="taxId()" (ngModelChange)="taxId.set($event)">
+        <option [ngValue]="null">— Aucune —</option>
+        @for (tax of selectableTaxes(); track tax.id) {
+          <option [ngValue]="tax.id">{{ tax.slug }} ({{ tax.value }}%)</option>
+        }
+      </select>
+    </label>
+  </section>
+
+  <section class="form-section">
+    <h2 class="form-section-title">Visuel</h2>
+
+    <label class="field">
+      Icône (emoji)
+      <input
+        class="input"
+        type="text"
+        name="icon"
+        maxlength="4"
+        placeholder="🍕"
+        style="max-width: 100px"
+        [ngModel]="icon()"
+        (ngModelChange)="icon.set($event)"
+      />
+    </label>
+
+    <div class="field">
+      Image
+      @if (!isEdit()) {
+        <p class="text-muted text-sm">Enregistrez d'abord le produit pour pouvoir ajouter une image.</p>
+      } @else if (imageUrl(); as url) {
+        <div style="display: flex; align-items: center; gap: var(--space-3)">
+          <img [src]="url" alt="" style="width: 64px; height: 64px; object-fit: cover; border-radius: var(--radius-md)" />
+          <button type="button" class="btn btn-outline btn-sm" [disabled]="uploadingImage()" (click)="removeImage()">
+            {{ uploadingImage() ? '...' : "Supprimer l'image" }}
+          </button>
+        </div>
+      } @else {
+        <input type="file" accept="image/*" [disabled]="uploadingImage()" (change)="onImageSelected($event)" />
+        <p class="text-muted text-xs">Choisir une image remplace l'icône ci-dessus.</p>
       }
-    </select>
-  </label>
-
-  <div class="field">
-    Catalogues
-    <div class="checkbox-group">
-      @for (catalog of selectableCatalogs(); track catalog.id) {
-        <label class="checkbox-field">
-          <input
-            type="checkbox"
-            [checked]="isCatalogChecked(catalog.id)"
-            (change)="toggleCatalog(catalog.id, $any($event.target).checked)"
-          />
-          {{ catalog.name }}
-        </label>
-      } @empty {
-        <span class="text-muted text-sm">Aucun catalogue pour le moment.</span>
+      @if (imageError()) {
+        <p class="error-text text-sm">{{ imageError() }}</p>
       }
     </div>
-  </div>
+  </section>
 
-  <label class="field">
-    Station
-    <select class="select" name="station" [ngModel]="stationId()" (ngModelChange)="stationId.set($event)">
-      <option [ngValue]="null">— Aucune —</option>
-      @for (station of selectableStations(); track station.id) {
-        <option [ngValue]="station.id">{{ station.name }}</option>
-      }
-    </select>
-  </label>
+  <section class="form-section">
+    <h2 class="form-section-title">Cuisine</h2>
 
-  <label class="field">
-    Taxe
-    <select class="select" name="tax" [ngModel]="taxId()" (ngModelChange)="taxId.set($event)">
-      <option [ngValue]="null">— Aucune —</option>
-      @for (tax of selectableTaxes(); track tax.id) {
-        <option [ngValue]="tax.id">{{ tax.slug }} ({{ tax.value }}%)</option>
-      }
-    </select>
-  </label>
+    <label class="field">
+      Station
+      <select class="select" name="station" [ngModel]="stationId()" (ngModelChange)="stationId.set($event)">
+        <option [ngValue]="null">— Aucune —</option>
+        @for (station of selectableStations(); track station.id) {
+          <option [ngValue]="station.id">{{ station.name }}</option>
+        }
+      </select>
+    </label>
 
-  <label class="checkbox-field">
-    <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
-    Actif (visible en caisse)
-  </label>
+    <label class="field">
+      Temps de préparation (minutes)
+      <input
+        class="input"
+        type="number"
+        step="1"
+        min="0"
+        name="preparation_time"
+        placeholder="Non renseigné — pas de minuteur en cuisine"
+        [ngModel]="preparationTime()"
+        (ngModelChange)="preparationTime.set($event === '' ? null : +$event)"
+      />
+    </label>
+  </section>
 
-  <label class="checkbox-field">
-    <input type="checkbox" name="is_combo" [ngModel]="isCombo()" (ngModelChange)="isCombo.set($event)" />
-    Ceci est un combo (composé de plusieurs produits)
-  </label>
+  <section class="form-section">
+    <h2 class="form-section-title">Classification</h2>
 
-  @if (isCombo()) {
+    <label class="field">
+      Catégorie
+      <select class="select" name="category" [ngModel]="categoryId()" (ngModelChange)="categoryId.set($event)">
+        <option [ngValue]="null">— Aucune —</option>
+        @for (category of selectableCategories(); track category.id) {
+          <option [ngValue]="category.id">{{ category.name }}</option>
+        }
+      </select>
+    </label>
+
     <div class="field">
-      Produits du combo
-
-      <div class="search-input">
-        <span class="icon">🔍</span>
-        <input
-          class="input"
-          type="text"
-          placeholder="Rechercher un produit à ajouter…"
-          [ngModel]="componentSearch()"
-          [ngModelOptions]="{ standalone: true }"
-          (ngModelChange)="componentSearch.set($event)"
-        />
-      </div>
-
-      @if (componentSearchResults().length > 0) {
-        <div class="combo-picker__results">
-          @for (product of componentSearchResults(); track product.id) {
-            <button type="button" class="combo-picker__result" (click)="addComponent(product.id)">
-              {{ product.name }}
-            </button>
-          }
-        </div>
-      }
-
-      <div class="combo-picker__selected">
-        @for (item of selectedComponents(); track item.product.id) {
-          <div class="combo-picker__line">
-            <span class="font-medium">{{ item.product.name }}</span>
-            <div class="qty-stepper">
-              <button type="button" class="qty-stepper__btn" (click)="setComponentQuantity(item.product.id, item.quantity - 1)">−</button>
-              <span>{{ item.quantity }}</span>
-              <button type="button" class="qty-stepper__btn" (click)="setComponentQuantity(item.product.id, item.quantity + 1)">+</button>
-            </div>
-            <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeComponent(item.product.id)">✕</button>
-          </div>
+      Catalogues
+      <div class="checkbox-group">
+        @for (catalog of selectableCatalogs(); track catalog.id) {
+          <label class="checkbox-field">
+            <input
+              type="checkbox"
+              [checked]="isCatalogChecked(catalog.id)"
+              (change)="toggleCatalog(catalog.id, $any($event.target).checked)"
+            />
+            {{ catalog.name }}
+          </label>
         } @empty {
-          <span class="text-muted text-sm">Aucun produit ajouté au combo pour le moment.</span>
+          <span class="text-muted text-sm">Aucun catalogue pour le moment.</span>
         }
       </div>
     </div>
-  }
+  </section>
+
+  <section class="form-section">
+    <h2 class="form-section-title">Combo</h2>
+
+    <label class="checkbox-field">
+      <input type="checkbox" name="is_combo" [ngModel]="isCombo()" (ngModelChange)="isCombo.set($event)" />
+      Ceci est un combo (composé de plusieurs produits)
+    </label>
+
+    @if (isCombo()) {
+      <div class="field">
+        Produits du combo
+
+        <div class="search-input">
+          <span class="icon">🔍</span>
+          <input
+            class="input"
+            type="text"
+            placeholder="Rechercher un produit à ajouter…"
+            [ngModel]="componentSearch()"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="componentSearch.set($event)"
+          />
+        </div>
+
+        @if (componentSearchResults().length > 0) {
+          <div class="combo-picker__results">
+            @for (product of componentSearchResults(); track product.id) {
+              <button type="button" class="combo-picker__result" (click)="addComponent(product.id)">
+                {{ product.name }}
+              </button>
+            }
+          </div>
+        }
+
+        <div class="combo-picker__selected">
+          @for (item of selectedComponents(); track item.product.id) {
+            <div class="combo-picker__line">
+              <span class="font-medium">{{ item.product.name }}</span>
+              <div class="qty-stepper">
+                <button type="button" class="qty-stepper__btn" (click)="setComponentQuantity(item.product.id, item.quantity - 1)">−</button>
+                <span>{{ item.quantity }}</span>
+                <button type="button" class="qty-stepper__btn" (click)="setComponentQuantity(item.product.id, item.quantity + 1)">+</button>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeComponent(item.product.id)">✕</button>
+            </div>
+          } @empty {
+            <span class="text-muted text-sm">Aucun produit ajouté au combo pour le moment.</span>
+          }
+        </div>
+      </div>
+    }
+  </section>
 
   @if (error()) {
     <p class="error-text">{{ error() }}</p>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ProductCategory;
+use App\Support\ImageUpload;
 use Illuminate\Http\Request;
 
 class ProductCategoryController extends Controller
@@ -15,10 +16,7 @@ class ProductCategoryController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'active' => ['boolean'],
-        ]);
+        $data = $this->validated($request);
 
         return response()->json(ProductCategory::query()->create($data), 201);
     }
@@ -30,13 +28,40 @@ class ProductCategoryController extends Controller
 
     public function update(Request $request, ProductCategory $productCategory)
     {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'active' => ['boolean'],
-        ]);
+        $data = $this->validated($request);
+        // Voir ProductController::update — choisir une icône efface une éventuelle image existante.
+        $data = array_merge($data, ImageUpload::clearIfIconChosen($productCategory, $data['icon'] ?? null));
 
         $productCategory->update($data);
 
         return $productCategory;
+    }
+
+    /** Voir ProductController::uploadImage — même principe, endpoint séparé du store/update JSON. */
+    public function uploadImage(Request $request, ProductCategory $productCategory)
+    {
+        $request->validate(['image' => ['required', 'image', 'max:4096']]);
+        ImageUpload::store($productCategory, $request->file('image'), 'product-categories');
+
+        return $productCategory->fresh();
+    }
+
+    public function removeImage(ProductCategory $productCategory)
+    {
+        ImageUpload::remove($productCategory);
+
+        return $productCategory->fresh();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validated(Request $request): array
+    {
+        return $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'active' => ['boolean'],
+            'icon' => ['nullable', 'string', 'max:8'],
+        ]);
     }
 }

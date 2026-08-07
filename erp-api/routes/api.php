@@ -106,6 +106,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Passes non concernées, hors du périmètre de cette demande.
     Route::middleware('role:admin')->group(function () {
         Route::apiResource('product-categories', ProductCategoryController::class)->except(['destroy', 'index']);
+        Route::post('product-categories/{product_category}/image', [ProductCategoryController::class, 'uploadImage']);
+        Route::delete('product-categories/{product_category}/image', [ProductCategoryController::class, 'removeImage']);
         Route::apiResource('product-catalogs', ProductCatalogController::class)->except(['destroy', 'index']);
         Route::post('product-catalogs/{product_catalog}/activate-restaurant', [ProductCatalogController::class, 'activateForRestaurant']);
         Route::post('product-catalogs/{product_catalog}/activate-direct-sale', [ProductCatalogController::class, 'activateForDirectSale']);
@@ -132,6 +134,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('products', [ProductController::class, 'store']);
         Route::put('products/{product}', [ProductController::class, 'update']);
         Route::delete('products/{product}', [ProductController::class, 'destroy']);
+        Route::post('products/{product}/image', [ProductController::class, 'uploadImage']);
+        Route::delete('products/{product}/image', [ProductController::class, 'removeImage']);
     });
 
     // ---- Superviseur (et admin) — tout le reste sauf Paramètres ----

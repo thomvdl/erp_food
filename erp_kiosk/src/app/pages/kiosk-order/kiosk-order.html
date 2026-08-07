@@ -40,7 +40,11 @@
         </button>
         @for (category of categories(); track category.id) {
           <button type="button" class="kiosk-sidebar__item" [class.is-active]="selectedCategoryId() === category.id" (click)="selectedCategoryId.set(category.id)">
-            <span class="kiosk-sidebar__icon">{{ categoryEmoji(category.id) }}</span>
+            @if (category.image_url) {
+              <img class="kiosk-sidebar__icon" style="width: 1.5rem; height: 1.5rem; object-fit: cover; border-radius: var(--radius-sm)" [src]="category.image_url" alt="" />
+            } @else {
+              <span class="kiosk-sidebar__icon">{{ category.icon ?? categoryEmoji(category.id) }}</span>
+            }
             <span class="kiosk-sidebar__label">{{ category.name }}</span>
             <span class="kiosk-sidebar__count">{{ category.count }}</span>
           </button>
@@ -54,7 +58,11 @@
               @if (quantityInCart(product) > 0) {
                 <span class="kiosk-product-card__badge">{{ quantityInCart(product) }}</span>
               }
-              <span class="kiosk-product-card__thumb">{{ productEmoji(product) }}</span>
+              @if (product.image_url) {
+                <img class="kiosk-product-card__thumb" style="width: 3.25rem; height: 3.25rem; object-fit: cover; border-radius: var(--radius-md)" [src]="product.image_url" alt="" />
+              } @else {
+                <span class="kiosk-product-card__thumb">{{ product.icon ?? productEmoji(product) }}</span>
+              }
               <span class="kiosk-product-card__name">{{ product.name }}</span>
               <span class="kiosk-product-card__price">{{ formatMoney(product.price) }}</span>
             </button>

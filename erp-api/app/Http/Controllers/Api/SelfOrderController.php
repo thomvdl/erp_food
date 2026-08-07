@@ -47,7 +47,7 @@ class SelfOrderController extends Controller
                 ->where('products.active', true)
                 ->with(['tax', 'category'])
                 ->orderBy('name')
-                ->get(['products.id', 'products.name', 'products.description', 'products.price', 'products.tax_id', 'products.product_category_id'])
+                ->get(['products.id', 'products.name', 'products.description', 'products.price', 'products.tax_id', 'products.product_category_id', 'products.icon', 'products.image_path'])
             : collect();
 
         return response()->json([
