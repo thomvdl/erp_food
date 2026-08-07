@@ -18,6 +18,13 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/dashboard/dashboard').then((m) => m.Dashboard),
       },
       {
+        // Même garde que le Dashboard (voir Readme.md) — page distincte, pas un onglet dessus :
+        // le Dashboard reste un coup d'œil "aujourd'hui", les Rapports la comparaison de périodes.
+        path: 'rapports',
+        canActivate: [roleGuard('superviseur')],
+        loadComponent: () => import('./pages/reports/reports').then((m) => m.Reports),
+      },
+      {
         path: 'parametres',
         canActivate: [roleGuard('admin')],
         children: [

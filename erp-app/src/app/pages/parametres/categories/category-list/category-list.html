@@ -10,6 +10,7 @@
     <table class="table">
       <thead>
         <tr>
+          <th></th>
           <th>Nom</th>
           <th>Slug</th>
           <th>Statut</th>
@@ -19,6 +20,13 @@
       <tbody>
         @for (category of categories(); track category.id) {
           <tr>
+            <td>
+              @if (category.image_url) {
+                <img class="list-thumb" [src]="category.image_url" alt="" />
+              } @else {
+                <span class="list-thumb">{{ category.icon ?? '📁' }}</span>
+              }
+            </td>
             <td>{{ category.name }}</td>
             <td class="text-muted">{{ category.slug }}</td>
             <td>
@@ -34,7 +42,7 @@
           </tr>
         } @empty {
           <tr>
-            <td colspan="4" class="text-muted">Aucune catégorie pour le moment.</td>
+            <td colspan="5" class="text-muted">Aucune catégorie pour le moment.</td>
           </tr>
         }
       </tbody>

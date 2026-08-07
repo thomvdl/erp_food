@@ -37,6 +37,7 @@ export class Shell {
 
   private readonly allNavItems: NavItem[] = [
     { icon: '🏠', label: 'Dashboard', path: '/', exact: true, requiredRole: 'superviseur' },
+    { icon: '📊', label: 'Rapports', path: '/rapports', requiredRole: 'superviseur' },
     { icon: '🪑', label: 'POS - Restaurant', path: '/pos-restaurant' },
     { icon: '🏷️​', label: 'POS - Vente directe', path: '/pos-vente' },
     { icon: '🎫', label: 'Événements', path: '/evenements', requiredRole: 'superviseur' },

@@ -52,6 +52,7 @@
     <table class="table">
       <thead>
         <tr>
+          <th></th>
           <th class="is-sortable" (click)="toggleSort('name')">Nom <span class="sort-indicator">{{ sortIndicator('name') }}</span></th>
           <th class="is-sortable" (click)="toggleSort('category')">Catégorie <span class="sort-indicator">{{ sortIndicator('category') }}</span></th>
           <th class="is-sortable" (click)="toggleSort('catalogs')">Catalogues <span class="sort-indicator">{{ sortIndicator('catalogs') }}</span></th>
@@ -64,6 +65,13 @@
       <tbody>
         @for (product of filteredProducts(); track product.id) {
           <tr>
+            <td>
+              @if (product.image_url) {
+                <img class="list-thumb" [src]="product.image_url" alt="" />
+              } @else {
+                <span class="list-thumb">{{ product.icon ?? '📦' }}</span>
+              }
+            </td>
             <td>{{ product.name }}</td>
             <td class="text-muted">{{ product.category?.name ?? '—' }}</td>
             <td class="text-muted">{{ catalogNames(product) }}</td>
@@ -82,7 +90,7 @@
           </tr>
         } @empty {
           <tr>
-            <td colspan="7" class="text-muted">Aucun produit pour le moment.</td>
+            <td colspan="8" class="text-muted">Aucun produit pour le moment.</td>
           </tr>
         }
       </tbody>

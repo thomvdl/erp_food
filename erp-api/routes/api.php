@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\ProductCatalogController;
 use App\Http\Controllers\Api\ProductCategoryController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\SelfOrderController;
@@ -145,6 +146,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('clients/{client}', [ClientController::class, 'destroy']);
         Route::get('tickets', [TicketController::class, 'index']);
         Route::get('tickets/{ticket}', [TicketController::class, 'show']);
+        Route::get('reports/summary', [ReportController::class, 'summary']);
         Route::apiResource('events', EventController::class);
         Route::post('events/{event}/dates', [EventDateController::class, 'store']);
         Route::put('event-dates/{event_date}', [EventDateController::class, 'update']);

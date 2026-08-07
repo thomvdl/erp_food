@@ -1,0 +1,78 @@
+<div class="app-topbar">
+  <div>
+    <h1 class="text-2xl">Rapports</h1>
+    <p class="text-muted">{{ periodLabel() }}, comparé à la période équivalente précédente</p>
+  </div>
+  <div class="tab-group">
+    <button type="button" class="tab-pill" [class.is-active]="period() === 'jour'" (click)="selectPeriod('jour')">Jour</button>
+    <button type="button" class="tab-pill" [class.is-active]="period() === 'semaine'" (click)="selectPeriod('semaine')">Semaine</button>
+    <button type="button" class="tab-pill" [class.is-active]="period() === 'mois'" (click)="selectPeriod('mois')">Mois</button>
+  </div>
+</div>
+
+@if (error()) {
+  <p class="error-text">{{ error() }}</p>
+} @else if (loading()) {
+  <p class="text-muted">Chargement…</p>
+} @else if (summary(); as data) {
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: var(--space-4)">
+    <div class="stat-card stat-card--brand">
+      <span class="text-sm">Chiffre d'affaires</span>
+      <span class="stat-card__value">{{ formatMoney(data.current.revenue) }}</span>
+      @if (revenueDelta(); as delta) {
+        <span class="text-sm" [style.color]="delta.up ? 'var(--color-success-text)' : 'var(--color-danger-text)'">
+          {{ delta.up ? '▲' : '▼' }} {{ formatAbs(delta.percent) }} % vs période précédente
+        </span>
+      } @else {
+        <span class="text-sm">— vs période précédente</span>
+      }
+    </div>
+
+    <div class="stat-card">
+      <span class="text-sm text-muted">Nombre de ventes</span>
+      <span class="stat-card__value">{{ data.current.tickets_count }}</span>
+      @if (ticketsDelta(); as delta) {
+        <span class="text-sm" [style.color]="delta.up ? 'var(--color-success-text)' : 'var(--color-danger-text)'">
+          {{ delta.up ? '▲' : '▼' }} {{ formatAbs(delta.percent) }} % vs période précédente
+        </span>
+      } @else {
+        <span class="text-sm text-muted">— vs période précédente</span>
+      }
+    </div>
+
+    <div class="stat-card">
+      <span class="text-sm text-muted">Panier moyen</span>
+      <span class="stat-card__value">{{ formatMoney(averageBasketCurrent()) }}</span>
+      @if (basketDelta(); as delta) {
+        <span class="text-sm" [style.color]="delta.up ? 'var(--color-success-text)' : 'var(--color-danger-text)'">
+          {{ delta.up ? '▲' : '▼' }} {{ formatAbs(delta.percent) }} % vs période précédente
+        </span>
+      } @else {
+        <span class="text-sm text-muted">— vs période précédente</span>
+      }
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: var(--space-5)">
+    <div class="card-header">
+      <span class="font-semibold">Meilleures ventes</span>
+      <span class="text-muted text-sm">Par chiffre d'affaires — {{ periodLabel() }}</span>
+    </div>
+    <div class="card-body">
+      @if (data.best_sellers.length === 0) {
+        <p class="text-muted text-sm">Aucune vente sur cette période.</p>
+      } @else {
+        <ul class="best-sellers">
+          @for (item of data.best_sellers; track item.product_id) {
+            <li class="best-sellers__row" [title]="bestSellerTooltip(item)">
+              <div class="best-sellers__bar" [style.width.%]="barWidth(item)"></div>
+              <span class="best-sellers__name">{{ item.product_name }}</span>
+              <span class="best-sellers__qty text-muted text-sm">{{ item.quantity }}×</span>
+              <span class="best-sellers__revenue font-semibold">{{ formatMoney(item.revenue) }}</span>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+}

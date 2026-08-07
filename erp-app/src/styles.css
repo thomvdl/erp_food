@@ -1021,6 +1021,22 @@ textarea.input {
   background: var(--color-primary-100);
 }
 
+/* Miniature produit/catégorie dans les tableaux de liste (voir product-list.html,
+   category-list.html) — une seule classe pour les deux cas : object-fit s'applique à une <img>
+   (vraie image uploadée), le flex centre un emoji dans un <span> (icône choisie ou repli neutre). */
+.list-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--surface-card-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
 /* ---------- Pages Paramètres (hub + listes + formulaires CRUD) ---------- */
 .back-link {
   display: inline-flex;
