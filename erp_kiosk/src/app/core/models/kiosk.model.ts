@@ -59,6 +59,8 @@ export interface CreateKioskOrderPayload {
   cash_session_id: number | null;
   /** Code promo appliqué (voir DiscountCalculator côté API) — revalidé côté serveur. */
   discount_code?: string | null;
+  /** Points fidélité utilisés en réduction (voir App\Support\LoyaltyPoints côté API) — revalidé côté serveur, comme discount_code. */
+  points_redeemed?: number | null;
   lines: { product_id: number; quantity: number }[];
   payments: { payment_method_id: number; value: number }[];
 }
@@ -107,6 +109,8 @@ export interface Client {
   lastname: string;
   email: string | null;
   phone: string | null;
+  /** Solde de points fidélité (voir App\Support\LoyaltyPoints côté API). */
+  points_balance?: number;
 }
 
 export interface TicketLine {

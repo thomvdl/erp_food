@@ -80,6 +80,12 @@ export class PosVente {
   readonly discountError = signal<string | null>(null);
   readonly checkingDiscount = signal(false);
 
+  /** Points fidélité à utiliser en réduction (voir App\Support\LoyaltyPoints) — contrairement au
+   *  code promo, pas de validation serveur séparée : la conversion points→€ est un calcul fixe
+   *  (voir pointsAmount()), le serveur revalide/recalcule tout au moment du paiement comme pour
+   *  le reste. Plafonné visuellement au solde du client sélectionné (voir le template). */
+  readonly pointsToRedeemInput = signal(0);
+
   readonly submitting = signal(false);
   readonly error = signal<string | null>(null);
 
@@ -150,10 +156,16 @@ export class PosVente {
 
   readonly discountAmount = computed(() => this.appliedDiscount()?.amount_off ?? 0);
 
-  /** Total réellement dû après réduction — jamais négatif. Le serveur recalcule indépendamment
-   *  au moment du paiement (voir TicketController::store) ; ceci ne sert qu'à l'affichage et au
-   *  clavier de saisie du paiement. */
-  readonly payableTotal = computed(() => Math.max(Math.round((this.cartTotal() - this.discountAmount()) * 100) / 100, 0));
+  /** Conversion fixe points→€ (100 points = 5€, voir App\Support\LoyaltyPoints::EUR_PER_POINT
+   *  côté API) — juste pour l'affichage/le clavier, le serveur revalide tout au paiement. */
+  readonly pointsAmount = computed(() => Math.round(this.pointsToRedeemInput() * 0.05 * 100) / 100);
+
+  /** Total réellement dû après réduction (promo ET points, cumulables) — jamais négatif. Le
+   *  serveur recalcule indépendamment au moment du paiement (voir TicketController::store) ;
+   *  ceci ne sert qu'à l'affichage et au clavier de saisie du paiement. */
+  readonly payableTotal = computed(() =>
+    Math.max(Math.round((this.cartTotal() - this.discountAmount() - this.pointsAmount()) * 100) / 100, 0),
+  );
 
   readonly paidTotal = computed(() => this.paymentLines().reduce((sum, line) => sum + line.value, 0));
 
@@ -248,10 +260,24 @@ export class PosVente {
     this.clientSearch.set('');
     this.clientResults.set([]);
     this.showNewClientForm.set(false);
+    this.pointsToRedeemInput.set(0);
   }
 
   clearClient(): void {
     this.selectedClient.set(null);
+    this.pointsToRedeemInput.set(0);
+  }
+
+  /** Plafonne la saisie au solde du client sélectionné — le serveur revalide de toute façon
+   *  (voir App\Support\LoyaltyPoints::amountOff), ceci n'évite qu'une saisie absurde à l'écran.
+   *  Réinitialise les paiements déjà saisis : le montant dû vient de changer (voir
+   *  resetPaymentsOnCartChange(), même raisonnement pour le code promo). */
+  setPointsToRedeem(value: number): void {
+    const balance = this.selectedClient()?.points_balance ?? 0;
+    this.pointsToRedeemInput.set(Math.max(0, Math.min(Math.floor(value) || 0, balance)));
+    if (this.paymentLines().length > 0) {
+      this.paymentLines.set([]);
+    }
   }
 
   toggleNewClientForm(): void {
@@ -408,6 +434,7 @@ export class PosVente {
     this.appliedDiscount.set(null);
     this.discountCodeInput.set('');
     this.discountError.set(null);
+    this.pointsToRedeemInput.set(0);
   }
 
   openPaymentModal(): void {
@@ -445,6 +472,7 @@ export class PosVente {
         client_id: this.selectedClient()?.id ?? null,
         cash_session_id: this.activeCashierService.activeSession()?.id ?? null,
         discount_code: this.appliedDiscount()?.discount.code ?? null,
+        points_redeemed: this.pointsToRedeemInput() > 0 ? this.pointsToRedeemInput() : null,
         lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
         payments: this.paymentLines().map((line) => ({ payment_method_id: line.method.id, value: line.value })),
       })

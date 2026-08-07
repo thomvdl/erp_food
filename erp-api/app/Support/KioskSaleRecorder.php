@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\CashSession;
+use App\Models\Client;
 use App\Models\Discount;
 use App\Models\Order;
 use App\Models\Ticket;
@@ -24,6 +25,8 @@ class KioskSaleRecorder
      * @param  array<int, array{product_id: int, quantity: int, unit_price: float}>  $lines  déjà
      *         figées (prix résolu au moment du scan/vente, jamais recalculé ici)
      * @param  array<int, array{payment_method_id: int, value: float}>  $payments
+     * @param  int  $pointsEarned  voir App\Support\LoyaltyPoints::earned() — 0 si pas de client
+     * @param  int  $pointsRedeemed  voir App\Support\LoyaltyPoints::amountOff() — déjà résolu/figé par l'appelant
      * @return array{0: Ticket, 1: Order}
      */
     public static function record(
@@ -31,16 +34,22 @@ class KioskSaleRecorder
         CashSession $cashSession,
         ?Discount $discount,
         float $discountAmount,
-        ?int $clientId,
+        ?Client $client,
         array $payments,
+        int $pointsEarned = 0,
+        int $pointsRedeemed = 0,
+        float $pointsRedeemedAmount = 0.0,
     ): array {
-        return DB::transaction(function () use ($lines, $cashSession, $discount, $discountAmount, $clientId, $payments) {
+        return DB::transaction(function () use ($lines, $cashSession, $discount, $discountAmount, $client, $payments, $pointsEarned, $pointsRedeemed, $pointsRedeemedAmount) {
             $ticket = Ticket::query()->create([
                 'paid_at' => now(),
-                'client_id' => $clientId,
+                'client_id' => $client?->id,
                 'source' => 'kiosk',
                 'discount_id' => $discount?->id,
                 'discount_amount' => $discount ? round($discountAmount, 2) : null,
+                'points_earned' => $client ? $pointsEarned : null,
+                'points_redeemed' => $pointsRedeemed > 0 ? $pointsRedeemed : null,
+                'points_redeemed_amount' => $pointsRedeemed > 0 ? round($pointsRedeemedAmount, 2) : null,
             ]);
 
             $ticketSection = TicketSection::query()->create([
@@ -77,6 +86,10 @@ class KioskSaleRecorder
                     'product_id' => $line['product_id'],
                     'quantity' => $line['quantity'],
                 ]);
+            }
+
+            if ($client) {
+                LoyaltyPoints::apply($client, $pointsEarned, $pointsRedeemed, $ticket->id);
             }
 
             return [$ticket, $order];

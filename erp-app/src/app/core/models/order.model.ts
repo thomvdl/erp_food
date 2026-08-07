@@ -49,6 +49,8 @@ export interface PayOrderPayload {
   cash_session_id?: number | null;
   /** Code promo appliqué (voir DiscountCalculator) — revalidé côté serveur. */
   discount_code?: string | null;
+  /** Points fidélité utilisés en réduction (voir App\Support\LoyaltyPoints) — revalidé côté serveur, comme discount_code. */
+  points_redeemed?: number | null;
   payments: { payment_method_id: number; value: number }[];
 }
 

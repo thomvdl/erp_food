@@ -89,6 +89,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('payment-methods', [PaymentMethodController::class, 'index']);
     Route::get('clients', [ClientController::class, 'index']);
     Route::post('clients', [ClientController::class, 'store']);
+    // Doit être déclarée AVANT clients/{client} (sinon "lookup" serait interprété comme un id
+    // par le route model binding) — voir ClientController::lookup, utilisée par le kiosque.
+    Route::get('clients/lookup', [ClientController::class, 'lookup']);
     Route::get('clients/{client}', [ClientController::class, 'show']);
     // Doit être déclarée AVANT cash-sessions/{cash_session} (dans le groupe superviseur
     // ci-dessous) : sinon Laravel matche "active" comme si c'était un {cash_session} (premier

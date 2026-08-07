@@ -6,7 +6,7 @@ import { forkJoin } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { KioskPaymentEchoService } from '../../core/kiosk-payment-echo.service';
 import { KioskService } from '../../core/kiosk.service';
-import { KioskCheckout, KioskCheckoutState, PaymentMethod, Product, Ticket, ValidateDiscountResponse } from '../../core/models/kiosk.model';
+import { Client, KioskCheckout, KioskCheckoutState, PaymentMethod, Product, Ticket, ValidateDiscountResponse } from '../../core/models/kiosk.model';
 import { TicketReceipt } from '../../shared/ticket-receipt/ticket-receipt';
 
 interface CartLine {
@@ -101,6 +101,26 @@ export class KioskOrder implements OnInit, OnDestroy {
   readonly discountError = signal<string | null>(null);
   readonly checkingDiscount = signal(false);
 
+  /** "Connexion" client optionnelle (voir Readme.md — programme de fidélité), absente du kiosque
+   *  jusqu'ici (client_id était toujours envoyé à null). Contrairement à pos-vente.ts (recherche
+   *  libre + liste, outil interne staff), le kiosque est un appareil public : pas de liste
+   *  affichant les noms d'autres clients, juste une correspondance exacte par téléphone (voir
+   *  KioskService::lookupClientByPhone) — trouvé -> sélectionné directement, sinon -> proposition
+   *  de créer un compte avec ce numéro. */
+  readonly clientPhoneInput = signal('');
+  readonly lookingUpClient = signal(false);
+  readonly clientLookupError = signal<string | null>(null);
+  readonly selectedClient = signal<Client | null>(null);
+  readonly showNewClientForm = signal(false);
+  readonly newClientFirstname = signal('');
+  readonly newClientLastname = signal('');
+  readonly newClientPhone = signal('');
+  readonly savingClient = signal(false);
+
+  /** Points fidélité à utiliser en réduction (voir App\Support\LoyaltyPoints côté API) — même
+   *  pattern que pos-vente.ts::setPointsToRedeem. */
+  readonly pointsToRedeemInput = signal(0);
+
   /** Variant "Terminal" (simulé, voir confirmSimulatedPayment()). */
   readonly bancontactMethod = computed(() => this.paymentMethods().find((method) => method.slug === 'bancontact') ?? null);
   /** Variant "QR code" (paiement Stripe réel, voir startQrCheckout()) — distinct de Bancontact
@@ -135,9 +155,17 @@ export class KioskOrder implements OnInit, OnDestroy {
   readonly cartTotal = computed(() => this.cart().reduce((sum, line) => sum + Number(line.product.price) * line.quantity, 0));
 
   readonly discountAmount = computed(() => this.appliedDiscount()?.amount_off ?? 0);
-  /** Total réellement dû après réduction — le serveur recalcule indépendamment au moment du
-   *  paiement (voir KioskOrderController::store) ; ceci ne sert qu'à l'affichage. */
-  readonly payableTotal = computed(() => Math.max(Math.round((this.cartTotal() - this.discountAmount()) * 100) / 100, 0));
+
+  /** Conversion fixe points→€ (100 points = 5€, voir App\Support\LoyaltyPoints::EUR_PER_POINT
+   *  côté API) — même pattern que pos-vente.ts. */
+  readonly pointsAmount = computed(() => Math.round(this.pointsToRedeemInput() * 0.05 * 100) / 100);
+
+  /** Total réellement dû après réduction (promo ET points, cumulables) — le serveur recalcule
+   *  indépendamment au moment du paiement (voir KioskOrderController::store) ; ceci ne sert qu'à
+   *  l'affichage. */
+  readonly payableTotal = computed(() =>
+    Math.max(Math.round((this.cartTotal() - this.discountAmount() - this.pointsAmount()) * 100) / 100, 0),
+  );
 
   ngOnInit(): void {
     const userId = this.authService.currentUser()?.id;
@@ -233,6 +261,7 @@ export class KioskOrder implements OnInit, OnDestroy {
     this.appliedDiscount.set(null);
     this.discountCodeInput.set('');
     this.discountError.set(null);
+    this.clearClient();
   }
 
   applyDiscountCode(): void {
@@ -269,6 +298,86 @@ export class KioskOrder implements OnInit, OnDestroy {
     this.discountError.set(null);
   }
 
+  // --- Client ("connexion" par téléphone, voir docblock du signal clientPhoneInput) ---
+
+  lookupClient(): void {
+    const phone = this.clientPhoneInput().trim();
+    if (!phone || this.lookingUpClient()) {
+      return;
+    }
+
+    this.lookingUpClient.set(true);
+    this.clientLookupError.set(null);
+
+    this.kioskService.lookupClientByPhone(phone).subscribe({
+      next: (client) => {
+        this.lookingUpClient.set(false);
+        if (client) {
+          this.selectClient(client);
+        } else {
+          // Création de compte désactivée pour l'instant sur le kiosque (retour utilisateur) —
+          // simple message, plus d'ouverture auto du formulaire (voir kiosk-order.html).
+          this.clientLookupError.set('Aucun client trouvé avec ce numéro.');
+        }
+      },
+      error: () => {
+        this.lookingUpClient.set(false);
+        this.clientLookupError.set('Impossible de rechercher ce numéro — réessayez.');
+      },
+    });
+  }
+
+  selectClient(client: Client): void {
+    this.selectedClient.set(client);
+    this.clientPhoneInput.set('');
+    this.clientLookupError.set(null);
+    this.showNewClientForm.set(false);
+    this.pointsToRedeemInput.set(0);
+  }
+
+  clearClient(): void {
+    this.selectedClient.set(null);
+    this.pointsToRedeemInput.set(0);
+    this.clientPhoneInput.set('');
+    this.clientLookupError.set(null);
+    this.showNewClientForm.set(false);
+  }
+
+  toggleNewClientForm(): void {
+    this.showNewClientForm.set(!this.showNewClientForm());
+  }
+
+  submitNewClient(): void {
+    if (!this.newClientFirstname().trim() || !this.newClientLastname().trim()) {
+      return;
+    }
+
+    this.savingClient.set(true);
+    this.kioskService
+      .createClient({
+        firstname: this.newClientFirstname().trim(),
+        lastname: this.newClientLastname().trim(),
+        phone: this.newClientPhone().trim() || undefined,
+      })
+      .subscribe({
+        next: (client) => {
+          this.savingClient.set(false);
+          this.newClientFirstname.set('');
+          this.newClientLastname.set('');
+          this.newClientPhone.set('');
+          this.selectClient(client);
+        },
+        error: () => this.savingClient.set(false),
+      });
+  }
+
+  /** Plafonne la saisie au solde du client sélectionné — le serveur revalide de toute façon
+   *  (voir App\Support\LoyaltyPoints::amountOff côté API). */
+  setPointsToRedeem(value: number): void {
+    const balance = this.selectedClient()?.points_balance ?? 0;
+    this.pointsToRedeemInput.set(Math.max(0, Math.min(Math.floor(value) || 0, balance)));
+  }
+
   choosePaymentVariant(variant: PaymentVariant): void {
     if (variant === 'qr' && !this.qrCodeMethod()) {
       this.paymentError.set('Aucun moyen de paiement QR Code configuré — contactez le personnel.');
@@ -299,9 +408,10 @@ export class KioskOrder implements OnInit, OnDestroy {
 
     this.kioskService
       .createKioskCheckout({
-        client_id: null,
+        client_id: this.selectedClient()?.id ?? null,
         cash_session_id: this.cashSessionId,
         discount_code: this.appliedDiscount()?.discount.code ?? null,
+        points_redeemed: this.pointsToRedeemInput() > 0 ? this.pointsToRedeemInput() : null,
         lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
       })
       .subscribe({
@@ -378,9 +488,10 @@ export class KioskOrder implements OnInit, OnDestroy {
 
     this.kioskService
       .createKioskOrder({
-        client_id: null,
+        client_id: this.selectedClient()?.id ?? null,
         cash_session_id: this.cashSessionId,
         discount_code: this.appliedDiscount()?.discount.code ?? null,
+        points_redeemed: this.pointsToRedeemInput() > 0 ? this.pointsToRedeemInput() : null,
         lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
         payments: [{ payment_method_id: method.id, value: this.payableTotal() }],
       })

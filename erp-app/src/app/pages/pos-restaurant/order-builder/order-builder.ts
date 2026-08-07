@@ -176,6 +176,9 @@ export class OrderBuilder implements OnDestroy {
   readonly discountError = signal<string | null>(null);
   readonly checkingDiscount = signal(false);
 
+  /** Points fidélité à utiliser en réduction (voir App\Support\LoyaltyPoints) — même pattern que pos-vente.ts. */
+  readonly pointsToRedeemInput = signal(0);
+
   readonly clientSearch = signal('');
   readonly clientResults = signal<Client[]>([]);
   readonly selectedClient = signal<Client | null>(null);
@@ -251,9 +254,16 @@ export class OrderBuilder implements OnDestroy {
   });
 
   readonly discountAmount = computed(() => this.appliedDiscount()?.amount_off ?? 0);
-  /** Total réellement dû après réduction — le serveur recalcule indépendamment au moment du
-   *  paiement (voir OrderController::pay) ; ceci ne sert qu'à l'affichage/au clavier. */
-  readonly payableTotal = computed(() => Math.max(Math.round((this.orderTotal() - this.discountAmount()) * 100) / 100, 0));
+
+  /** Conversion fixe points→€ — même pattern que pos-vente.ts. */
+  readonly pointsAmount = computed(() => Math.round(this.pointsToRedeemInput() * 0.05 * 100) / 100);
+
+  /** Total réellement dû après réduction (promo ET points, cumulables) — le serveur recalcule
+   *  indépendamment au moment du paiement (voir OrderController::pay) ; ceci ne sert qu'à
+   *  l'affichage/au clavier. */
+  readonly payableTotal = computed(() =>
+    Math.max(Math.round((this.orderTotal() - this.discountAmount() - this.pointsAmount()) * 100) / 100, 0),
+  );
 
   readonly paidTotal = computed(() => this.paymentLines().reduce((sum, line) => sum + line.value, 0));
   readonly remaining = computed(() => Math.round((this.payableTotal() - this.paidTotal()) * 100) / 100);
@@ -531,10 +541,21 @@ export class OrderBuilder implements OnDestroy {
     this.clientSearch.set('');
     this.clientResults.set([]);
     this.showNewClientForm.set(false);
+    this.pointsToRedeemInput.set(0);
   }
 
   clearClient(): void {
     this.selectedClient.set(null);
+    this.pointsToRedeemInput.set(0);
+  }
+
+  /** Même pattern que pos-vente.ts::setPointsToRedeem. */
+  setPointsToRedeem(value: number): void {
+    const balance = this.selectedClient()?.points_balance ?? 0;
+    this.pointsToRedeemInput.set(Math.max(0, Math.min(Math.floor(value) || 0, balance)));
+    if (this.paymentLines().length > 0) {
+      this.paymentLines.set([]);
+    }
   }
 
   toggleNewClientForm(): void {
@@ -591,6 +612,7 @@ export class OrderBuilder implements OnDestroy {
     this.appliedDiscount.set(null);
     this.discountCodeInput.set('');
     this.discountError.set(null);
+    this.pointsToRedeemInput.set(0);
   }
 
   applyDiscountCode(): void {
@@ -717,6 +739,7 @@ export class OrderBuilder implements OnDestroy {
         client_id: this.selectedClient()?.id ?? null,
         cash_session_id: this.activeCashierService.activeSession()?.id ?? null,
         discount_code: this.appliedDiscount()?.discount.code ?? null,
+        points_redeemed: this.pointsToRedeemInput() > 0 ? this.pointsToRedeemInput() : null,
         payments: this.paymentLines().map((line) => ({ payment_method_id: line.method.id, value: line.value })),
       })
       .subscribe({

@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_URL } from './api-config';
+import { ClientDetail } from './models/client-detail.model';
 import { Client } from './models/ticket.model';
 
 /**
@@ -18,6 +19,12 @@ export class ClientService {
 
   get(id: number): Observable<Client> {
     return this.http.get<Client>(`${API_URL}/clients/${id}`);
+  }
+
+  /** Même endpoint que get() (voir ClientController::show, un seul point d'entrée réutilisé pour
+   *  l'édition ET la fiche 360°) — juste typé plus riche pour la page ClientDetail. */
+  getDetail(id: number): Observable<ClientDetail> {
+    return this.http.get<ClientDetail>(`${API_URL}/clients/${id}`);
   }
 
   search(query: string): Observable<Client[]> {

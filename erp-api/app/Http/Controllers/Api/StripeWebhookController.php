@@ -75,8 +75,11 @@ class StripeWebhookController extends Controller
             $kioskCheckout->cashSession,
             $kioskCheckout->discount,
             (float) ($kioskCheckout->discount_amount ?? 0),
-            $kioskCheckout->client_id,
+            $kioskCheckout->client,
             [['payment_method_id' => $paymentMethodId, 'value' => (float) $kioskCheckout->total]],
+            (int) ($kioskCheckout->points_earned ?? 0),
+            (int) ($kioskCheckout->points_redeemed ?? 0),
+            (float) ($kioskCheckout->points_redeemed_amount ?? 0),
         );
 
         $kioskCheckout->update(['status' => 'paid', 'ticket_id' => $ticket->id]);

@@ -222,15 +222,23 @@
       </div>
 
       <div class="card-body pos-payments">
-        @if (appliedDiscount(); as applied) {
+        @if (appliedDiscount() || pointsAmount() > 0) {
           <div class="pos-cart__totals-row text-sm">
             <span>Sous-total</span>
             <span>{{ formatMoney(cartTotal()) }}</span>
           </div>
-          <div class="pos-cart__totals-row text-sm" style="color: var(--color-success-text)">
-            <span>Réduction ({{ applied.discount.code }})</span>
-            <span>−{{ formatMoney(applied.amount_off) }}</span>
-          </div>
+          @if (appliedDiscount(); as applied) {
+            <div class="pos-cart__totals-row text-sm" style="color: var(--color-success-text)">
+              <span>Réduction ({{ applied.discount.code }})</span>
+              <span>−{{ formatMoney(applied.amount_off) }}</span>
+            </div>
+          }
+          @if (pointsAmount() > 0) {
+            <div class="pos-cart__totals-row text-sm" style="color: var(--color-success-text)">
+              <span>Points fidélité ({{ pointsToRedeemInput() }})</span>
+              <span>−{{ formatMoney(pointsAmount()) }}</span>
+            </div>
+          }
         }
 
         <div class="pos-cart__totals-row pos-cart__totals-row--grand">
@@ -265,6 +273,24 @@
             <p class="error-text text-sm">{{ discountError() }}</p>
           }
         </div>
+        }
+
+        @if (selectedClient(); as client) {
+          @if ((client.points_balance ?? 0) > 0) {
+            <div class="field">
+              <label for="points-redeemed">🎁 Points fidélité de {{ client.firstname }} ({{ client.points_balance }} pts disponibles)</label>
+              <input
+                id="points-redeemed"
+                class="input"
+                type="number"
+                min="0"
+                [max]="client.points_balance ?? 0"
+                placeholder="0"
+                [ngModel]="pointsToRedeemInput()"
+                (ngModelChange)="setPointsToRedeem($event)"
+              />
+            </div>
+          }
         }
 
         @if (paymentLines().length > 0) {

@@ -9,6 +9,9 @@ export interface Client {
   lastname: string;
   email: string | null;
   phone: string | null;
+  /** Solde de points fidélité (voir App\Support\LoyaltyPoints côté API) — absent des payloads qui
+   *  ne chargent pas le client complet (ex. la ligne d'un paiement déjà enregistré). */
+  points_balance?: number;
 }
 
 export interface PaymentMethod {
@@ -66,6 +69,10 @@ export interface Ticket {
   discount_id?: number | null;
   discount_amount?: number | string | null;
   discount?: Discount | null;
+  /** Effet du programme de fidélité sur ce ticket (voir App\Support\LoyaltyPoints) — null si aucun client sélectionné/aucun point utilisé. */
+  points_earned?: number | null;
+  points_redeemed?: number | null;
+  points_redeemed_amount?: number | string | null;
 }
 
 export interface CreateTicketPayload {
@@ -74,6 +81,8 @@ export interface CreateTicketPayload {
   cash_session_id?: number | null;
   /** Code promo appliqué (voir DiscountCalculator) — revalidé côté serveur, jamais fait confiance au montant affiché côté client. */
   discount_code?: string | null;
+  /** Points fidélité utilisés en réduction (voir App\Support\LoyaltyPoints) — revalidé côté serveur, comme discount_code. */
+  points_redeemed?: number | null;
   lines: { product_id: number; quantity: number }[];
   payments: { payment_method_id: number; value: number }[];
 }

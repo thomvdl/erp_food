@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { API_URL } from './api-config';
 import {
   CashSession,
+  Client,
   CreateKioskCheckoutPayload,
   CreateKioskOrderPayload,
   KioskCheckout,
@@ -75,5 +76,20 @@ export class KioskService {
    *  paiement réel revalide indépendamment côté serveur. */
   validateDiscount(code: string, lines: { product_id: number; quantity: number }[]): Observable<ValidateDiscountResponse> {
     return this.http.post<ValidateDiscountResponse>(`${API_URL}/discounts/validate`, { code, lines });
+  }
+
+  /** "Connexion" client au paiement (voir Readme.md — programme de fidélité) : contrairement au
+   *  sélecteur de pos-vente.ts côté erp-app (recherche libre + liste), le kiosque est un appareil
+   *  public — jamais de liste avec les noms d'autres clients à l'écran, uniquement une
+   *  correspondance exacte sur le téléphone (voir ClientController::lookup). Même contournement
+   *  que activeCashSession() ci-dessus : {} (pas null) quand personne ne correspond. */
+  lookupClientByPhone(phone: string): Observable<Client | null> {
+    return this.http
+      .get<Client | Record<string, never>>(`${API_URL}/clients/lookup`, { params: { phone } })
+      .pipe(map((client) => ('id' in client ? (client as Client) : null)));
+  }
+
+  createClient(payload: Pick<Client, 'firstname' | 'lastname'> & Partial<Pick<Client, 'email' | 'phone'>>): Observable<Client> {
+    return this.http.post<Client>(`${API_URL}/clients`, payload);
   }
 }

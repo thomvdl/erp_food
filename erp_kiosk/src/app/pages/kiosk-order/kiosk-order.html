@@ -113,15 +113,23 @@
           <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="closePaymentModal()">✕</button>
         </div>
         <div class="card-body pos-payments">
-          @if (appliedDiscount(); as applied) {
+          @if (appliedDiscount() || pointsAmount() > 0) {
             <div class="pos-cart__totals-row text-sm">
               <span>Sous-total</span>
               <span>{{ formatMoney(cartTotal()) }}</span>
             </div>
-            <div class="pos-cart__totals-row text-sm" style="color: var(--color-success-text)">
-              <span>Réduction ({{ applied.discount.code }})</span>
-              <span>−{{ formatMoney(applied.amount_off) }}</span>
-            </div>
+            @if (appliedDiscount(); as applied) {
+              <div class="pos-cart__totals-row text-sm" style="color: var(--color-success-text)">
+                <span>Réduction ({{ applied.discount.code }})</span>
+                <span>−{{ formatMoney(applied.amount_off) }}</span>
+              </div>
+            }
+            @if (pointsAmount() > 0) {
+              <div class="pos-cart__totals-row text-sm" style="color: var(--color-success-text)">
+                <span>Points fidélité ({{ pointsToRedeemInput() }})</span>
+                <span>−{{ formatMoney(pointsAmount()) }}</span>
+              </div>
+            }
           }
 
           <div class="pos-cart__totals-row pos-cart__totals-row--grand">
@@ -130,6 +138,65 @@
           </div>
 
           @if (!simulatingVariant()) {
+            <div class="pos-client">
+              @if (selectedClient(); as client) {
+                <div class="pos-client__chip">
+                  <span>👤 {{ client.firstname }} {{ client.lastname }}</span>
+                  <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="clearClient()">✕</button>
+                </div>
+              } @else {
+                <div style="display: flex; gap: var(--space-2)">
+                  <input
+                    class="input"
+                    type="tel"
+                    placeholder="N° de téléphone (optionnel)"
+                    [ngModel]="clientPhoneInput()"
+                    (ngModelChange)="clientPhoneInput.set($event)"
+                    (keyup.enter)="lookupClient()"
+                  />
+                  <button type="button" class="btn btn-outline" [disabled]="!clientPhoneInput().trim() || lookingUpClient()" (click)="lookupClient()">
+                    {{ lookingUpClient() ? '...' : 'Se connecter' }}
+                  </button>
+                </div>
+                @if (clientLookupError()) {
+                  <p class="error-text text-sm">{{ clientLookupError() }}</p>
+                }
+
+                <!-- Création de compte client désactivée pour l'instant sur le kiosque (retour
+                     utilisateur) — logique conservée (voir toggleNewClientForm()/submitNewClient()
+                     dans kiosk-order.ts), juste masquée ici. -->
+                @if (showNewClientForm()) {
+                  <div class="pos-client__new-form">
+                    <input class="input" type="text" placeholder="Prénom" [ngModel]="newClientFirstname()" (ngModelChange)="newClientFirstname.set($event)" />
+                    <input class="input" type="text" placeholder="Nom" [ngModel]="newClientLastname()" (ngModelChange)="newClientLastname.set($event)" />
+                    <input class="input" type="text" placeholder="Téléphone (optionnel)" [ngModel]="newClientPhone()" (ngModelChange)="newClientPhone.set($event)" />
+                    <div class="form-actions">
+                      <button type="button" class="btn btn-primary btn-sm" [disabled]="savingClient()" (click)="submitNewClient()">Ajouter</button>
+                      <button type="button" class="btn btn-ghost btn-sm" (click)="toggleNewClientForm()">Annuler</button>
+                    </div>
+                  </div>
+                }
+              }
+            </div>
+
+            @if (selectedClient(); as client) {
+              @if ((client.points_balance ?? 0) > 0) {
+                <div class="field">
+                  <label for="points-redeemed">🎁 Points fidélité ({{ client.points_balance }} pts disponibles)</label>
+                  <input
+                    id="points-redeemed"
+                    class="input"
+                    type="number"
+                    min="0"
+                    [max]="client.points_balance ?? 0"
+                    placeholder="0"
+                    [ngModel]="pointsToRedeemInput()"
+                    (ngModelChange)="setPointsToRedeem($event)"
+                  />
+                </div>
+              }
+            }
+
             <div class="field">
               @if (appliedDiscount(); as applied) {
                 <div class="pos-client__chip">

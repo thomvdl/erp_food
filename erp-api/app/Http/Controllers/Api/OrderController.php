@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Events\OrderKitchenUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\CashSession;
+use App\Models\Client;
 use App\Models\Order;
 use App\Models\Ticket;
 use App\Models\TicketPayment;
 use App\Support\DiscountCalculator;
+use App\Support\LoyaltyPoints;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -144,10 +146,13 @@ class OrderController extends Controller
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'cash_session_id' => ['required', 'integer', 'exists:cash_sessions,id'],
             'discount_code' => ['nullable', 'string'],
+            'points_redeemed' => ['nullable', 'integer', 'min:1'],
             'payments' => ['required', 'array', 'min:1'],
             'payments.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'payments.*.value' => ['required', 'numeric', 'min:0.01'],
         ]);
+
+        $client = isset($data['client_id']) ? Client::find($data['client_id']) : null;
 
         // Session obligatoire et doit être encore ouverte — voir TicketController::store (même
         // règle, voir Readme.md Todo "pas de paiement possible sans caisse ouverte").
@@ -199,6 +204,15 @@ class OrderController extends Controller
             $total = max(round($total - $discountAmount, 2), 0);
         }
 
+        // Réduction en points fidélité (voir App\Support\LoyaltyPoints) — même emplacement/logique
+        // que TicketController::store, cumulable avec le code promo appliqué juste au-dessus.
+        $pointsRedeemed = $data['points_redeemed'] ?? 0;
+        $pointsRedeemedAmount = 0.0;
+        if ($pointsRedeemed > 0) {
+            $pointsRedeemedAmount = LoyaltyPoints::amountOff($pointsRedeemed, $client, $total);
+            $total = max(round($total - $pointsRedeemedAmount, 2), 0);
+        }
+
         $paidTotal = collect($data['payments'])->sum('value');
 
         if (round($paidTotal, 2) !== round($total, 2)) {
@@ -207,7 +221,10 @@ class OrderController extends Controller
             ]);
         }
 
-        $ticket = DB::transaction(function () use ($order, $data, $cashSession, $discount, $discountAmount) {
+        $ticket = DB::transaction(function () use ($order, $data, $cashSession, $discount, $discountAmount, $client, $pointsRedeemed, $pointsRedeemedAmount, $total) {
+            // Gagnés sur le montant net final (après promo ET points) — voir TicketController::store.
+            $pointsEarned = $client ? LoyaltyPoints::earned($total) : 0;
+
             $ticket = Ticket::query()->create([
                 'paid_at' => now(),
                 'client_id' => $data['client_id'] ?? null,
@@ -218,6 +235,9 @@ class OrderController extends Controller
                 'source' => $order->source,
                 'discount_id' => $discount?->id,
                 'discount_amount' => $discount ? round($discountAmount, 2) : null,
+                'points_earned' => $client ? $pointsEarned : null,
+                'points_redeemed' => $pointsRedeemed > 0 ? $pointsRedeemed : null,
+                'points_redeemed_amount' => $pointsRedeemed > 0 ? round($pointsRedeemedAmount, 2) : null,
             ]);
 
             foreach ($order->sections as $orderSection) {
@@ -242,6 +262,10 @@ class OrderController extends Controller
                     'user_id' => $cashSession->user_id,
                     'cash_session_id' => $cashSession->id,
                 ]);
+            }
+
+            if ($client) {
+                LoyaltyPoints::apply($client, $pointsEarned, $pointsRedeemed, $ticket->id);
             }
 
             $order->delete();

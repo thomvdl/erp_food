@@ -199,6 +199,10 @@ export const routes: Routes = [
           },
           {
             path: ':id',
+            loadComponent: () => import('./pages/clients/client-detail/client-detail').then((m) => m.ClientDetail),
+          },
+          {
+            path: ':id/modifier',
             loadComponent: () => import('./pages/clients/client-form/client-form').then((m) => m.ClientForm),
           },
         ],

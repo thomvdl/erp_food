@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Mail\TicketMail;
 use App\Models\CashSession;
+use App\Models\Client;
 use App\Models\Product;
 use App\Models\Ticket;
 use App\Models\TicketPayment;
 use App\Models\TicketSection;
 use App\Support\DiscountCalculator;
+use App\Support\LoyaltyPoints;
 use App\Support\ThermalReceipt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -53,6 +55,7 @@ class TicketController extends Controller
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'cash_session_id' => ['required', 'integer', 'exists:cash_sessions,id'],
             'discount_code' => ['nullable', 'string'],
+            'points_redeemed' => ['nullable', 'integer', 'min:1'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
@@ -60,6 +63,8 @@ class TicketController extends Controller
             'payments.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'payments.*.value' => ['required', 'numeric', 'min:0.01'],
         ]);
+
+        $client = isset($data['client_id']) ? Client::find($data['client_id']) : null;
 
         // L'utilisateur qui encaisse est celui qui a ouvert la session de caisse active (le
         // "caissier actif" choisi côté front, voir ActiveCashierService — pas forcément le même
@@ -98,6 +103,16 @@ class TicketController extends Controller
             $total = max(round($total - $discountAmount, 2), 0);
         }
 
+        // Réduction en points fidélité (voir App\Support\LoyaltyPoints) — cumulable avec un code
+        // promo (appliqué juste au-dessus), ouvert à tout rôle authentifié contrairement aux codes
+        // promo (voir docblock de la classe).
+        $pointsRedeemed = $data['points_redeemed'] ?? 0;
+        $pointsRedeemedAmount = 0.0;
+        if ($pointsRedeemed > 0) {
+            $pointsRedeemedAmount = LoyaltyPoints::amountOff($pointsRedeemed, $client, $total);
+            $total = max(round($total - $pointsRedeemedAmount, 2), 0);
+        }
+
         $paidTotal = collect($data['payments'])->sum('value');
 
         if (round($paidTotal, 2) !== round($total, 2)) {
@@ -106,13 +121,20 @@ class TicketController extends Controller
             ]);
         }
 
-        $ticket = DB::transaction(function () use ($data, $products, $cashSession, $discount, $discountAmount) {
+        $ticket = DB::transaction(function () use ($data, $products, $cashSession, $discount, $discountAmount, $client, $pointsRedeemed, $pointsRedeemedAmount, $total) {
+            // Gagnés sur le montant net final (après promo ET points) — jamais de gain sur la
+            // part payée en points (voir App\Support\LoyaltyPoints::earned).
+            $pointsEarned = $client ? LoyaltyPoints::earned($total) : 0;
+
             $ticket = Ticket::query()->create([
                 'paid_at' => now(),
                 'client_id' => $data['client_id'] ?? null,
                 'source' => 'pos_vente_directe',
                 'discount_id' => $discount?->id,
                 'discount_amount' => $discount ? round($discountAmount, 2) : null,
+                'points_earned' => $client ? $pointsEarned : null,
+                'points_redeemed' => $pointsRedeemed > 0 ? $pointsRedeemed : null,
+                'points_redeemed_amount' => $pointsRedeemed > 0 ? round($pointsRedeemedAmount, 2) : null,
             ]);
 
             $section = TicketSection::query()->create([
@@ -136,6 +158,10 @@ class TicketController extends Controller
                     'user_id' => $cashSession->user_id,
                     'cash_session_id' => $cashSession->id,
                 ]);
+            }
+
+            if ($client) {
+                LoyaltyPoints::apply($client, $pointsEarned, $pointsRedeemed, $ticket->id);
             }
 
             return $ticket;

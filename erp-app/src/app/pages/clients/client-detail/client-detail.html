@@ -1,0 +1,168 @@
+<div class="app-topbar">
+  <div>
+    <a routerLink="/clients" class="text-muted text-sm">← Retour aux clients</a>
+    <h1 class="text-2xl">@if (client(); as client) {{{ client.firstname }} {{ client.lastname }}}</h1>
+  </div>
+  @if (client(); as client) {
+    <a class="btn btn-outline" [routerLink]="[client.id, 'modifier']">✏️ Modifier</a>
+  }
+</div>
+
+@if (error()) {
+  <p class="error-text">{{ error() }}</p>
+} @else if (loading()) {
+  <p class="text-muted">Chargement…</p>
+} @else if (client(); as client) {
+  <div class="card">
+    <div class="card-body" style="display: flex; gap: var(--space-6); flex-wrap: wrap">
+      <div style="flex: 1 1 200px">
+        <p class="text-muted text-xs">Email</p>
+        <p class="font-medium">{{ client.email ?? '—' }}</p>
+      </div>
+      <div style="flex: 1 1 200px">
+        <p class="text-muted text-xs">Téléphone</p>
+        <p class="font-medium">{{ client.phone ?? '—' }}</p>
+      </div>
+      <div style="flex: 1 1 200px">
+        <p class="text-muted text-xs">Points fidélité</p>
+        <p class="font-semibold">🎁 {{ client.points_balance }} points ({{ pointsValue(client.points_balance) }})</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: var(--space-4)">
+    <div class="card-header">
+      <h2 class="text-lg">Tickets</h2>
+    </div>
+    <div class="card-body">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Ticket</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (ticket of client.tickets; track ticket.id) {
+            <tr>
+              <td><a [routerLink]="['/tickets', ticket.id]">{{ ticketLabel(ticket) }}</a></td>
+              <td>{{ formatMoney(ticketTotal(ticket)) }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="2" class="text-muted">Aucun ticket.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: var(--space-4)">
+    <div class="card-header">
+      <h2 class="text-lg">Réservations</h2>
+    </div>
+    <div class="card-body">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Couverts</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (booking of client.bookings; track booking.id) {
+            <tr>
+              <td>{{ booking.date }} {{ booking.hour }}</td>
+              <td>{{ bookingTypeLabel(booking) }}</td>
+              <td>{{ booking.number_of_guests }}</td>
+              <td>
+                <span class="badge" [class.badge-success]="booking.validated_at" [class.badge-neutral]="!booking.validated_at">
+                  {{ booking.validated_at ? 'Validée' : 'En attente' }}
+                </span>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="4" class="text-muted">Aucune réservation.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: var(--space-4)">
+    <div class="card-header">
+      <h2 class="text-lg">Billets d'événement</h2>
+    </div>
+    <div class="card-body">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Événement</th>
+            <th>Date</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (eventTicket of client.event_tickets; track eventTicket.id) {
+            <tr>
+              <td>{{ eventTicketLabel(eventTicket) }}</td>
+              <td>{{ eventTicket.event_date?.date }}</td>
+              <td>
+                <span class="badge" [class.badge-success]="eventTicket.validated_at" [class.badge-neutral]="!eventTicket.validated_at">
+                  {{ eventTicket.validated_at ? 'Validé' : 'Non validé' }}
+                </span>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="3" class="text-muted">Aucun billet.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: var(--space-4)">
+    <div class="card-header">
+      <h2 class="text-lg">Historique des points</h2>
+    </div>
+    <div class="card-body">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Points</th>
+            <th>Ticket</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (movement of client.point_movements; track movement.id) {
+            <tr>
+              <td>{{ formatTicketDate(movement.created_at) }}</td>
+              <td [style.color]="movement.points > 0 ? 'var(--color-success-text)' : 'var(--color-danger-text)'">
+                {{ movementLabel(movement) }}
+              </td>
+              <td>
+                @if (movement.ticket_id) {
+                  <a [routerLink]="['/tickets', movement.ticket_id]">#{{ movement.ticket_id }}</a>
+                } @else {
+                  —
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="3" class="text-muted">Aucun mouvement de points.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}

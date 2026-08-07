@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Events\OrderKitchenUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\CashSession;
+use App\Models\Client;
 use App\Models\Order;
 use App\Models\ProductCatalog;
 use App\Support\DiscountCalculator;
 use App\Support\KioskSaleRecorder;
+use App\Support\LoyaltyPoints;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -38,6 +40,7 @@ class KioskOrderController extends Controller
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'cash_session_id' => ['required', 'integer', 'exists:cash_sessions,id'],
             'discount_code' => ['nullable', 'string'],
+            'points_redeemed' => ['nullable', 'integer', 'min:1'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
@@ -45,6 +48,8 @@ class KioskOrderController extends Controller
             'payments.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'payments.*.value' => ['required', 'numeric', 'min:0.01'],
         ]);
+
+        $client = isset($data['client_id']) ? Client::find($data['client_id']) : null;
 
         $cashSession = CashSession::query()->open()->find($data['cash_session_id']);
 
@@ -94,6 +99,15 @@ class KioskOrderController extends Controller
             $total = max(round($total - $discountAmount, 2), 0);
         }
 
+        // Réduction en points fidélité (voir App\Support\LoyaltyPoints) — même emplacement/logique
+        // que TicketController::store, cumulable avec le code promo appliqué juste au-dessus.
+        $pointsRedeemed = $data['points_redeemed'] ?? 0;
+        $pointsRedeemedAmount = 0.0;
+        if ($pointsRedeemed > 0) {
+            $pointsRedeemedAmount = LoyaltyPoints::amountOff($pointsRedeemed, $client, $total);
+            $total = max(round($total - $pointsRedeemedAmount, 2), 0);
+        }
+
         $paidTotal = collect($data['payments'])->sum('value');
 
         if (round($paidTotal, 2) !== round($total, 2)) {
@@ -107,8 +121,11 @@ class KioskOrderController extends Controller
             $cashSession,
             $discount,
             $discountAmount,
-            $data['client_id'] ?? null,
+            $client,
             $data['payments'],
+            $client ? LoyaltyPoints::earned($total) : 0,
+            $pointsRedeemed,
+            $pointsRedeemedAmount,
         );
 
         event(new OrderKitchenUpdated($order->id));

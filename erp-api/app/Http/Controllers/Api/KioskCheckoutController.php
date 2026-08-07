@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\CashSession;
+use App\Models\Client;
 use App\Models\KioskCheckout;
 use App\Models\ProductCatalog;
 use App\Support\DiscountCalculator;
+use App\Support\LoyaltyPoints;
 use App\Support\Qr;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -34,10 +36,13 @@ class KioskCheckoutController extends Controller
             'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'cash_session_id' => ['required', 'integer', 'exists:cash_sessions,id'],
             'discount_code' => ['nullable', 'string'],
+            'points_redeemed' => ['nullable', 'integer', 'min:1'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
         ]);
+
+        $client = isset($data['client_id']) ? Client::find($data['client_id']) : null;
 
         $cashSession = CashSession::query()->open()->find($data['cash_session_id']);
 
@@ -86,6 +91,16 @@ class KioskCheckoutController extends Controller
             $total = max(round($total - $discountAmount, 2), 0);
         }
 
+        // Réduction en points fidélité (voir App\Support\LoyaltyPoints) — figée ici comme le reste
+        // (lignes, prix, réduction promo) : le webhook Stripe (StripeWebhookController) ne
+        // recalcule jamais, il matérialise exactement ce qui a été résolu au moment du scan.
+        $pointsRedeemed = $data['points_redeemed'] ?? 0;
+        $pointsRedeemedAmount = 0.0;
+        if ($pointsRedeemed > 0) {
+            $pointsRedeemedAmount = LoyaltyPoints::amountOff($pointsRedeemed, $client, $total);
+            $total = max(round($total - $pointsRedeemedAmount, 2), 0);
+        }
+
         if ($total < 0.5) {
             // Minimum Stripe pour un paiement carte en EUR — éviter de créer une session pour un
             // montant qu'elle refuserait de toute façon (ex. réduction ramenant le total à ~0).
@@ -117,9 +132,14 @@ class KioskCheckoutController extends Controller
             'stripe_checkout_session_id' => $checkoutSession->id,
             'status' => 'pending',
             'cash_session_id' => $cashSession->id,
-            'client_id' => $data['client_id'] ?? null,
+            'client_id' => $client?->id,
             'discount_id' => $discount?->id,
             'discount_amount' => $discount ? round($discountAmount, 2) : null,
+            // Gagnés sur le montant net final (après promo ET points) — figé ici pour la même
+            // raison que points_redeemed, voir plus haut.
+            'points_earned' => $client ? LoyaltyPoints::earned($total) : null,
+            'points_redeemed' => $pointsRedeemed > 0 ? $pointsRedeemed : null,
+            'points_redeemed_amount' => $pointsRedeemed > 0 ? round($pointsRedeemedAmount, 2) : null,
             'lines' => $lines,
             'total' => $total,
         ]);
