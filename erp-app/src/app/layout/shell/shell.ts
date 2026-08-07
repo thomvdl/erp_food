@@ -40,7 +40,7 @@ export class Shell {
     { icon: '🪑', label: 'POS - Restaurant', path: '/pos-restaurant' },
     { icon: '🏷️​', label: 'POS - Vente directe', path: '/pos-vente' },
     { icon: '🎫', label: 'Événements', path: '/evenements', requiredRole: 'superviseur' },
-    { icon: '🎟️', label: 'Vente de place', path: '/evenements/vente' },
+    { icon: '🎟️', label: 'Vente de place', path: '/vente-de-places' },
     { icon: '📅', label: 'Réservations', path: '/reservations' },
     { icon: '💶', label: 'Fond de caisse', path: '/caisse', requiredRole: 'superviseur' },
     { icon: '📋', label: 'Gestion des commandes', path: '/commandes' },

@@ -1,7 +1,11 @@
-<a routerLink="/evenements" class="back-link">← Événements</a>
-
 <div class="app-topbar">
   <h1 class="text-2xl">Vendre des places</h1>
+  <div class="tab-group">
+    <button type="button" class="tab-pill" [class.is-active]="viewMode() === 'liste'" (click)="viewMode.set('liste')">Liste</button>
+    <button type="button" class="tab-pill" [class.is-active]="viewMode() === 'calendrier'" (click)="viewMode.set('calendrier')">
+      Calendrier
+    </button>
+  </div>
 </div>
 
 <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4)">
@@ -17,17 +21,19 @@
     />
   </div>
 
-  <div class="field" style="max-width: 280px">
-    <label>Filtrer par date</label>
-    <app-date-picker [ngModel]="dateFilter()" (ngModelChange)="dateFilter.set($event)" placeholder="Toutes les dates" />
-  </div>
+  @if (viewMode() === 'liste') {
+    <div class="field" style="max-width: 280px">
+      <label>Filtrer par date</label>
+      <app-date-picker [ngModel]="dateFilter()" (ngModelChange)="dateFilter.set($event)" placeholder="Toutes les dates" />
+    </div>
+  }
 </div>
 
-<div class="card">
-  <div class="card-body">
-    @if (loading()) {
-      <p class="text-muted">Chargement…</p>
-    } @else {
+@if (loading()) {
+  <p class="text-muted">Chargement…</p>
+} @else if (viewMode() === 'liste') {
+  <div class="card">
+    <div class="card-body">
       <table class="table">
         <thead>
           <tr>
@@ -35,7 +41,8 @@
             <th>Date</th>
             <th>Heure</th>
             <th>Salle</th>
-            <th>Limite de places</th>
+            <th>Vendues</th>
+            <th>Restantes</th>
             <th></th>
           </tr>
         </thead>
@@ -51,7 +58,8 @@
               <td class="text-muted">{{ formatDate(eventDate) }}</td>
               <td class="text-muted">{{ formatHour(eventDate) }}</td>
               <td class="text-muted">{{ eventDate.room?.name ?? '—' }}</td>
-              <td class="text-muted">{{ eventDate.number_place_limit ?? 'Illimité' }}</td>
+              <td class="text-muted">{{ placesSold(eventDate) }}</td>
+              <td class="text-muted">{{ placesLeft(eventDate) ?? 'Illimité' }}</td>
               <td style="display:flex; justify-content: flex-end;">
                 <a class="btn btn-primary btn-sm" [routerLink]="['/evenements', eventDate.event_id, 'dates', eventDate.id]">
                   Vendre des places
@@ -60,11 +68,45 @@
             </tr>
           } @empty {
             <tr>
-              <td colspan="6" class="text-muted">Aucune date disponible pour le moment.</td>
+              <td colspan="7" class="text-muted">Aucune date disponible pour le moment.</td>
             </tr>
           }
         </tbody>
       </table>
-    }
+    </div>
   </div>
-</div>
+} @else {
+  <div class="card">
+    <div class="card-header">
+      <div style="display: flex; align-items: center; gap: var(--space-3)">
+        <button type="button" class="btn btn-outline btn-sm" (click)="prevMonth()">←</button>
+        <h2 class="text-lg" style="min-width: 180px; text-align: center">{{ monthLabel() }}</h2>
+        <button type="button" class="btn btn-outline btn-sm" (click)="nextMonth()">→</button>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" (click)="goToToday()">Aujourd'hui</button>
+    </div>
+    <div class="card-body">
+      <div class="calendar-grid calendar-grid--header">
+        @for (label of weekdayLabels; track label) {
+          <div class="calendar-weekday">{{ label }}</div>
+        }
+      </div>
+      <div class="calendar-grid">
+        @for (cell of calendarCells(); track cell.dateKey) {
+          <div class="calendar-cell" [class.is-outside]="!cell.inMonth" [class.is-today]="cell.isToday">
+            <span class="calendar-cell__day">{{ cell.day }}</span>
+            @for (eventDate of cell.dates; track eventDate.id) {
+              <a
+                class="calendar-event"
+                [routerLink]="['/evenements', eventDate.event_id, 'dates', eventDate.id]"
+                [title]="eventDate.event?.name + ' — ' + formatHour(eventDate)"
+              >
+                {{ formatHour(eventDate) }} {{ eventDate.event?.name }}
+              </a>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}

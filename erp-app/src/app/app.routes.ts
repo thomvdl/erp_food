@@ -221,13 +221,6 @@ export const routes: Routes = [
             loadComponent: () => import('./pages/events/event-form/event-form').then((m) => m.EventForm),
           },
           {
-            // Vente de place : ouverte à tous les rôles (voir Readme.md) — gérer l'événement lui-même
-            // (créer/modifier/lister, voir les autres routes ci-dessus/dessous) reste superviseur+.
-            path: 'vente',
-            loadComponent: () =>
-              import('./pages/events/event-date-select/event-date-select').then((m) => m.EventDateSelect),
-          },
-          {
             path: ':id/modifier',
             canActivate: [roleGuard('superviseur')],
             loadComponent: () => import('./pages/events/event-form/event-form').then((m) => m.EventForm),
@@ -242,6 +235,15 @@ export const routes: Routes = [
             loadComponent: () => import('./pages/events/event-dashboard/event-dashboard').then((m) => m.EventDashboard),
           },
         ],
+      },
+      {
+        // Route de premier niveau, séparée de 'evenements' (voir Readme.md) : ouverte à tous les
+        // rôles, contrairement à la gestion des événements (superviseur+) — les deux ont toujours
+        // été deux entrées distinctes dans la sidebar (voir shell.ts), le routeur reflète
+        // maintenant la même séparation plutôt que de nicher une page publique sous un préfixe
+        // réservé aux superviseurs.
+        path: 'vente-de-places',
+        loadComponent: () => import('./pages/events/event-date-select/event-date-select').then((m) => m.EventDateSelect),
       },
       {
         path: 'caisse',

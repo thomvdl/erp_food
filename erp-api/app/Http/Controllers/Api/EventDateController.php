@@ -22,9 +22,14 @@ class EventDateController extends Controller
     {
         $data = $request->validate(['event_id' => ['nullable', 'integer', 'exists:events,id']]);
 
+        // tickets_count : une ligne event_tickets = une place vendue (pas de colonne quantity,
+        // pas d'annulation — voir EventTicket), donc un simple count suffit pour "places
+        // vendues" côté front (voir event-date-select.ts, même pattern que Event::dates_count
+        // dans EventController::index).
         return EventDate::query()
             ->when(!empty($data['event_id']), fn ($query) => $query->where('event_id', $data['event_id']))
             ->with(self::WITH)
+            ->withCount('tickets')
             ->orderBy('date')
             ->orderBy('start_hour')
             ->get();

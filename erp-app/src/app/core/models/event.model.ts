@@ -18,6 +18,9 @@ export interface EventDate {
   number_place_limit: number | null;
   event?: Event;
   room?: Room | null;
+  /** Nombre de billets vendus (voir EventDateController::index, withCount('tickets')) — absent
+   *  des réponses qui ne passent pas par index() (ex. EventDateController::show). */
+  tickets_count?: number;
 }
 
 export interface EventTicket {
