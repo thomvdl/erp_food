@@ -137,7 +137,7 @@
           </button>
         </div>
 
-        <div class="tab-group" style="padding: 0 var(--space-4); flex-wrap: wrap;">
+        <div class="tab-group pos-sections-tabs" style="padding: 0 var(--space-4);">
           @for (section of sections(); track section.id) {
             <button type="button" class="tab-pill" [class.is-active]="activeSectionId() === section.id" (click)="selectSection(section)">
               {{ section.name }}

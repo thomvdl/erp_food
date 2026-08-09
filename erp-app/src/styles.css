@@ -1293,9 +1293,12 @@ textarea.input {
 
 .pos-cart {
   margin-top: 0;
-  /* flex: 0 0 400px (pas grid-template-columns) : remplace la 2ᵉ colonne de .pos-layout,
-     maintenant lui aussi en flexbox — voir commentaire plus haut. */
-  flex: 0 0 400px;
+  /* flex: 0 0 30vh (pas grid-template-columns) : remplace la 2ᵉ colonne de .pos-layout,
+     maintenant lui aussi en flexbox — voir commentaire plus haut. width répété en dur : la media
+     query mobile juste en dessous repasse flex-basis à auto, c'est alors width qui prend le
+     relais. */
+  flex: 0 0 30vh;
+  width: 30vh;
   min-height: 0;
   display: flex;
   flex-direction: column;

@@ -108,3 +108,23 @@
   transform: none;
   box-shadow: none;
 }
+
+/* Onglets de sections (voir order-builder.html) — contrairement à .tab-group global (utilisé
+   ailleurs pour des jeux d'onglets qui peuvent légitimement passer à la ligne), on ne veut jamais
+   perdre en hauteur utile dans cette aside déjà contrainte : une seule ligne, défilement
+   horizontal si trop de sections. Sans width borné explicitement, .tab-group (display: inline-flex
+   par défaut, voir styles.css) grandit à la largeur de son contenu — les pilules debordaient donc
+   de .pos-cart (400px fixes) au lieu de rester dedans et de scroller. width: 100% + min-width: 0
+   forcent la largeur du parent au lieu de la largeur intrinsèque du contenu.  */
+.pos-sections-tabs {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+
+.pos-sections-tabs .tab-pill {
+  flex-shrink: 0;
+}
