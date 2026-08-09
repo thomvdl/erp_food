@@ -6,6 +6,16 @@
   <div class="self-order-state">
     <p class="error-text">{{ loadError() }}</p>
   </div>
+} @else if (context()?.closed === true) {
+  <div class="self-order-state">
+    <div class="card card-elevated self-order-confirm">
+      <div class="card-body">
+        <p class="self-order-confirm__icon">🔒</p>
+        <h1>Fermé pour le moment</h1>
+        <p class="text-muted">{{ context()?.message }}</p>
+      </div>
+    </div>
+  </div>
 } @else if (confirmedOrderId()) {
   <div class="self-order-state">
     <div class="card card-elevated self-order-confirm">

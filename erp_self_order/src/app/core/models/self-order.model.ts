@@ -31,7 +31,13 @@ export interface SelfOrderProduct {
 
 export interface SelfOrderContext {
   table: { label: string; room_name: string | null };
-  products: SelfOrderProduct[];
+  /** Voir App\Support\OpeningHours côté API — absent des anciennes réponses en cache, donc
+   *  toujours vérifié avec `=== true` côté front (voir order.ts). */
+  closed?: boolean;
+  /** Message à afficher au client quand closed === true (horaires d'ouverture, etc.). */
+  message?: string;
+  /** Absent quand closed === true (le catalogue n'est délibérément pas chargé, voir SelfOrderController::show). */
+  products?: SelfOrderProduct[];
 }
 
 export interface SelfOrderLinePayload {

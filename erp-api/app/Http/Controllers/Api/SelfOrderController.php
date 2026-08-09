@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductCatalog;
 use App\Models\TableElement;
+use App\Support\OpeningHours;
 use App\Support\Qr;
 use App\Support\StockManager;
 use Illuminate\Http\Request;
@@ -43,6 +44,20 @@ class SelfOrderController extends Controller
     {
         $table = TableElement::query()->where('qr_token', $qrToken)->where('active', true)->firstOrFail();
 
+        // Voir App\Support\OpeningHours — tant que open_at/close_at (Paramètres > Réglages) ne
+        // sont pas tous les deux configurés, aucune restriction. Fermé : pas la peine de charger
+        // le catalogue, le client ne peut de toute façon rien commander (voir store() ci-dessous).
+        if (!OpeningHours::isOpen()) {
+            return response()->json([
+                'closed' => true,
+                'message' => OpeningHours::closedMessage(),
+                'table' => [
+                    'label' => $table->label,
+                    'room_name' => $table->room?->name,
+                ],
+            ]);
+        }
+
         $catalogIds = ProductCatalog::query()->where('active_self_order', true)->where('active', true)->pluck('id');
 
         $products = Product::query()
@@ -53,6 +68,7 @@ class SelfOrderController extends Controller
             ->get(['products.id', 'products.name', 'products.description', 'products.price', 'products.tax_id', 'products.product_category_id', 'products.icon', 'products.image_path', 'products.stock_quantity']);
 
         return response()->json([
+            'closed' => false,
             'table' => [
                 'label' => $table->label,
                 'room_name' => $table->room?->name,
@@ -70,6 +86,14 @@ class SelfOrderController extends Controller
     public function store(Request $request, string $qrToken)
     {
         $table = TableElement::query()->where('qr_token', $qrToken)->where('active', true)->firstOrFail();
+
+        // Ne fait pas confiance à l'écran affiché côté client : même hors horaires, une requête
+        // directe à cette route ne doit jamais pouvoir créer de commande.
+        if (!OpeningHours::isOpen()) {
+            throw ValidationException::withMessages([
+                'lines' => [OpeningHours::closedMessage()],
+            ]);
+        }
 
         $catalogIds = ProductCatalog::query()->where('active_self_order', true)->where('active', true)->pluck('id');
 

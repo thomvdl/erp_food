@@ -90,7 +90,7 @@ export class Order {
     this.productStockEcho.listen();
     this.productStockEcho.stockUpdated.pipe(takeUntilDestroyed()).subscribe(({ productId, stockQuantity }) => {
       const context = this.context();
-      if (!context) return;
+      if (!context?.products) return;
       this.context.set({
         ...context,
         products: context.products.map((product) =>
