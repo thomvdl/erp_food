@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\KioskOrderController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderLineController;
 use App\Http\Controllers\Api\OrderSectionController;
+use App\Http\Controllers\Api\ParamController;
 use App\Http\Controllers\Api\PasseController;
 use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\ProductCatalogController;
@@ -139,6 +140,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('products/{product}', [ProductController::class, 'destroy']);
         Route::post('products/{product}/image', [ProductController::class, 'uploadImage']);
         Route::delete('products/{product}/image', [ProductController::class, 'removeImage']);
+        // Réglages génériques clé/valeur (ex. open_at/close_at) — voir ParamController.
+        Route::apiResource('params', ParamController::class);
     });
 
     // ---- Superviseur (et admin) — tout le reste sauf Paramètres ----

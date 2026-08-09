@@ -26,3 +26,10 @@ export interface Tax {
   /** "Ne plus avoir la possibilité de supprimer... ajouter un champ active" (voir Readme.md). */
   active: boolean;
 }
+
+/** Réglage générique clé/valeur (ex. name: "open_at", value: "09:00"). */
+export interface Param {
+  id: number;
+  name: string;
+  value: string | null;
+}

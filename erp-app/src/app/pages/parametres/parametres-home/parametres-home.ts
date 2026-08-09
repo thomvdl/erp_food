@@ -25,5 +25,6 @@ export class ParametresHome {
     { icon: '📣', title: 'Passes', description: "Points d'expédition en cuisine (kitchen display)", path: '/parametres/passes' },
     { icon: '💶', title: 'Taxes', description: 'Taux de TVA', path: '/parametres/taxes' },
     { icon: '🏷️', title: 'Réductions', description: 'Codes promo : pourcentage, montant fixe, produit gratuit', path: '/parametres/reductions' },
+    { icon: '⚙️', title: 'Réglages', description: "Paramètres génériques clé/valeur (horaires d'ouverture, etc.)", path: '/parametres/reglages' },
   ];
 }

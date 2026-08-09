@@ -151,6 +151,18 @@ export const routes: Routes = [
             path: 'reductions/:id',
             loadComponent: () => import('./pages/parametres/discounts/discount-form/discount-form').then((m) => m.DiscountForm),
           },
+          {
+            path: 'reglages',
+            loadComponent: () => import('./pages/parametres/params/param-list/param-list').then((m) => m.ParamList),
+          },
+          {
+            path: 'reglages/nouveau',
+            loadComponent: () => import('./pages/parametres/params/param-form/param-form').then((m) => m.ParamForm),
+          },
+          {
+            path: 'reglages/:id',
+            loadComponent: () => import('./pages/parametres/params/param-form/param-form').then((m) => m.ParamForm),
+          },
         ],
       },
       {
