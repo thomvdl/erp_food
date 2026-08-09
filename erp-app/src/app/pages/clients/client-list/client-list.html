@@ -32,9 +32,11 @@
             <td>{{ client.firstname }} {{ client.lastname }}</td>
             <td class="text-muted">{{ client.email ?? '—' }}</td>
             <td class="text-muted">{{ client.phone ?? '—' }}</td>
-            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
-              <a class="btn btn-outline btn-sm" [routerLink]="[client.id]">Voir la fiche</a>
-              <a class="btn btn-outline btn-sm" [routerLink]="[client.id, 'modifier']">Modifier</a>
+            <td>
+              <div class="td-actions">
+                <a class="btn btn-outline btn-sm" [routerLink]="[client.id]">Voir la fiche</a>
+                <a class="btn btn-outline btn-sm" [routerLink]="[client.id, 'modifier']">Modifier</a>
+              </div>
             </td>
           </tr>
         } @empty {

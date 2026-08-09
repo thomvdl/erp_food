@@ -60,10 +60,12 @@
               <td class="text-muted">{{ eventDate.room?.name ?? '—' }}</td>
               <td class="text-muted">{{ placesSold(eventDate) }}</td>
               <td class="text-muted">{{ placesLeft(eventDate) ?? 'Illimité' }}</td>
-              <td style="display:flex; justify-content: flex-end;">
-                <a class="btn btn-primary btn-sm" [routerLink]="['/evenements', eventDate.event_id, 'dates', eventDate.id]">
-                  Vendre des places
-                </a>
+              <td>
+                <div class="td-actions">
+                  <a class="btn btn-primary btn-sm" [routerLink]="['/evenements', eventDate.event_id, 'dates', eventDate.id]">
+                    Vendre des places
+                  </a>
+                </div>
               </td>
             </tr>
           } @empty {

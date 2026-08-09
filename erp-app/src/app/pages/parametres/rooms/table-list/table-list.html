@@ -41,8 +41,10 @@
                 {{ table.active ? 'Active' : 'Inactive' }}
               </label>
             </td>
-            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
-              <button type="button" class="btn btn-outline btn-sm" (click)="openQr(table)">📱 QR self-order</button>
+            <td>
+              <div class="td-actions">
+                <button type="button" class="btn btn-outline btn-sm" (click)="openQr(table)">📱 QR self-order</button>
+              </div>
             </td>
           </tr>
         } @empty {

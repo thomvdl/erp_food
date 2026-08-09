@@ -13,10 +13,7 @@
   <div class="card-body">
     <form class="form" (ngSubmit)="submitDates()">
       @for (row of pendingDates(); track $index) {
-        <div
-          class="form-section date-row"
-          style="display: grid; grid-template-columns: minmax(min(160px, 100%), 1fr) minmax(min(160px, 100%), 1fr) auto; gap: var(--space-4); align-items: end;"
-        >
+        <div class="form-section date-row">
           <label class="field">
             Date
             <app-date-picker
@@ -130,10 +127,12 @@
               <td class="text-muted">{{ formatHour(eventDate) }}</td>
               <td class="text-muted">{{ eventDate.room?.name ?? '—' }}</td>
               <td class="text-muted">{{ eventDate.number_place_limit ?? 'Illimité' }}</td>
-              <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
-                <a class="btn btn-primary btn-sm" [routerLink]="['dates', eventDate.id]">Places</a>
-                <button type="button" class="btn btn-outline btn-sm" (click)="startEdit(eventDate)">Modifier</button>
-                <button type="button" class="btn btn-danger btn-sm" (click)="removeDate(eventDate)">Supprimer</button>
+              <td>
+                <div class="td-actions">
+                  <a class="btn btn-primary btn-sm" [routerLink]="['dates', eventDate.id]">Places</a>
+                  <button type="button" class="btn btn-outline btn-sm" (click)="startEdit(eventDate)">Modifier</button>
+                  <button type="button" class="btn btn-danger btn-sm" (click)="removeDate(eventDate)">Supprimer</button>
+                </div>
               </td>
             </tr>
           } @empty {

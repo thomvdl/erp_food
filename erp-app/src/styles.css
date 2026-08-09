@@ -512,6 +512,23 @@ button {
   flex-wrap: wrap;
 }
 
+/* Écran "Ticket payé" (POS Restaurant + POS Vente directe, voir order-builder.html /
+   pos-vente.html) : 3 boutons (Imprimer, Imprimante thermique, Nouvelle vente / Retour aux
+   tables) — .app-topbar seul (flex-wrap) fait déjà passer ce bloc sous le titre sur mobile, mais
+   les 3 boutons restent en ligne dedans et débordent. Empilés en colonne pleine largeur sous le
+   même seuil que le reste des pages POS. */
+.ticket-paid-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+@media (max-width: 640px) {
+  .ticket-paid-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+}
+
 /* ---------- Boutons ---------- */
 .btn {
   display: inline-flex;
@@ -851,6 +868,17 @@ textarea.input {
   color: var(--color-primary-600);
 }
 
+/* Dernière colonne "actions" des tableaux (Modifier/Supprimer/Ouvrir…) : le flex vit sur ce
+   wrapper interne, pas sur le <td> lui-même. display:flex posé directement sur un <td> lui fait
+   perdre son display:table-cell — il sort alors du calcul de hauteur de ligne partagé avec ses
+   <td> voisins (qui restent table-cell), d'où une ligne de bordure légèrement décalée par rapport
+   au reste de la rangée (confirmé en comparant les rects avant/après : ~6px d'écart). */
+.td-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
 /* ---------- Onglets pilule (Dine in / Wait List / Take Away…) ---------- */
 .tab-group {
   display: inline-flex;
@@ -1111,6 +1139,20 @@ textarea.input {
   margin: 0;
 }
 
+/* .date-row (voir event-detail.html "Ajouter une date") : grille 3 colonnes (Date, Heure, bouton
+   ✕ retirer optionnel) — Salle et Limite de places, non couvertes par les 3 colonnes explicites,
+   retombent en implicite sur une 2ᵉ ligne, comportement grid normal. minmax(min(160px, 100%), 1fr)
+   évite qu'une colonne dépasse son propre conteneur, mais n'empêche pas 3 colonnes de 160px+gaps
+   de dépasser la largeur d'un écran mobile puisque la grille ne renvoie jamais une colonne à la
+   ligne suivante toute seule — d'où le passage à une seule colonne sous le breakpoint mobile
+   (voir @media max-width: 640px plus bas). */
+.date-row {
+  display: grid;
+  grid-template-columns: minmax(min(160px, 100%), 1fr) minmax(min(160px, 100%), 1fr) auto;
+  gap: var(--space-4);
+  align-items: end;
+}
+
 .form-actions {
   display: flex;
   gap: var(--space-3);
@@ -1293,12 +1335,12 @@ textarea.input {
 
 .pos-cart {
   margin-top: 0;
-  /* flex: 0 0 30vh (pas grid-template-columns) : remplace la 2ᵉ colonne de .pos-layout,
+  /* flex: 0 0 400px (pas grid-template-columns) : remplace la 2ᵉ colonne de .pos-layout,
      maintenant lui aussi en flexbox — voir commentaire plus haut. width répété en dur : la media
      query mobile juste en dessous repasse flex-basis à auto, c'est alors width qui prend le
      relais. */
-  flex: 0 0 30vh;
-  width: 30vh;
+  flex: 0 0 400px;
+  width: 400px;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -1643,17 +1685,40 @@ textarea.input {
 }
 
 @media (max-width: 960px) {
+  /* .app-main--fixed (voir styles.css plus haut) fige la page à 100vh avec overflow:hidden : le
+     scroll ne devait avoir lieu qu'à l'intérieur de .pos-grid / .pos-cart, chacun avec sa propre
+     hauteur calc(100vh - Npx) mesurée pour la mise en page desktop (panier à côté de la grille).
+     Une fois .pos-layout empilé en colonne (panier au-dessus, voir .pos-cart order:-1 plus bas),
+     ces calc() ne correspondent plus à rien — la hauteur du panier est variable (nombre de lignes,
+     sections…) et vient grignoter l'espace que le calc() desktop réservait à la grille, sans que
+     rien ne le compense. Plutôt que de chaîner des calc() mobiles supplémentaires, aussi fragiles
+     que celui qu'ils remplaceraient, on repasse en scroll de page classique sous ce seuil : plus
+     simple et fiable qu'un scroll interne dont la hauteur dépend du contenu du panier. */
+  .app-main--fixed {
+    height: auto;
+    overflow: visible;
+  }
+
   .pos-layout {
     flex-direction: column;
-    overflow-y: auto;
+    overflow-y: visible;
   }
 
   .pos-grid {
+    max-height: none;
     overflow-y: visible;
   }
 
   .pos-cart {
+    /* order: -1 place le panier avant .pos-products dans le flux (tous deux enfants directs de
+       .pos-layout, colonne unique ici) sans toucher au DOM — sur mobile on veut voir le panier/
+       total en premier, pas devoir descendre sous toute la grille produits pour le retrouver.
+       width: 100% écrase le width: 400px fixe (desktop) : au-delà de ce seuil .pos-layout passe
+       en colonne, le panier doit alors remplir sa largeur plutôt que rester à 400px fixes (plus
+       large que l'écran sur mobile). */
+    order: -1;
     flex-basis: auto;
+    width: 100%;
     min-height: 320px;
   }
 }
@@ -1693,8 +1758,65 @@ textarea.input {
     padding: var(--space-4);
   }
 
+  .date-row {
+    grid-template-columns: 1fr;
+  }
+
   .card-header {
     flex-wrap: wrap;
+  }
+
+  /* Tables trop larges pour scroller confortablement à l'horizontale sur mobile (ex. tickets :
+     8 colonnes, boutons d'action tout à droite, hors champ) — opt-in via .table--stack-mobile
+     plutôt qu'appliqué à .table globalement, pour ne pas changer les tableaux plus étroits qui
+     s'en sortent très bien avec le simple scroll horizontal (voir .card-body:has(> .table)
+     ci-dessous). Chaque <tr> devient une carte, chaque <td> une ligne "label : valeur" grâce à
+     data-label (posé dans le HTML, répète le texte du <th> correspondant) — cible mobile only,
+     le <thead> reste affiché normalement au-dessus du breakpoint. */
+  .table--stack-mobile thead {
+    display: none;
+  }
+
+  .table--stack-mobile,
+  .table--stack-mobile tbody,
+  .table--stack-mobile tr {
+    display: block;
+    width: 100%;
+  }
+
+  .table--stack-mobile tbody tr {
+    margin-bottom: var(--space-4);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  .table--stack-mobile tbody tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .table--stack-mobile td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    text-align: right;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .table--stack-mobile td:last-child {
+    border-bottom: none;
+  }
+
+  .table--stack-mobile td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-align: left;
+  }
+
+  .table--stack-mobile td:last-child::before {
+    content: none;
   }
 }
 
@@ -1702,37 +1824,6 @@ textarea.input {
    au lieu de déborder de la page ou de casser la mise en page sur mobile. */
 .card-body:has(> .table) {
   overflow-x: auto;
-}
-
-/* La dernière colonne (bouton d'action, ou valeur clé type Total/Statut) reste visible pendant
-   le scroll horizontal ci-dessus, plutôt que de disparaître hors champ sur petit écran. Le fond
-   est redéfini explicitement (background n'est pas hérité par défaut) pour chaque état de ligne
-   déjà géré par .table, sinon le contenu scrollé apparaît par transparence sous la colonne collée. */
-.table th:last-child,
-.table td:last-child {
-  position: sticky;
-  right: 0;
-}
-
-.table th:last-child {
-  background: var(--surface-card);
-}
-
-.table td:last-child {
-  background: var(--surface-card);
-  box-shadow: -8px 0 8px -8px rgba(0, 0, 0, 0.15);
-}
-
-.table tbody tr:hover td:last-child {
-  background: var(--surface-card-muted);
-}
-
-.table tbody tr.event-row--today td:last-child {
-  background: var(--color-success-bg);
-}
-
-.table tbody tr.event-row--today:hover td:last-child {
-  filter: brightness(0.97);
 }
 
 /* Ticket imprimable (POS - Restaurant, voir Readme.md étape 6 "imprimer le ticket de caisse") —

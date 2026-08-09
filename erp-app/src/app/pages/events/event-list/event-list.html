@@ -21,9 +21,11 @@
           <tr>
             <td>{{ event.name }}</td>
             <td class="text-muted">{{ event.dates_count ?? 0 }}</td>
-            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
-              <a class="btn btn-primary btn-sm" [routerLink]="[event.id]">Dates</a>
-              <a class="btn btn-outline btn-sm" [routerLink]="[event.id, 'modifier']">Modifier</a>
+            <td>
+              <div class="td-actions">
+                <a class="btn btn-primary btn-sm" [routerLink]="[event.id]">Dates</a>
+                <a class="btn btn-outline btn-sm" [routerLink]="[event.id, 'modifier']">Modifier</a>
+              </div>
             </td>
           </tr>
         } @empty {

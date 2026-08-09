@@ -34,8 +34,10 @@
                 <span class="badge badge-neutral">Inactif</span>
               }
             </td>
-            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
-              <a class="btn btn-outline btn-sm" [routerLink]="[passe.id]">Modifier</a>
+            <td>
+              <div class="td-actions">
+                <a class="btn btn-outline btn-sm" [routerLink]="[passe.id]">Modifier</a>
+              </div>
             </td>
           </tr>
         } @empty {

@@ -40,7 +40,7 @@
     @if (loading()) {
       <p class="text-muted">Chargement…</p>
     } @else {
-      <table class="table">
+      <table class="table table--stack-mobile">
         <thead>
           <tr>
             <th>Ticket</th>
@@ -56,9 +56,9 @@
         <tbody>
           @for (ticket of filteredTickets(); track ticket.id) {
             <tr>
-              <td><a [routerLink]="[ticket.id]">#{{ ticket.id }}</a></td>
-              <td class="text-muted">{{ formatTicketDate(ticket.paid_at) }}</td>
-              <td>
+              <td data-label="Ticket"><a [routerLink]="[ticket.id]">#{{ ticket.id }}</a></td>
+              <td data-label="Date" class="text-muted">{{ formatTicketDate(ticket.paid_at) }}</td>
+              <td data-label="Source">
                 <span
                   class="badge"
                   [class.badge-neutral]="ticket.source === 'pos_vente_directe'"
@@ -69,13 +69,15 @@
                   {{ ticketSourceLabel(ticket) }}
                 </span>
               </td>
-              <td class="text-muted">{{ ticket.table?.label ?? '—' }}</td>
-              <td>{{ clientLabel(ticket) }}</td>
-              <td class="text-muted">{{ paymentSummary(ticket) }}</td>
-              <td class="font-semibold">{{ formatMoney(ticketTotal(ticket)) }}</td>
-              <td style="text-align: right; display: flex; gap: var(--space-2); justify-content: flex-end">
-                <a class="btn btn-ghost btn-sm" [routerLink]="[ticket.id]">Voir</a>
-                <button type="button" class="btn btn-outline btn-sm" (click)="print(ticket)">🖨️ Réimprimer</button>
+              <td data-label="Table" class="text-muted">{{ ticket.table?.label ?? '—' }}</td>
+              <td data-label="Client">{{ clientLabel(ticket) }}</td>
+              <td data-label="Paiement" class="text-muted">{{ paymentSummary(ticket) }}</td>
+              <td data-label="Total" class="font-semibold">{{ formatMoney(ticketTotal(ticket)) }}</td>
+              <td>
+                <div class="td-actions">
+                  <a class="btn btn-ghost btn-sm" [routerLink]="[ticket.id]">Voir</a>
+                  <button type="button" class="btn btn-outline btn-sm" (click)="print(ticket)">🖨️ Réimprimer</button>
+                </div>
               </td>
             </tr>
           } @empty {

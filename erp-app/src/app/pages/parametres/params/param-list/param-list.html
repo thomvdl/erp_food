@@ -20,9 +20,11 @@
           <tr>
             <td>{{ param.name }}</td>
             <td>{{ param.value ?? '—' }}</td>
-            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
-              <a class="btn btn-outline btn-sm" [routerLink]="[param.id]">Modifier</a>
-              <button type="button" class="btn btn-outline btn-sm" (click)="remove(param)">Supprimer</button>
+            <td>
+              <div class="td-actions">
+                <a class="btn btn-outline btn-sm" [routerLink]="[param.id]">Modifier</a>
+                <button type="button" class="btn btn-outline btn-sm" (click)="remove(param)">Supprimer</button>
+              </div>
             </td>
           </tr>
         } @empty {

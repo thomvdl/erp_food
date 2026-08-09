@@ -39,10 +39,12 @@
                 <span class="badge badge-neutral">Inactif</span>
               }
             </td>
-            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
-              <a class="btn btn-primary btn-sm" [routerLink]="[room.id, 'plan']">Éditer le plan</a>
-              <a class="btn btn-outline btn-sm" [routerLink]="[room.id, 'tables']">Liste des tables</a>
-              <a class="btn btn-outline btn-sm" [routerLink]="[room.id]">Renommer</a>
+            <td>
+              <div class="td-actions">
+                <a class="btn btn-primary btn-sm" [routerLink]="[room.id, 'plan']">Éditer le plan</a>
+                <a class="btn btn-outline btn-sm" [routerLink]="[room.id, 'tables']">Liste des tables</a>
+                <a class="btn btn-outline btn-sm" [routerLink]="[room.id]">Renommer</a>
+              </div>
             </td>
           </tr>
         } @empty {

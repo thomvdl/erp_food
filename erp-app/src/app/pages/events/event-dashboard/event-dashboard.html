@@ -301,10 +301,12 @@
               }
             </td>
             <td class="text-muted">{{ ticket.table?.label ?? '—' }}</td>
-            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
-              <button type="button" class="btn btn-outline btn-sm" (click)="printTickets([ticket])" title="Imprimer / PDF">🖨️</button>
-              <button type="button" class="btn btn-outline btn-sm" (click)="startEdit(ticket)">Modifier</button>
-              <button type="button" class="btn btn-danger btn-sm" (click)="removeTicket(ticket)">Supprimer</button>
+            <td>
+              <div class="td-actions">
+                <button type="button" class="btn btn-outline btn-sm" (click)="printTickets([ticket])" title="Imprimer / PDF">🖨️</button>
+                <button type="button" class="btn btn-outline btn-sm" (click)="startEdit(ticket)">Modifier</button>
+                <button type="button" class="btn btn-danger btn-sm" (click)="removeTicket(ticket)">Supprimer</button>
+              </div>
             </td>
           </tr>
         } @empty {

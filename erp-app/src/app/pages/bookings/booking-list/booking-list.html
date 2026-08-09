@@ -56,12 +56,14 @@
                 <span class="badge badge-warning">En attente</span>
               }
             </td>
-            <td style="display:flex; gap: 0.5rem; justify-content: flex-end;">
-              @if (!booking.validated_at) {
-                <button type="button" class="btn btn-accent btn-sm" (click)="confirmValidate(booking)">Valider</button>
-              }
-              <a class="btn btn-outline btn-sm" [routerLink]="[booking.id]">Modifier</a>
-              <button type="button" class="btn btn-danger btn-sm" (click)="remove(booking)">Supprimer</button>
+            <td>
+              <div class="td-actions">
+                @if (!booking.validated_at) {
+                  <button type="button" class="btn btn-accent btn-sm" (click)="confirmValidate(booking)">Valider</button>
+                }
+                <a class="btn btn-outline btn-sm" [routerLink]="[booking.id]">Modifier</a>
+                <button type="button" class="btn btn-danger btn-sm" (click)="remove(booking)">Supprimer</button>
+              </div>
             </td>
           </tr>
         } @empty {
