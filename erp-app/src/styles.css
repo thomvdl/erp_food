@@ -1704,6 +1704,37 @@ textarea.input {
   overflow-x: auto;
 }
 
+/* La dernière colonne (bouton d'action, ou valeur clé type Total/Statut) reste visible pendant
+   le scroll horizontal ci-dessus, plutôt que de disparaître hors champ sur petit écran. Le fond
+   est redéfini explicitement (background n'est pas hérité par défaut) pour chaque état de ligne
+   déjà géré par .table, sinon le contenu scrollé apparaît par transparence sous la colonne collée. */
+.table th:last-child,
+.table td:last-child {
+  position: sticky;
+  right: 0;
+}
+
+.table th:last-child {
+  background: var(--surface-card);
+}
+
+.table td:last-child {
+  background: var(--surface-card);
+  box-shadow: -8px 0 8px -8px rgba(0, 0, 0, 0.15);
+}
+
+.table tbody tr:hover td:last-child {
+  background: var(--surface-card-muted);
+}
+
+.table tbody tr.event-row--today td:last-child {
+  background: var(--color-success-bg);
+}
+
+.table tbody tr.event-row--today:hover td:last-child {
+  filter: brightness(0.97);
+}
+
 /* Ticket imprimable (POS - Restaurant, voir Readme.md étape 6 "imprimer le ticket de caisse") —
    pattern standard : tout est masqué à l'impression sauf .ticket-print, qui est ensuite repositionné
    en pleine page. window.print() est déclenché depuis order-builder.ts (printTicket()). */
