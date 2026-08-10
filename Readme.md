@@ -1,5 +1,11 @@
 # ERP v2
 
+<p align="center">
+  <img src="docs/screenshots/erp-app-02-dashboard.png" width="32%" alt="Tableau de bord erp-app" />
+  <img src="docs/screenshots/erp-app-04-pos-restaurant-order-builder.png" width="32%" alt="POS Restaurant — commande en cours" />
+  <img src="docs/screenshots/self-order-07-kiosk-catalogue.png" width="32%" alt="Catalogue du kiosque de commande" />
+</p>
+
 > 📖 Une visite guidée illustrée (captures d'écran de chaque app) est disponible dans
 > [`docs/README.md`](docs/README.md). Ce fichier-ci reste la référence technique brute (schéma
 > de base de données, liste exhaustive des fonctionnalités).

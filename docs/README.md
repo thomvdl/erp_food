@@ -323,8 +323,6 @@ parallèle) :
 
 ## Limitations connues
 
-- Pas encore de permissions différenciées par rôle utilisateur (tout utilisateur connecté à
-  `erp-app` a accès à tout).
 - Le mode kiosque simule les paiements Bancontact/QR (aucun vrai terminal de paiement intégré à
   ce projet — voir plus haut).
 - Voir le [`Readme.md`](../Readme.md) racine pour le détail complet du schéma de base de données
