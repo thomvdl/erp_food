@@ -62,7 +62,10 @@
   border: 2px solid var(--color-primary-fill);
   border-radius: 999px;
   background: var(--color-primary-50);
-  color: var(--color-primary-fill);
+  /* --text-primary (pas --color-primary-fill) : voir table-select.css, même correctif — le fond
+     de la pastille s'inverse en mode sombre, un texte figé sur une teinte sombre y deviendrait
+     illisible. */
+  color: var(--text-primary);
   font-size: var(--font-size-sm);
   font-weight: 600;
   cursor: pointer;

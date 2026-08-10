@@ -1,8 +1,9 @@
 /* ==========================================================================
    ERP v2 — feuille de style globale
    Inspirée des maquettes du dossier notion/ (dashboards "bitepoint" et
-   "Tasty Station") : sidebar teal foncé, accent doré pour les actions
-   principales, badges de statut pastel, cartes blanches arrondies.
+   "Tasty Station") et de la palette notion/color ("Firmament Blue" +
+   "Atomic Orange") : sidebar bleu marine foncé, accent orange vif pour les
+   actions principales, badges de statut pastel, cartes blanches arrondies.
    Thème clair par défaut, thème sombre via prefers-color-scheme ou
    [data-theme="dark"] posé sur <html> (pour un futur bouton de bascule).
    ========================================================================== */
@@ -11,34 +12,34 @@
 :root {
   color-scheme: light;
 
-  /* Marque — teal */
-  --color-primary-50: #f0fdfa;
-  --color-primary-100: #ccfbf1;
-  --color-primary-200: #99f6e4;
-  --color-primary-300: #5eead4;
-  --color-primary-400: #2dd4bf;
-  --color-primary-500: #14b8a6;
-  --color-primary-600: #0d9488;
-  --color-primary-700: #0f766e;
-  --color-primary-800: #115e59;
-  --color-primary-900: #0b3d3a;
+  /* Marque — bleu marine "Firmament Blue" (voir notion/color) */
+  --color-primary-50: #eef1f6;
+  --color-primary-100: #dde3ee;
+  --color-primary-200: #b8c4dc;
+  --color-primary-300: #8fa0c4;
+  --color-primary-400: #5f74a3;
+  --color-primary-500: #3d527d;
+  --color-primary-600: #253960;
+  --color-primary-700: #16233f;
+  --color-primary-800: #111b30;
+  --color-primary-900: #0e1733;
 
-  /* Remplissages solides (boutons, tuiles stat, onglets actifs) : toujours un teal
+  /* Remplissages solides (boutons, tuiles stat, onglets actifs) : toujours un bleu marine
      assez sombre pour rester lisible avec du texte blanc, dans les deux thèmes —
      contrairement à --color-primary-600/700 qui s'éclaircissent en sombre pour
      rester lisibles en tant que texte/lien sur un fond sombre. Ne pas fusionner
      ces deux rôles, un fond éclairci casserait le contraste du texte blanc dessus. */
-  --color-primary-fill: #0f766e;
-  --color-primary-fill-hover: #115e59;
+  --color-primary-fill: #16233f;
+  --color-primary-fill-hover: #111b30;
 
-  /* Accent — doré (CTA, prix, éléments à mettre en avant) */
-  --color-accent-100: #fef3c7;
-  --color-accent-200: #fde68a;
-  --color-accent-300: #fcd34d;
-  --color-accent-400: #fbbf24;
-  --color-accent-500: #f5a623;
-  --color-accent-600: #d97706;
-  --color-accent-700: #b45309;
+  /* Accent — "Atomic Orange" (CTA, prix, éléments à mettre en avant, voir notion/color) */
+  --color-accent-100: #fde4cc;
+  --color-accent-200: #fbca9c;
+  --color-accent-300: #faad68;
+  --color-accent-400: #f99433;
+  --color-accent-500: #f98603;
+  --color-accent-600: #d06e00;
+  --color-accent-700: #a85800;
 
   /* Neutres */
   --color-gray-50: #fafaf9;
@@ -76,8 +77,8 @@
   --text-primary: var(--color-gray-900);
   --text-secondary: var(--color-gray-500);
   --text-inverse: #ffffff;
-  --text-on-sidebar: #d7ece9;
-  --text-on-sidebar-muted: #7fa9a4;
+  --text-on-sidebar: #dbe3f0;
+  --text-on-sidebar-muted: #7f8fac;
 
   /* Bordures */
   --border-color: var(--color-gray-200);
@@ -122,10 +123,10 @@
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --color-primary-50: #0b3d3a;
-    --color-primary-100: #0f4d47;
-    --color-primary-600: #2dd4bf;
-    --color-primary-700: #5eead4;
+    --color-primary-50: #0e1733;
+    --color-primary-100: #111b30;
+    --color-primary-600: #5f74a3;
+    --color-primary-700: #8fa0c4;
 
     --color-success-bg: #103b30;
     --color-success-text: #6ee7c6;
@@ -141,15 +142,15 @@
     --surface-page: #15171a;
     --surface-card: #1e2124;
     --surface-card-muted: #24272b;
-    --surface-sidebar: #08221f;
+    --surface-sidebar: #0a1226;
     --surface-overlay: rgb(0 0 0 / 65%);
     --surface-input: #24272b;
 
     --text-primary: #f2f1ed;
     --text-secondary: #9a9b9f;
     --text-inverse: #12312e;
-    --text-on-sidebar: #d7ece9;
-    --text-on-sidebar-muted: #5f8b86;
+    --text-on-sidebar: #dbe3f0;
+    --text-on-sidebar-muted: #6b7a99;
 
     --border-color: #2c2f33;
     --border-color-strong: #3a3d42;
@@ -163,10 +164,10 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --color-primary-50: #0b3d3a;
-  --color-primary-100: #0f4d47;
-  --color-primary-600: #2dd4bf;
-  --color-primary-700: #5eead4;
+  --color-primary-50: #0e1733;
+  --color-primary-100: #111b30;
+  --color-primary-600: #5f74a3;
+  --color-primary-700: #8fa0c4;
 
   --color-success-bg: #103b30;
   --color-success-text: #6ee7c6;
@@ -182,15 +183,15 @@
   --surface-page: #15171a;
   --surface-card: #1e2124;
   --surface-card-muted: #24272b;
-  --surface-sidebar: #08221f;
+  --surface-sidebar: #0a1226;
   --surface-overlay: rgb(0 0 0 / 65%);
   --surface-input: #24272b;
 
   --text-primary: #f2f1ed;
   --text-secondary: #9a9b9f;
   --text-inverse: #12312e;
-  --text-on-sidebar: #d7ece9;
-  --text-on-sidebar-muted: #5f8b86;
+  --text-on-sidebar: #dbe3f0;
+  --text-on-sidebar-muted: #6b7a99;
 
   --border-color: #2c2f33;
   --border-color-strong: #3a3d42;

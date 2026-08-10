@@ -50,11 +50,17 @@ class ProductCatalogSeeder extends Seeder
         // catalogue à la main. N'écrase jamais un choix d'activation fait depuis (pas de "sync"
         // répété à chaque seed).
         if ($boissons->wasRecentlyCreated) {
+            // `?? false` : $base vient de create() plus haut avec seulement name/slug fournis —
+            // les colonnes actives non explicitement posées (active_kiosk/active_self_order,
+            // jamais forceFill() sur $base contrairement à restaurant/direct_sale ci-dessus)
+            // restent `null` en mémoire côté modèle Eloquent même si la colonne a un default(false)
+            // en base (le default SQL n'est jamais relu dans l'instance après l'insert) — copier
+            // ce `null` viole la contrainte NOT NULL de la colonne.
             $boissons->forceFill([
                 'active_restaurant' => $base->active_restaurant,
                 'active_direct_sale' => $base->active_direct_sale,
-                'active_kiosk' => $base->active_kiosk,
-                'active_self_order' => $base->active_self_order,
+                'active_kiosk' => $base->active_kiosk ?? false,
+                'active_self_order' => $base->active_self_order ?? false,
             ])->save();
         }
     }

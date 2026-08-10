@@ -87,7 +87,11 @@
   border: 2px solid var(--color-primary-fill);
   border-radius: 999px;
   background: var(--color-primary-50);
-  color: var(--color-primary-fill);
+  /* --text-primary (pas --color-primary-fill) : ce dernier reste une teinte fixe et sombre dans
+     les deux thèmes, alors que --color-primary-50 (le fond de la pastille) s'inverse en sombre
+     (devient très foncé, voir styles.css) — texte foncé sur fond foncé, numéro de table illisible
+     en mode sombre. --text-primary suit déjà correctement les deux thèmes. */
+  color: var(--text-primary);
   font-size: var(--font-size-sm);
   font-weight: 600;
   cursor: pointer;
