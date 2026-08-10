@@ -522,6 +522,22 @@ button {
   gap: var(--space-3);
 }
 
+/* POS Vente directe / POS Restaurant : ces pages sont en layout "plein écran" fixe (voir
+   .app-main--fixed, shell.ts FIXED_LAYOUT_ROUTES) — sans ce conteneur, un ticket avec beaucoup de
+   lignes (gros panier) dépasse simplement du viewport et se retrouve invisible sous
+   overflow:hidden, sans aucun moyen de le faire défiler pour le consulter en entier.
+   flex:1 + min-height:0 seuls ne suffisent pas (vérifié : .pos-page peut s'étirer au-delà de
+   .app-main--fixed, silencieusement rogné par son overflow:hidden plutôt que borné — même
+   comportement que .pos-cart__body, voir plus haut) : max-height calc() nécessaire comme
+   vrai plafond. .ticket-topbar (titre + 3 boutons Imprimer/Imprimante/Retour) a la même hauteur
+   sur POS Vente directe et POS Restaurant, contrairement à .pos-cart__body — une seule constante
+   convient donc aux deux. */
+.ticket-preview {
+  max-height: calc(100vh - 190px);
+  min-height: 0;
+  overflow-y: auto;
+}
+
 @media (max-width: 640px) {
   .ticket-paid-actions {
     flex-direction: column;
@@ -1348,21 +1364,53 @@ textarea.input {
 
 .pos-cart__body {
   /* flex:1 comptait sur .pos-cart pour lui fournir une hauteur bornée à remplir — en pratique
-     peu fiable. Remplacé par une valeur calc() mesurée via Playwright (viewport 900px) plutôt
-     qu'un pourcentage arbitraire (55vh) : .pos-cart__body commence à 233px du haut (padding
-     .app-main + topbar + .card-header + .tab-group des sections) et .card-footer + le padding
-     bas de .app-main prennent encore ~180px en dessous. calc(100vh - 450px) garde une marge de
-     sécurité (~35px) pour absorber une légère variation de hauteur du header/footer selon le
-     contenu (nom de table plus long, plusieurs sections qui font passer les onglets sur 2
-     lignes...). S'adapte à la hauteur de fenêtre (contrairement à un px fixe) sans dépendre du
-     calcul de hauteur des ancêtres flex (contrairement à flex:1 seul, peu fiable ici). */
+     peu fiable seul (voir historique). Remplacé par une valeur calc() mesurée via Playwright
+     (viewport 900px) plutôt qu'un pourcentage arbitraire (55vh) : .pos-cart__body commence à
+     233px du haut (padding .app-main + topbar + .card-header + .tab-group des sections) et
+     .card-footer + le padding bas de .app-main prennent encore ~180px en dessous. calc(100vh -
+     450px) garde une marge de sécurité (~35px) pour absorber une légère variation de hauteur du
+     header/footer selon le contenu (nom de table plus long, plusieurs sections qui font passer
+     les onglets sur 2 lignes...). S'adapte à la hauteur de fenêtre (contrairement à un px fixe)
+     sans dépendre du calcul de hauteur des ancêtres flex.
+     flex:1 réintroduit en plus du calc() : .pos-cart (flex-direction: column) s'étire lui-même
+     sur toute la hauteur de .pos-layout (même hauteur que .pos-grid, colonne voisine) — sans
+     flex:1 ici, .pos-cart__body ne prend que la hauteur de son contenu (ex. 2 lignes de panier)
+     et .card-footer, poussé par son margin-top: auto, laisse un grand vide blanc entre le contenu
+     et le bouton "Payer". flex:1 fait remplir l'espace réellement disponible jusqu'au calc()
+     ci-dessus, qui reste la limite haute (scroll interne si le panier a beaucoup de lignes). */
   max-height: calc(100vh - 450px);
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   min-height: 0;
   overflow-y: auto;
   overflow-x: auto;
+}
+
+/* POS - Vente directe (voir .pos-cart--direct posé sur l'aside dans pos-vente.html) : header du
+   panier plus court que POS - Restaurant (pas de ligne d'onglets de sections) et footer à un seul
+   bouton (~80px contre ~230px avec plusieurs actions empilées côté order-builder) — le budget de
+   450px ci-dessus, dimensionné pour POS - Restaurant, réserve donc trop d'espace ici et laisse un
+   grand vide blanc entre le contenu du panier et le bouton "Payer" (flex: 1 seul ne suffit pas à
+   le combler, cf. commentaire ci-dessus). Mesuré à la même méthode (Playwright) : cartTop (~136px)
+   + header (~59px) + footer (~81px) + padding bas .app-main (32px) ≈ 308px, + marge de sécurité. */
+.pos-cart--direct .pos-cart__body {
+  max-height: calc(100vh - 340px);
+  /* overflow-x: auto (hérité de .pos-cart__body) n'a plus lieu d'être ici : le scroll horizontal
+     doit rester l'exclusivité de .pos-grid (liste produits) — le panier n'a pas de contenu assez
+     large pour en avoir besoin, et l'auto affichait une barre parasite. */
+  overflow-x: hidden;
+}
+
+/* dont TVA / Total à payer déplacés du corps scrollable (voir pos-vente.html) vers le pied de
+   carte, directement au-dessus du bouton "Payer" — pour rester "collés" au bouton et visibles en
+   permanence (plutôt que de défiler avec les lignes du panier et finir loin du bouton, voir le
+   grand vide blanc corrigé plus haut sur .pos-cart__body). */
+.pos-cart--direct .card-footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 .pos-client {

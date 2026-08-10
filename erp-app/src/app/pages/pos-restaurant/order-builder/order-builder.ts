@@ -397,7 +397,7 @@ export class OrderBuilder implements OnDestroy {
    *  compris déjà envoyées en cuisine — elles consommeront quand même le stock au paiement, voir
    *  OrderController::pay). Lignes de correction exclues : elles n'ajoutent jamais de nouvelle
    *  consommation, voir App\Support\StockManager. */
-  private quantityInOrder(product: Product): number {
+  quantityInOrder(product: Product): number {
     return this.sections().reduce(
       (sum, section) =>
         sum +

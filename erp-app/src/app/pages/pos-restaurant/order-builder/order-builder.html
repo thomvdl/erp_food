@@ -22,7 +22,9 @@
       <p class="error-text">{{ error() }}</p>
     }
 
-    <app-ticket-receipt class="card card-body ticket-print ticket-receipt" style="max-width: 380px" [ticket]="ticket" />
+    <div class="ticket-preview">
+      <app-ticket-receipt class="card card-body ticket-print ticket-receipt" style="max-width: 380px" [ticket]="ticket" />
+    </div>
   </div>
 } @else if (loading()) {
   <p class="text-muted">Chargement…</p>
@@ -101,6 +103,8 @@
             >
               @if (isOutOfStock(product)) {
                 <span class="pos-product-card__out-of-stock">Rupture de stock</span>
+              } @else if (quantityInOrder(product) > 0) {
+                <span class="pos-product-card__badge">{{ quantityInOrder(product) }}</span>
               }
               @if (product.image_url) {
                 <img class="pos-product-card__thumb" style="width: 2rem; height: 2rem; object-fit: cover; border-radius: var(--radius-sm)" [src]="product.image_url" alt="" />
