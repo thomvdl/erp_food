@@ -1,0 +1,112 @@
+:host {
+  display: block;
+  position: relative;
+}
+
+.mp__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.mp__trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mp__icon {
+  flex-shrink: 0;
+}
+
+.mp__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp__label--placeholder {
+  color: var(--text-secondary);
+}
+
+.mp__clear {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  border-radius: var(--radius-pill);
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.mp__clear:hover {
+  background: var(--surface-card-muted);
+  color: var(--text-primary);
+}
+
+.mp__panel {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 240px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-3);
+}
+
+.mp__panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.mp__year-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.mp__months {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-1);
+}
+
+.mp__month {
+  padding: var(--space-2) 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.mp__month:hover {
+  background: var(--surface-card-muted);
+}
+
+.mp__month--current {
+  font-weight: 700;
+  color: var(--color-primary-fill);
+}
+
+.mp__month--selected {
+  background: var(--color-primary-fill);
+  color: #ffffff;
+}
+
+.mp__month--selected:hover {
+  background: var(--color-primary-fill-hover);
+}

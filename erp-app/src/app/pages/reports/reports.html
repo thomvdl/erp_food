@@ -55,6 +55,42 @@
 
   <div class="card" style="margin-top: var(--space-5)">
     <div class="card-header">
+      <span class="font-semibold">Export comptable</span>
+      <span class="text-muted text-sm">CSV détaillé ou PDF de synthèse, sur une période libre</span>
+    </div>
+    <div class="card-body">
+      <div style="display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-4)">
+        <label class="field">
+          Mois
+          <app-month-picker [ngModel]="exportMonth() || null" (ngModelChange)="setExportMonth($event)" name="export-month" />
+        </label>
+        <span class="text-muted text-sm" style="padding-bottom: var(--space-2)">ou</span>
+        <label class="field">
+          Du
+          <app-date-picker [ngModel]="exportFrom() || null" (ngModelChange)="setExportFrom($event)" name="export-from" />
+        </label>
+        <label class="field">
+          Au
+          <app-date-picker [ngModel]="exportTo() || null" (ngModelChange)="setExportTo($event)" name="export-to" />
+        </label>
+        <button type="button" class="btn btn-outline" [disabled]="!exportRangeValid() || exportingCsv()" (click)="downloadCsv()">
+          {{ exportingCsv() ? 'Génération…' : '📄 Exporter en CSV' }}
+        </button>
+        <button type="button" class="btn btn-outline" [disabled]="!exportRangeValid() || exportingPdf()" (click)="downloadPdf()">
+          {{ exportingPdf() ? 'Génération…' : '🧾 Exporter en PDF' }}
+        </button>
+      </div>
+      @if (!exportRangeValid()) {
+        <p class="error-text text-sm" style="margin-top: var(--space-2)">La date de fin doit être postérieure ou égale à la date de début.</p>
+      }
+      @if (exportError()) {
+        <p class="error-text text-sm" style="margin-top: var(--space-2)">{{ exportError() }}</p>
+      }
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: var(--space-5)">
+    <div class="card-header">
       <span class="font-semibold">Meilleures ventes</span>
       <span class="text-muted text-sm">Par chiffre d'affaires — {{ periodLabel() }}</span>
     </div>

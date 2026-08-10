@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\ProductCatalogController;
 use App\Http\Controllers\Api\ProductCategoryController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\AccountingExportController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\RoomController;
@@ -152,6 +153,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('tickets', [TicketController::class, 'index']);
         Route::get('tickets/{ticket}', [TicketController::class, 'show']);
         Route::get('reports/summary', [ReportController::class, 'summary']);
+        // Export comptable (voir Readme.md Todo) — période libre, contrairement à reports/summary
+        // (jour/semaine/mois fixes uniquement) : le comptable a besoin d'un intervalle arbitraire
+        // (ex. un trimestre TVA), pas d'un préréglage.
+        Route::get('reports/export/csv', [AccountingExportController::class, 'csv']);
+        Route::get('reports/export/pdf', [AccountingExportController::class, 'pdf']);
         Route::apiResource('events', EventController::class);
         Route::post('events/{event}/dates', [EventDateController::class, 'store']);
         Route::put('event-dates/{event_date}', [EventDateController::class, 'update']);

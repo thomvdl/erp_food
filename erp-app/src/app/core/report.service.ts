@@ -14,4 +14,15 @@ export class ReportService {
   summary(period: ReportPeriod): Observable<ReportSummary> {
     return this.http.get<ReportSummary>(`${API_URL}/reports/summary`, { params: { period } });
   }
+
+  /** Export comptable sur une période libre (voir AccountingExportController côté API) — `from`/`to`
+   *  au format `YYYY-MM-DD`. `responseType: 'blob'` : même pattern que les téléchargements de QR
+   *  code existants (voir table-element.service.ts::getQrBlob), le fichier n'a rien de JSON. */
+  exportCsv(from: string, to: string): Observable<Blob> {
+    return this.http.get(`${API_URL}/reports/export/csv`, { params: { from, to }, responseType: 'blob' });
+  }
+
+  exportPdf(from: string, to: string): Observable<Blob> {
+    return this.http.get(`${API_URL}/reports/export/pdf`, { params: { from, to }, responseType: 'blob' });
+  }
 }

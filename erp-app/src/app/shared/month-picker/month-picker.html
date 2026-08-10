@@ -1,0 +1,31 @@
+<button type="button" class="input mp__trigger" (click)="toggle()" [disabled]="disabled()">
+  <span class="mp__icon">📅</span>
+  <span class="mp__label" [class.mp__label--placeholder]="!displayLabel()">{{ displayLabel() ?? placeholder }}</span>
+  @if (value()) {
+    <span class="mp__clear" (click)="clear($event)" title="Effacer">✕</span>
+  }
+</button>
+
+@if (open()) {
+  <div class="mp__panel">
+    <div class="mp__panel-header">
+      <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="prevYear()">←</button>
+      <span class="mp__year-label">{{ viewYear() }}</span>
+      <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="nextYear()">→</button>
+    </div>
+
+    <div class="mp__months">
+      @for (cell of cells(); track cell.month) {
+        <button
+          type="button"
+          class="mp__month"
+          [class.mp__month--current]="cell.isCurrent"
+          [class.mp__month--selected]="cell.isSelected"
+          (click)="selectMonth(cell)"
+        >
+          {{ cell.label }}
+        </button>
+      }
+    </div>
+  </div>
+}

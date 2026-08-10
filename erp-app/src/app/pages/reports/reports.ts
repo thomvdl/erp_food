@@ -1,4 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { DatePicker } from '../../shared/date-picker/date-picker';
+import { MonthPicker } from '../../shared/month-picker/month-picker';
 import { ReportService } from '../../core/report.service';
 import { ReportBestSeller, ReportPeriod, ReportPeriodStats, ReportSummary } from '../../core/models/report.model';
 
@@ -21,7 +24,7 @@ interface Delta {
 @Component({
   selector: 'app-reports',
   standalone: true,
-  imports: [],
+  imports: [FormsModule, DatePicker, MonthPicker],
   templateUrl: './reports.html',
   styleUrl: './reports.css',
 })
@@ -32,6 +35,25 @@ export class Reports {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly summary = signal<ReportSummary | null>(null);
+
+  // --- Export comptable (voir AccountingExportController côté API) — période libre, distincte
+  // des onglets jour/semaine/mois ci-dessus qui servent uniquement aux stats comparatives. Défaut
+  // au mois en cours : le cas d'usage le plus courant ("export du mois pour le comptable"). ---
+  readonly exportFrom = signal(Reports.startOfMonth());
+  readonly exportTo = signal(Reports.today());
+  /** Raccourci "un mois entier" au-dessus de Du/Au (voir setExportMonth ci-dessous) — les deux
+   *  champs de date restent la source de vérité pour l'appel API, ce sélecteur ne fait que les
+   *  préremplir en un clic plutôt que de dupliquer la logique d'export pour un cas particulier. */
+  readonly exportMonth = signal(Reports.currentMonth());
+  readonly exportingCsv = signal(false);
+  readonly exportingPdf = signal(false);
+  readonly exportError = signal<string | null>(null);
+
+  readonly exportRangeValid = computed(() => {
+    const from = this.exportFrom();
+    const to = this.exportTo();
+    return !!from && !!to && from <= to;
+  });
 
   readonly periodLabel = computed(() => PERIOD_LABELS[this.period()]);
 
@@ -80,6 +102,93 @@ export class Reports {
 
   bestSellerTooltip(item: ReportBestSeller): string {
     return `${item.product_name} — ${this.formatMoney(item.revenue)} (${item.quantity} vendu${item.quantity > 1 ? 's' : ''})`;
+  }
+
+  setExportFrom(value: string | null): void {
+    this.exportFrom.set(value ?? '');
+  }
+
+  setExportTo(value: string | null): void {
+    this.exportTo.set(value ?? '');
+  }
+
+  /** `value` au format `YYYY-MM` (voir app-month-picker) — préremplit Du/Au sur le mois entier
+   *  plutôt que de forcer une saisie manuelle jour par jour pour le cas le plus courant ("export
+   *  du mois pour le comptable"). */
+  setExportMonth(value: string | null): void {
+    this.exportMonth.set(value ?? '');
+    if (!value) {
+      return;
+    }
+    const [year, month] = value.split('-').map(Number);
+    this.exportFrom.set(Reports.toDateStr(new Date(year, month - 1, 1)));
+    this.exportTo.set(Reports.toDateStr(new Date(year, month, 0)));
+  }
+
+  downloadCsv(): void {
+    if (!this.exportRangeValid() || this.exportingCsv()) {
+      return;
+    }
+    this.exportingCsv.set(true);
+    this.exportError.set(null);
+    this.reportService.exportCsv(this.exportFrom(), this.exportTo()).subscribe({
+      next: (blob) => {
+        this.exportingCsv.set(false);
+        this.triggerDownload(blob, `export-comptable_${this.exportFrom()}_${this.exportTo()}.csv`);
+      },
+      error: () => {
+        this.exportingCsv.set(false);
+        this.exportError.set("Impossible de générer l'export CSV.");
+      },
+    });
+  }
+
+  downloadPdf(): void {
+    if (!this.exportRangeValid() || this.exportingPdf()) {
+      return;
+    }
+    this.exportingPdf.set(true);
+    this.exportError.set(null);
+    this.reportService.exportPdf(this.exportFrom(), this.exportTo()).subscribe({
+      next: (blob) => {
+        this.exportingPdf.set(false);
+        this.triggerDownload(blob, `export-comptable_${this.exportFrom()}_${this.exportTo()}.pdf`);
+      },
+      error: () => {
+        this.exportingPdf.set(false);
+        this.exportError.set('Impossible de générer le PDF.');
+      },
+    });
+  }
+
+  /** Même pattern que le téléchargement de QR code (table-qr-modal.ts) côté objet blob, mais ici
+   *  pour déclencher un vrai téléchargement de fichier plutôt qu'un affichage — pas d'idiome
+   *  existant à réutiliser pour ça ailleurs dans le projet. */
+  private triggerDownload(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private static toDateStr(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  private static startOfMonth(): string {
+    const d = new Date();
+    return Reports.toDateStr(new Date(d.getFullYear(), d.getMonth(), 1));
+  }
+
+  private static today(): string {
+    return Reports.toDateStr(new Date());
+  }
+
+  private static currentMonth(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   }
 
   private averageBasket(stats: ReportPeriodStats | null): number {
