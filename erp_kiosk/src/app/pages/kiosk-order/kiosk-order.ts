@@ -104,6 +104,15 @@ export class KioskOrder implements OnInit, OnDestroy {
   readonly cart = signal<CartLine[]>([]);
   readonly selectedCategoryId = signal<number | null>(null);
 
+  /** Écran d'accueil (grille de catégories, voir kiosk-order.html) vs écran de navigation dans
+   *  une catégorie — purement visuel (aucune donnée métier derrière), nécessaire pour le
+   *  redesign portrait (notion/kiosk/) qui sépare les deux au lieu de tout afficher d'un coup
+   *  dans une mise en page à 3 colonnes. */
+  readonly homeScreen = signal(true);
+  /** Tiroir "Mon panier" (voir kiosk-order.html) — replié par défaut, occupe tout l'écran une
+   *  fois ouvert (portrait, pas de place pour un panier permanent à côté de la grille produits). */
+  readonly cartDrawerOpen = signal(false);
+
   readonly showPaymentModal = signal(false);
   /** Aucun de ces deux "boutons" n'est un vrai moyen de paiement séparé — voir docblock de
    *  classe — juste quel écran de simulation afficher une fois choisi. */
@@ -111,6 +120,12 @@ export class KioskOrder implements OnInit, OnDestroy {
   readonly submitting = signal(false);
   readonly paymentError = signal<string | null>(null);
   readonly paidTicket = signal<Ticket | null>(null);
+
+  /** État de l'impression thermique (voir printTicket() plus bas) — même pattern que
+   *  pos-vente.ts/order-builder.ts côté erp-app. */
+  readonly printingThermal = signal(false);
+  readonly thermalPrinted = signal(false);
+  readonly printError = signal<string | null>(null);
 
   /** Session Stripe Checkout en attente (variant QR — voir startQrCheckout()), null tant qu'elle
    *  n'a pas été créée/tant qu'on n'attend pas de paiement réel. */
@@ -174,6 +189,8 @@ export class KioskOrder implements OnInit, OnDestroy {
   });
 
   readonly cartTotal = computed(() => this.cart().reduce((sum, line) => sum + Number(line.product.price) * line.quantity, 0));
+  /** Nombre d'articles (pas de lignes) — affiché sur la barre panier repliée, voir kiosk-order.html. */
+  readonly cartCount = computed(() => this.cart().reduce((sum, line) => sum + line.quantity, 0));
 
   readonly discountAmount = computed(() => this.appliedDiscount()?.amount_off ?? 0);
 
@@ -290,10 +307,26 @@ export class KioskOrder implements OnInit, OnDestroy {
     this.cart.set(this.cart().filter((line) => line.product.id !== product.id));
   }
 
+  /** Tuile catégorie de l'accueil tapée (ou "Tout") — voir homeScreen. */
+  openCategory(categoryId: number | null): void {
+    this.selectedCategoryId.set(categoryId);
+    this.homeScreen.set(false);
+  }
+
+  goHome(): void {
+    this.homeScreen.set(true);
+    this.selectedCategoryId.set(null);
+  }
+
+  toggleCartDrawer(): void {
+    this.cartDrawerOpen.set(!this.cartDrawerOpen());
+  }
+
   openPaymentModal(): void {
     if (this.cart().length === 0) return;
     this.paymentError.set(null);
     this.showPaymentModal.set(true);
+    this.cartDrawerOpen.set(false);
   }
 
   closePaymentModal(): void {
@@ -554,8 +587,28 @@ export class KioskOrder implements OnInit, OnDestroy {
       });
   }
 
+  /** Envoie directement à l'imprimante thermique (voir KioskService::printThermal / App\Support\
+   *  ThermalReceipt côté API) plutôt que window.print() — un kiosque n'a pas d'écran de dialogue
+   *  d'impression navigateur à proposer à un client, contrairement à un poste POS surveillé par
+   *  un membre du staff. */
   printTicket(): void {
-    window.print();
+    const ticket = this.paidTicket();
+    if (!ticket || this.printingThermal()) return;
+
+    this.printingThermal.set(true);
+    this.printError.set(null);
+
+    this.kioskService.printThermal(ticket.id).subscribe({
+      next: () => {
+        this.printingThermal.set(false);
+        this.thermalPrinted.set(true);
+      },
+      error: (err) => {
+        this.printingThermal.set(false);
+        const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
+        this.printError.set((messages?.length ? messages.join(' ') : err.error?.message) ?? "Impossible d'imprimer sur l'imprimante thermique.");
+      },
+    });
   }
 
   /** Le client suivant repart d'un panier vide — déclenché soit manuellement, soit
@@ -571,6 +624,11 @@ export class KioskOrder implements OnInit, OnDestroy {
     this.appliedDiscount.set(null);
     this.discountCodeInput.set('');
     this.discountError.set(null);
+    this.thermalPrinted.set(false);
+    this.printError.set(null);
+    this.homeScreen.set(true);
+    this.selectedCategoryId.set(null);
+    this.cartDrawerOpen.set(false);
   }
 
   goToSetup(): void {

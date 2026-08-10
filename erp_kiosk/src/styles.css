@@ -1,8 +1,10 @@
 /* ==========================================================================
-   ERP v2 — feuille de style globale
-   Inspirée des maquettes du dossier notion/ (dashboards "bitepoint" et
-   "Tasty Station") : sidebar teal foncé, accent doré pour les actions
-   principales, badges de statut pastel, cartes blanches arrondies.
+   ERP v2 — Kiosque
+   Redesign inspiré de notion/kiosk/ (concept Burger King, Behance) : palette
+   chaude orange/crème, cartes très arrondies, grosses tuiles produit,
+   boutons pilule. Distinct de la marque teal/dorée du reste de l'ERP
+   (erp-app/POS) par choix — le kiosque est l'écran client, pensé comme une
+   expérience à part plutôt que comme un module de plus du back-office.
    Thème clair par défaut, thème sombre via prefers-color-scheme ou
    [data-theme="dark"] posé sur <html> (pour un futur bouton de bascule).
    ========================================================================== */
@@ -11,79 +13,82 @@
 :root {
   color-scheme: light;
 
-  /* Marque — teal */
-  --color-primary-50: #f0fdfa;
-  --color-primary-100: #ccfbf1;
-  --color-primary-200: #99f6e4;
-  --color-primary-300: #5eead4;
-  --color-primary-400: #2dd4bf;
-  --color-primary-500: #14b8a6;
-  --color-primary-600: #0d9488;
-  --color-primary-700: #0f766e;
-  --color-primary-800: #115e59;
-  --color-primary-900: #0b3d3a;
+  /* Marque — orange chaud (CTA principaux, catégorie active, prix) */
+  --color-primary-50: #fff4ea;
+  --color-primary-100: #ffe4c7;
+  --color-primary-200: #ffcd9c;
+  --color-primary-300: #ffae67;
+  --color-primary-400: #fd9640;
+  --color-primary-500: #fb8317;
+  --color-primary-600: #e96f0a;
+  --color-primary-700: #c25907;
+  --color-primary-800: #8f4106;
+  --color-primary-900: #5c2a04;
 
-  /* Remplissages solides (boutons, tuiles stat, onglets actifs) : toujours un teal
-     assez sombre pour rester lisible avec du texte blanc, dans les deux thèmes —
-     contrairement à --color-primary-600/700 qui s'éclaircissent en sombre pour
-     rester lisibles en tant que texte/lien sur un fond sombre. Ne pas fusionner
-     ces deux rôles, un fond éclairci casserait le contraste du texte blanc dessus. */
-  --color-primary-fill: #0f766e;
-  --color-primary-fill-hover: #115e59;
+  /* Remplissages solides (boutons, tuiles stat, onglets actifs) : toujours le même
+     orange plein, lisible avec du texte blanc dans les deux thèmes — contrairement
+     à --color-primary-600/700 qui s'éclaircissent en sombre pour rester lisibles en
+     tant que texte/lien sur fond sombre. Ne pas fusionner ces deux rôles, un fond
+     éclairci casserait le contraste du texte blanc dessus. */
+  --color-primary-fill: #f5821f;
+  --color-primary-fill-hover: #e06f10;
 
-  /* Accent — doré (CTA, prix, éléments à mettre en avant) */
-  --color-accent-100: #fef3c7;
-  --color-accent-200: #fde68a;
-  --color-accent-300: #fcd34d;
-  --color-accent-400: #fbbf24;
-  --color-accent-500: #f5a623;
-  --color-accent-600: #d97706;
-  --color-accent-700: #b45309;
+  /* Accent — terracotta (paiement, badge quantité panier : doit se détacher de
+     l'orange de marque, pas juste une nuance de plus) */
+  --color-accent-100: #fce1d6;
+  --color-accent-200: #f8c0a8;
+  --color-accent-300: #f19b76;
+  --color-accent-400: #ea7a50;
+  --color-accent-500: #e4572e;
+  --color-accent-600: #c7431e;
+  --color-accent-700: #9e3416;
 
-  /* Neutres */
-  --color-gray-50: #fafaf9;
-  --color-gray-100: #f4f4f2;
-  --color-gray-200: #e7e6e2;
-  --color-gray-300: #d6d5d0;
-  --color-gray-400: #a9a8a2;
-  --color-gray-500: #7c7b76;
-  --color-gray-600: #56554f;
-  --color-gray-700: #3d3c37;
-  --color-gray-800: #29281f;
-  --color-gray-900: #1b1a15;
+  /* Neutres — crème plutôt que gris pur, cf. fond des maquettes */
+  --color-gray-50: #fffbf5;
+  --color-gray-100: #fbf1e3;
+  --color-gray-200: #f2e2cc;
+  --color-gray-300: #e3caa3;
+  --color-gray-400: #c7a87b;
+  --color-gray-500: #9c8060;
+  --color-gray-600: #6e5842;
+  --color-gray-700: #4a3a2b;
+  --color-gray-800: #2e2419;
+  --color-gray-900: #1d160e;
 
-  /* Statuts (pastel clair / texte foncé assorti — cf. badges des maquettes) */
-  --color-success-bg: #d3f5e8;
-  --color-success-text: #0f766e;
+  /* Statuts (pastel clair / texte foncé assorti) */
+  --color-success-bg: #ddf2d8;
+  --color-success-text: #2f7d32;
   --color-warning-bg: #ffe3d1;
   --color-warning-text: #c2410c;
   --color-info-bg: #e6e9fb;
   --color-info-text: #4338ca;
   --color-danger-bg: #fde2e1;
   --color-danger-text: #b91c1c;
-  --color-neutral-bg: #eef0f2;
-  --color-neutral-text: #475569;
+  --color-neutral-bg: #f2e8da;
+  --color-neutral-text: #6e5842;
 
   /* Surfaces */
   --surface-page: var(--color-gray-100);
   --surface-card: #ffffff;
   --surface-card-muted: var(--color-gray-50);
-  --surface-sidebar: var(--color-primary-900);
-  --surface-overlay: rgb(27 26 21 / 55%);
+  --surface-sidebar: #2b1c10;
+  --surface-overlay: rgb(46 26 15 / 55%);
   --surface-input: #ffffff;
 
   /* Texte */
   --text-primary: var(--color-gray-900);
   --text-secondary: var(--color-gray-500);
   --text-inverse: #ffffff;
-  --text-on-sidebar: #d7ece9;
-  --text-on-sidebar-muted: #7fa9a4;
+  --text-on-sidebar: #f6ead9;
+  --text-on-sidebar-muted: #ba9d81;
 
   /* Bordures */
   --border-color: var(--color-gray-200);
   --border-color-strong: var(--color-gray-300);
 
-  /* Typographie */
+  /* Typographie — grotesque large, poids forts pour les titres (cf. maquettes) plutôt
+     qu'une police "arrondie" en webfont externe : robuste hors-ligne (kiosque), pas de
+     dépendance à un CDN de polices. */
   --font-sans:
     'Inter', 'Segoe UI Variable', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto,
     Helvetica, Arial, sans-serif;
@@ -96,14 +101,15 @@
   --font-size-3xl: 1.875rem;
 
   /* Rayons / ombres / espacements */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
   --radius-pill: 999px;
 
-  --shadow-sm: 0 1px 2px rgb(27 26 21 / 6%);
-  --shadow-md: 0 4px 16px rgb(27 26 21 / 8%);
-  --shadow-lg: 0 12px 32px rgb(27 26 21 / 14%);
+  --shadow-sm: 0 1px 2px rgb(46 26 15 / 6%);
+  --shadow-md: 0 8px 20px rgb(46 26 15 / 10%);
+  --shadow-lg: 0 16px 40px rgb(46 26 15 / 16%);
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -122,37 +128,37 @@
   :root:not([data-theme='light']) {
     color-scheme: dark;
 
-    --color-primary-50: #0b3d3a;
-    --color-primary-100: #0f4d47;
-    --color-primary-600: #2dd4bf;
-    --color-primary-700: #5eead4;
+    --color-primary-50: #3a2408;
+    --color-primary-100: #4a2e09;
+    --color-primary-600: #ff9640;
+    --color-primary-700: #ffb067;
 
-    --color-success-bg: #103b30;
-    --color-success-text: #6ee7c6;
+    --color-success-bg: #16351a;
+    --color-success-text: #8fd98a;
     --color-warning-bg: #402615;
     --color-warning-text: #fdba8c;
     --color-info-bg: #262a4a;
     --color-info-text: #b4bcf8;
     --color-danger-bg: #3f1d1d;
     --color-danger-text: #fca5a5;
-    --color-neutral-bg: #2a2d33;
-    --color-neutral-text: #b7c0cc;
+    --color-neutral-bg: #33291b;
+    --color-neutral-text: #d8c3a5;
 
-    --surface-page: #15171a;
-    --surface-card: #1e2124;
-    --surface-card-muted: #24272b;
-    --surface-sidebar: #08221f;
+    --surface-page: #1a1510;
+    --surface-card: #251e15;
+    --surface-card-muted: #2c2318;
+    --surface-sidebar: #140f0a;
     --surface-overlay: rgb(0 0 0 / 65%);
-    --surface-input: #24272b;
+    --surface-input: #2c2318;
 
-    --text-primary: #f2f1ed;
-    --text-secondary: #9a9b9f;
-    --text-inverse: #12312e;
-    --text-on-sidebar: #d7ece9;
-    --text-on-sidebar-muted: #5f8b86;
+    --text-primary: #f6ead9;
+    --text-secondary: #b3a48e;
+    --text-inverse: #2e1c08;
+    --text-on-sidebar: #f6ead9;
+    --text-on-sidebar-muted: #93826c;
 
-    --border-color: #2c2f33;
-    --border-color-strong: #3a3d42;
+    --border-color: #362b1d;
+    --border-color-strong: #473926;
 
     --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
     --shadow-md: 0 4px 16px rgb(0 0 0 / 35%);
@@ -163,37 +169,37 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --color-primary-50: #0b3d3a;
-  --color-primary-100: #0f4d47;
-  --color-primary-600: #2dd4bf;
-  --color-primary-700: #5eead4;
+  --color-primary-50: #3a2408;
+  --color-primary-100: #4a2e09;
+  --color-primary-600: #ff9640;
+  --color-primary-700: #ffb067;
 
-  --color-success-bg: #103b30;
-  --color-success-text: #6ee7c6;
+  --color-success-bg: #16351a;
+  --color-success-text: #8fd98a;
   --color-warning-bg: #402615;
   --color-warning-text: #fdba8c;
   --color-info-bg: #262a4a;
   --color-info-text: #b4bcf8;
   --color-danger-bg: #3f1d1d;
   --color-danger-text: #fca5a5;
-  --color-neutral-bg: #2a2d33;
-  --color-neutral-text: #b7c0cc;
+  --color-neutral-bg: #33291b;
+  --color-neutral-text: #d8c3a5;
 
-  --surface-page: #15171a;
-  --surface-card: #1e2124;
-  --surface-card-muted: #24272b;
-  --surface-sidebar: #08221f;
+  --surface-page: #1a1510;
+  --surface-card: #251e15;
+  --surface-card-muted: #2c2318;
+  --surface-sidebar: #140f0a;
   --surface-overlay: rgb(0 0 0 / 65%);
-  --surface-input: #24272b;
+  --surface-input: #2c2318;
 
-  --text-primary: #f2f1ed;
-  --text-secondary: #9a9b9f;
-  --text-inverse: #12312e;
-  --text-on-sidebar: #d7ece9;
-  --text-on-sidebar-muted: #5f8b86;
+  --text-primary: #f6ead9;
+  --text-secondary: #b3a48e;
+  --text-inverse: #2e1c08;
+  --text-on-sidebar: #f6ead9;
+  --text-on-sidebar-muted: #93826c;
 
-  --border-color: #2c2f33;
-  --border-color-strong: #3a3d42;
+  --border-color: #362b1d;
+  --border-color-strong: #473926;
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
   --shadow-md: 0 4px 16px rgb(0 0 0 / 35%);
@@ -377,7 +383,7 @@ button {
 
 .app-nav-item.is-active {
   background: var(--color-accent-500);
-  color: #241a02;
+  color: #ffffff;
 }
 
 .app-nav-item__icon {
@@ -545,7 +551,7 @@ button {
 
 .btn-accent {
   background: var(--color-accent-500);
-  color: #2a1a02;
+  color: #ffffff;
 }
 
 .btn-accent:hover:not(:disabled) {
@@ -1202,7 +1208,7 @@ textarea.input {
   align-items: center;
   justify-content: center;
   background: var(--color-accent-500);
-  color: #2a1a02;
+  color: #ffffff;
   border-radius: var(--radius-pill);
   font-size: var(--font-size-xs);
   font-weight: 700;
@@ -1618,6 +1624,17 @@ textarea.input {
 
 .ticket-receipt__brand span {
   color: var(--color-accent-500);
+}
+
+/* Numéro de commande en gros sur le ticket imprimé (voir kiosk-order.ts) — le client repère sa
+   commande au comptoir sur ce numéro, il doit rester lisible même de loin sur un petit reçu
+   thermique, pas seulement dans la ligne de détail "Ticket n°... du ..." en dessous. */
+.ticket-receipt__order-number {
+  text-align: center;
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1;
+  margin: var(--space-2) 0 0;
 }
 
 .ticket-receipt__center {

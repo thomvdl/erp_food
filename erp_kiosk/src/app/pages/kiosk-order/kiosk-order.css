@@ -1,134 +1,239 @@
+/* ==========================================================================
+   Écran de commande — redesign portrait inspiré de notion/kiosk/ (concept
+   Burger King, Behance) : accueil en tuiles catégories, navigation par
+   bandeau de pastilles + grille produit, panier en tiroir plein écran qui
+   glisse depuis le bas plutôt qu'une colonne fixe (plus de place n'existe
+   pas en portrait pour un panier permanent à côté de la grille — voir
+   ancienne mise en page à 3 colonnes, pensée pour du paysage).
+   ========================================================================== */
+
+/* Bulbe orange arrondi accroché au bord droit (retour utilisateur : la diagonale droite façon
+ *  page d'accueil des maquettes ne plaisait pas, préfère une courbe) plutôt qu'un dégradé flou :
+ *  une seule forme SVG pleine couleur, pas de halo diffus. Couleur en dur (pas
+ *  var(--color-primary-fill)) — une data-URI SVG est une chaîne figée à la compilation CSS, elle
+ *  ne peut pas référencer une custom property. */
 :host {
   display: block;
   height: 100dvh;
   overflow: hidden;
-  /* Fond "pro" plutôt qu'un gris plat : deux halos teal très doux dans les coins (mêmes tokens
-   *  que le reste de la marque, déjà adaptés au thème sombre — voir :root) au lieu d'une couleur
-   *  d'accent qui, elle, ne l'est pas. Assez subtil pour ne jamais nuire à la lisibilité des
-   *  cartes produit blanches par-dessus. */
-  background:
-    radial-gradient(1100px circle at 12% -15%, var(--color-primary-100) 0%, transparent 55%),
-    radial-gradient(900px circle at 100% 115%, var(--color-primary-50) 0%, transparent 50%),
-    var(--surface-page);
+  background-color: var(--surface-page);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath fill='%23f5821f' d='M75,0 Q35,50 75,100 L100,100 L100,0 Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center right;
+  background-size: 42vw 100%;
 }
 
-/* Page fixe (pas de scroll global) — seuls .kiosk-sidebar et .kiosk-menu défilent en interne
- *  s'ils débordent (voir plus bas), un kiosque tactile debout ne doit jamais avoir à faire
- *  défiler toute la page pour atteindre le bouton de paiement en bas. */
+/* ---------- Page ---------- */
+
 .kiosk-page {
   height: 100dvh;
-  padding: var(--space-5);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
   overflow: hidden;
 }
 
-.kiosk-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+.kiosk-topbar {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
 }
 
-.kiosk-header__brand {
-  font-weight: 700;
-  color: var(--color-primary-fill);
-  font-size: var(--font-size-base);
-}
-
-.kiosk-header__title {
-  margin: 0;
-  font-size: var(--font-size-3xl);
+.kiosk-topbar__brand {
   font-weight: 800;
+  font-size: var(--font-size-lg);
+  letter-spacing: -0.01em;
 }
 
-/* ---------- Disposition à 3 zones : catégories / menu / panier ---------- */
+.kiosk-topbar__back {
+  background: transparent;
+  border: none;
+  color: var(--color-primary-fill);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  cursor: pointer;
+  padding: var(--space-2) 0;
+}
 
-.kiosk-layout {
+.kiosk-topbar__spacer {
+  flex: 1 1 0;
+  min-width: 2rem;
+}
+
+/* ---------- Accueil : grille de catégories ---------- */
+
+.kiosk-home {
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: row;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-2) var(--space-5) calc(96px + var(--space-5));
+}
+
+.kiosk-home__eyebrow {
+  color: var(--color-primary-fill);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 var(--space-1);
+}
+
+.kiosk-home__title {
+  margin: 0 0 var(--space-5);
+  font-size: var(--font-size-3xl);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.kiosk-home__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: var(--space-4);
 }
 
-.kiosk-sidebar {
-  flex: 0 0 220px;
-  min-height: 0;
-  overflow-y: auto;
+.kiosk-tile {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--space-2);
-  padding-right: var(--space-1);
+  padding: 0;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
 }
 
-.kiosk-sidebar__item {
+.kiosk-tile__media {
+  width: 100%;
+  aspect-ratio: 1;
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  justify-content: center;
   background: var(--surface-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  font-size: var(--font-size-base);
-  font-weight: 600;
-  color: var(--text-primary);
-  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
-}
-
-.kiosk-sidebar__item:hover {
-  border-color: var(--color-primary-400);
-}
-
-.kiosk-sidebar__item.is-active {
-  background: var(--color-primary-fill);
-  border-color: var(--color-primary-fill);
-  color: var(--text-inverse);
-  transform: translateX(2px);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.kiosk-sidebar__icon {
-  font-size: 1.5rem;
+.kiosk-tile__media--all {
+  background: var(--color-primary-100);
+}
+
+.kiosk-tile:active .kiosk-tile__media {
+  transform: scale(0.95);
+}
+
+.kiosk-tile__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kiosk-tile__emoji {
+  font-size: 2.75rem;
   line-height: 1;
 }
 
-.kiosk-sidebar__label {
-  flex: 1;
-  min-width: 0;
+.kiosk-tile__label {
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
 }
 
-.kiosk-sidebar__count {
+/* ---------- Navigation catégorie : bandeau + grille produit ---------- */
+
+.kiosk-browse {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow: hidden;
+}
+
+.kiosk-category-strip {
+  flex-shrink: 0;
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding: 0 var(--space-5) var(--space-2);
+}
+
+.kiosk-category-pill {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 76px;
+  padding: var(--space-2) 0;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.kiosk-category-pill__icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.kiosk-category-pill__icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kiosk-category-pill__label {
   font-size: var(--font-size-xs);
   font-weight: 700;
-  padding: 0.15rem 0.5rem;
-  border-radius: var(--radius-pill);
-  background: var(--surface-card-muted);
   color: var(--text-secondary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
-.kiosk-sidebar__item.is-active .kiosk-sidebar__count {
-  background: rgb(255 255 255 / 20%);
-  color: var(--text-inverse);
+.kiosk-category-pill.is-active .kiosk-category-pill__icon {
+  background: var(--color-primary-fill);
+  box-shadow: var(--shadow-md);
+}
+
+.kiosk-category-pill.is-active .kiosk-category-pill__label {
+  color: var(--color-primary-fill);
 }
 
 .kiosk-menu {
   flex: 1;
-  min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  /* padding-top : sans lui, le badge de quantité (top: -6px, voir .kiosk-product-card__badge)
+     de la première rangée de produits se fait couper net par le bord du conteneur scrollable —
+     rien à faire dans le flux au-dessus pour lui laisser la place de déborder. */
+  padding: 10px var(--space-5) calc(96px + var(--space-5));
 }
 
 .kiosk-menu__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: var(--space-4);
-  padding: var(--space-1) var(--space-2) var(--space-4);
 }
 
 .kiosk-product-card {
@@ -136,93 +241,97 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-5) var(--space-4);
-  background: var(--surface-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+  gap: 0.2rem;
+  padding: 0;
+  background: transparent;
+  border: none;
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  transition: box-shadow var(--transition-fast), transform var(--transition-fast), border-color var(--transition-fast);
-}
-
-.kiosk-product-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-3px);
-  border-color: var(--color-primary-400);
+  transition: transform var(--transition-fast);
 }
 
 .kiosk-product-card:active {
-  transform: translateY(-1px) scale(0.98);
+  transform: scale(0.97);
 }
 
-/* Stock épuisé (voir App\Support\StockManager côté API) — bouton natif :disabled. */
 .kiosk-product-card:disabled {
-  opacity: 0.55;
   cursor: not-allowed;
-  filter: grayscale(60%);
 }
 
-.kiosk-product-card:disabled:hover,
-.kiosk-product-card:disabled:active {
+.kiosk-product-card:disabled .kiosk-product-card__media {
+  filter: grayscale(70%);
+  opacity: 0.65;
+}
+
+.kiosk-product-card__media {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-card-muted);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  transform: none;
-  border-color: var(--border-color);
+  overflow: hidden;
+  margin-bottom: var(--space-2);
 }
 
-.kiosk-product-card__out-of-stock {
+.kiosk-product-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kiosk-product-card__emoji {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.kiosk-product-card__ribbon {
   position: absolute;
-  top: -10px;
-  left: -10px;
+  top: var(--space-2);
+  left: var(--space-2);
   padding: 0.2rem 0.6rem;
   background: var(--color-danger-bg);
   color: var(--color-danger-text);
   border-radius: var(--radius-pill);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: 700;
-  box-shadow: var(--shadow-md);
 }
 
 .kiosk-product-card__badge {
   position: absolute;
-  top: -10px;
-  right: -10px;
-  min-width: 30px;
-  height: 30px;
-  padding: 0 0.5rem;
+  top: -6px;
+  right: -6px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 0.4rem;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--color-accent-500);
-  color: #2a1a02;
+  color: #ffffff;
   border-radius: var(--radius-pill);
   font-size: var(--font-size-sm);
   font-weight: 800;
   box-shadow: var(--shadow-md);
 }
 
-.kiosk-product-card__thumb {
-  font-size: 3.25rem;
-  line-height: 1;
-}
-
 .kiosk-product-card__name {
   font-weight: 700;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-sm);
+  line-height: 1.25;
 }
 
 .kiosk-product-card__price {
   color: var(--color-primary-fill);
-  font-size: var(--font-size-lg);
   font-weight: 800;
+  font-size: var(--font-size-base);
 }
 
-/* Stock restant (produit à stock suivi, voir App\Events\ProductStockUpdated côté API) — mis à
-   jour en temps réel, jamais affiché pour un produit non suivi (stock_quantity null). */
 .kiosk-product-card__stock {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--text-secondary);
 }
 
@@ -231,51 +340,187 @@
   font-weight: 700;
 }
 
-/* ---------- Panier ---------- */
+/* ---------- Barre panier repliée ---------- */
 
-.kiosk-cart {
-  flex: 0 0 380px;
-  min-height: 0;
+.kiosk-cart-bar {
+  position: fixed;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 20;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-sidebar);
+  color: var(--text-on-sidebar);
+  border: none;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-lg);
+  font-family: inherit;
+  cursor: pointer;
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
 }
 
-.kiosk-cart__body {
-  max-height: calc(100dvh - 420px);
+.kiosk-cart-bar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.kiosk-cart-bar:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.kiosk-cart-bar__icon {
+  position: relative;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.kiosk-cart-bar__badge {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 0.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent-500);
+  color: #ffffff;
+  border-radius: var(--radius-pill);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.kiosk-cart-bar__label {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  text-align: left;
+}
+
+.kiosk-cart-bar__total {
+  font-weight: 800;
+  font-size: var(--font-size-lg);
+}
+
+.kiosk-cart-bar__chevron {
+  display: inline-block;
+  font-size: 1rem;
+  opacity: 0.7;
+  transition: transform var(--transition-fast);
+}
+
+.kiosk-cart-bar__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+/* ---------- Tiroir "Mon panier" ---------- */
+
+.kiosk-drawer-scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--surface-overlay);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-base);
+  z-index: 30;
+}
+
+.kiosk-drawer-scrim.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.kiosk-drawer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 31;
+  max-height: 82dvh;
   display: flex;
   flex-direction: column;
+  background: var(--surface-card);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(100%);
+  transition: transform var(--transition-base);
+}
+
+.kiosk-drawer.is-open {
+  transform: translateY(0);
+}
+
+.kiosk-drawer__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-5) var(--space-3);
+}
+
+.kiosk-drawer__header h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+}
+
+.kiosk-drawer__lines {
+  flex: 1;
   min-height: 0;
   overflow-y: auto;
-}
-
-.kiosk-cart__lines {
+  /* Empêche un swipe qui arrive en bout de liste de "remonter" la page derrière le tiroir (scroll
+     chaining par défaut du navigateur) — le tiroir est en position: fixed, indépendant du flux de
+     la page, mais le geste de scroll continue sinon vers le premier ancêtre scrollable trouvé. */
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  padding: 0 var(--space-5) var(--space-3);
 }
 
-.kiosk-cart__line {
+.kiosk-drawer-line {
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
+  grid-template-columns: 52px 1fr auto auto;
   align-items: center;
   gap: var(--space-3);
   padding-bottom: var(--space-3);
   border-bottom: 1px dashed var(--border-color);
 }
 
-.kiosk-cart__line:last-child {
+.kiosk-drawer-line:last-child {
   border-bottom: none;
   padding-bottom: 0;
 }
 
-.kiosk-cart__line-info {
+.kiosk-drawer-line__thumb {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: var(--surface-card-muted);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.kiosk-drawer-line__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kiosk-drawer-line__info {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
 
-.kiosk-cart__line-total {
-  font-weight: 700;
+.kiosk-drawer-line__total {
+  font-weight: 800;
   font-size: var(--font-size-sm);
   white-space: nowrap;
 }
@@ -294,135 +539,156 @@
   opacity: 0.5;
 }
 
-.kiosk-cart__totals-row {
+.kiosk-drawer__footer {
+  flex-shrink: 0;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  border-top: 1px solid var(--border-color);
+}
+
+.kiosk-drawer__total-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-}
-
-.kiosk-cart__totals-row--grand {
   font-weight: 800;
   font-size: var(--font-size-xl);
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
-@media (max-width: 860px) {
-  .kiosk-layout {
-    flex-direction: column;
-  }
-
-  .kiosk-sidebar {
-    flex: 0 0 auto;
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-
-  .kiosk-sidebar__item {
-    flex-shrink: 0;
-  }
-
-  .kiosk-cart {
-    flex: 0 0 auto;
-  }
+.kiosk-drawer__pay {
+  width: 100%;
 }
 
-/* height (pas min-height) : depuis que :host bloque le scroll global (overflow: hidden, voir
- *  plus haut), un min-height laissait le ticket grandir au-delà de 100dvh puis se faire couper
- *  net par :host au lieu de défiler — bug remonté ("on ne voit pas bien le ticket"). Une hauteur
- *  bornée fait que overflow-y: auto ci-dessous prend effet pour de vrai. */
-.kiosk-state {
-  height: 100dvh;
+.qty-stepper__btn {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+}
+
+/* ---------- Paiement (page pleine, pas une modale — voir notion/kiosk/ "Please select a payment
+   type?") : même ossature .kiosk-page/topbar que le reste du parcours, contenu scrollable en
+   dessous plutôt qu'un panneau centré par-dessus l'écran de commande. ---------- */
+
+.kiosk-payment-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-5) var(--space-6);
+}
+
+.kiosk-payment-title {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.kiosk-payment-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.kiosk-payment-summary__line {
+  display: grid;
+  grid-template-columns: 2.5ch 1fr auto;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+}
+
+.kiosk-payment-summary__line--muted {
+  color: var(--text-secondary);
+}
+
+.kiosk-payment-summary__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color);
+  font-weight: 800;
+  font-size: var(--font-size-xl);
+}
+
+.kiosk-payment-methods__label {
+  margin: var(--space-2) 0 0;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+/* "Se connecter" / "Appliquer" (voir kiosk-order.html) : .btn-outline est transparent par défaut,
+   se fond dans le fond crème/orange de la page paiement — fond plein pour rester lisible comme
+   bouton plutôt que comme simple contour. */
+.kiosk-inline-btn {
+  background: var(--surface-card);
+}
+
+.kiosk-inline-btn:hover:not(:disabled) {
+  background: var(--color-primary-50);
+}
+
+.kiosk-payment-methods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.kiosk-payment-method {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-3);
+  background: var(--surface-card);
+  border: 2px solid transparent;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-primary-800);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  text-align: center;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.kiosk-payment-method:hover {
+  background: var(--color-primary-50);
+}
+
+.kiosk-payment-method:active {
+  transform: scale(0.97);
+}
+
+.kiosk-payment-method__icon {
+  font-size: 2.5rem;
+}
+
+/* Écran du "terminal" simulé — occupe le reste de la page (flex:1, centré) maintenant que ce
+ *  n'est plus le contenu d'une modale mais une page à part entière. Fond sombre volontairement
+ *  fixe (pas dépendant du thème clair/sombre de l'app), comme un vrai afficheur de terminal. */
+.kiosk-terminal {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: var(--space-3);
   text-align: center;
   padding: var(--space-5);
-  box-sizing: border-box;
   overflow-y: auto;
 }
 
-.kiosk-success {
-  max-width: 420px;
-  width: 100%;
-  text-align: center;
-  margin-top: var(--space-5);
-}
-
-.kiosk-success__seal {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 88px;
-  height: 88px;
-  margin: 0 auto var(--space-3);
-  border-radius: 50%;
-  background: var(--color-success-bg);
-  color: var(--color-success-text);
-  font-size: 3rem;
-  font-weight: 800;
-  line-height: 1;
-  box-shadow: var(--shadow-md);
-  animation: kiosk-seal-pop 400ms ease-out;
-}
-
-@keyframes kiosk-seal-pop {
-  0% {
-    transform: scale(0.6);
-    opacity: 0;
-  }
-  70% {
-    transform: scale(1.08);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-.kiosk-success__number {
-  font-size: 3.5rem;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--color-primary-fill);
-  margin: var(--space-3) 0;
-}
-
-/* Le reçu lui-même reste aligné à gauche (colonnes article/qté/prix) — seule la carte
- *  confirmation au-dessus est centrée. */
-.kiosk-success__receipt {
-  max-width: 380px;
-  width: 100%;
-  text-align: left;
-  margin-bottom: var(--space-5);
-}
-
-.kiosk-terminal {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  text-align: center;
-}
-
-/* Seuls choix de paiement du kiosque (QR ou terminal Bancontact, voir Readme.md) — assez grands
- *  pour rester tapables confortablement sur un écran tactile, contrairement aux .tab-pill
- *  habituelles (pensées comme des filtres discrets). */
-.kiosk-payment-methods {
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.kiosk-payment-methods .tab-pill {
-  justify-content: center;
-  padding: var(--space-4);
-  font-size: var(--font-size-base);
-  border-radius: var(--radius-md);
-}
-
-/* Écran du "terminal" simulé — fond sombre volontairement fixe (pas dépendant du thème clair/
- *  sombre de l'app), comme un vrai afficheur de terminal de paiement. */
 .kiosk-terminal__device {
   display: flex;
   flex-direction: column;
@@ -515,5 +781,100 @@
   }
   50% {
     transform: translateY(-6px);
+  }
+}
+
+/* ---------- États pleine page (chargement / erreur / succès) ---------- */
+
+.kiosk-state {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  text-align: center;
+  padding: var(--space-5);
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+/* Écran succès : même bulbe arrondi que :host (voir plus haut), en plus grand — c'est l'écran
+ *  "célébration", la marque doit y être plus présente que sur le reste du parcours. */
+.kiosk-state--success {
+  justify-content: center;
+  background-color: var(--surface-page);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath fill='%23f5821f' d='M65,0 Q20,50 65,100 L100,100 L100,0 Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center right;
+  background-size: 55vw 100%;
+}
+
+.kiosk-success {
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  margin-top: 0;
+  border-radius: var(--radius-xl);
+}
+
+.kiosk-success__seal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto var(--space-3);
+  border-radius: 50%;
+  background: var(--color-primary-100);
+  color: var(--color-primary-fill);
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: var(--shadow-md);
+  animation: kiosk-seal-pop 400ms ease-out;
+}
+
+@keyframes kiosk-seal-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.kiosk-success__number-label {
+  margin-top: var(--space-4);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.kiosk-success__number {
+  font-size: 3.5rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-primary-fill);
+  margin: var(--space-1) 0 var(--space-3);
+}
+
+/* Le reçu lui-même reste aligné à gauche (colonnes article/qté/prix) — seule la carte
+ *  confirmation au-dessus est centrée. */
+.kiosk-success__receipt {
+  max-width: 380px;
+  width: 100%;
+  text-align: left;
+  margin-bottom: var(--space-5);
+  border-radius: var(--radius-lg);
+}
+
+@media (max-width: 420px) {
+  .kiosk-home__grid,
+  .kiosk-menu__grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 }

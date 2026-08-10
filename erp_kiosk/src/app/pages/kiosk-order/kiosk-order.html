@@ -8,297 +8,376 @@
     <button type="button" class="btn btn-ghost btn-sm" (click)="goToSetup()">⚙️ Configuration</button>
   </div>
 } @else if (paidTicket(); as ticket) {
-  <div class="kiosk-state">
+  <div class="kiosk-state kiosk-state--success">
     <div class="card card-elevated kiosk-success">
       <div class="card-body">
         <span class="kiosk-success__seal">✓</span>
         <h1>Merci pour votre commande !</h1>
-        <p class="kiosk-success__number">N° {{ ticket.id }}</p>
+        <p class="kiosk-success__number-label">Votre numéro</p>
+        <p class="kiosk-success__number">{{ ticket.id }}</p>
         <p class="text-muted">Retenez ce numéro, il sera annoncé au comptoir quand votre commande sera prête.</p>
+        @if (printError()) {
+          <p class="error-text text-sm">{{ printError() }}</p>
+        }
       </div>
       <div class="card-footer form-actions">
-        <button type="button" class="btn btn-outline" (click)="printTicket()">🖨️ Imprimer le ticket</button>
+        <button type="button" class="btn btn-outline" [disabled]="printingThermal()" (click)="printTicket()">
+          {{ printingThermal() ? 'Impression…' : thermalPrinted() ? '✓ Envoyé à l\'imprimante' : '🖨️ Imprimer le ticket' }}
+        </button>
         <button type="button" class="btn btn-primary" (click)="newOrder()">Nouvelle commande</button>
       </div>
     </div>
 
     <app-ticket-receipt class="card card-body ticket-print ticket-receipt kiosk-success__receipt" [ticket]="ticket" />
   </div>
-} @else {
+} @else if (showPaymentModal()) {
   <div class="kiosk-page">
-    <div class="kiosk-header">
-      <span class="kiosk-header__brand">🍽️ Bienvenue</span>
-      <h1 class="kiosk-header__title">Composez votre commande</h1>
-    </div>
+    <header class="kiosk-topbar">
+      <button type="button" class="kiosk-topbar__back" (click)="simulatingVariant() ? cancelSimulatedPayment() : closePaymentModal()">‹ Retour</button>
+      <span class="kiosk-topbar__brand">🍽️ ERP v2</span>
+      <span class="kiosk-topbar__spacer"></span>
+    </header>
 
-    <div class="kiosk-layout">
-      <nav class="kiosk-sidebar">
-        <button type="button" class="kiosk-sidebar__item" [class.is-active]="selectedCategoryId() === null" (click)="selectedCategoryId.set(null)">
-          <span class="kiosk-sidebar__icon">{{ categoryEmoji(null) }}</span>
-          <span class="kiosk-sidebar__label">Tout</span>
-          <span class="kiosk-sidebar__count">{{ availableProducts().length }}</span>
-        </button>
-        @for (category of categories(); track category.id) {
-          <button type="button" class="kiosk-sidebar__item" [class.is-active]="selectedCategoryId() === category.id" (click)="selectedCategoryId.set(category.id)">
-            @if (category.image_url) {
-              <img class="kiosk-sidebar__icon" style="width: 1.5rem; height: 1.5rem; object-fit: cover; border-radius: var(--radius-sm)" [src]="category.image_url" alt="" />
-            } @else {
-              <span class="kiosk-sidebar__icon">{{ category.icon ?? categoryEmoji(category.id) }}</span>
-            }
-            <span class="kiosk-sidebar__label">{{ category.name }}</span>
-            <span class="kiosk-sidebar__count">{{ category.count }}</span>
-          </button>
-        }
-      </nav>
+    @if (!simulatingVariant()) {
+      <div class="kiosk-payment-body">
+        <h1 class="kiosk-payment-title">Paiement</h1>
 
-      <section class="kiosk-menu">
-        <div class="kiosk-menu__grid">
-          @for (product of filteredProducts(); track product.id) {
-            <button type="button" class="kiosk-product-card" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
-              @if (isOutOfStock(product)) {
-                <span class="kiosk-product-card__out-of-stock">Rupture de stock</span>
-              } @else if (quantityInCart(product) > 0) {
-                <span class="kiosk-product-card__badge">{{ quantityInCart(product) }}</span>
-              }
-              @if (product.image_url) {
-                <img class="kiosk-product-card__thumb" style="width: 3.25rem; height: 3.25rem; object-fit: cover; border-radius: var(--radius-md)" [src]="product.image_url" alt="" />
-              } @else {
-                <span class="kiosk-product-card__thumb">{{ product.icon ?? productEmoji(product) }}</span>
-              }
-              <span class="kiosk-product-card__name">{{ product.name }}</span>
-              <span class="kiosk-product-card__price">{{ formatMoney(product.price) }}</span>
-              @if (remainingStock(product); as remaining) {
-                @if (remaining > 0) {
-                  <span class="kiosk-product-card__stock" [class.kiosk-product-card__stock--low]="isLowStock(product)">
-                    {{ remaining }} en stock
-                  </span>
-                }
-              }
-            </button>
-          } @empty {
-            <p class="text-muted">Aucun produit dans cette catégorie.</p>
+        <div class="kiosk-payment-summary">
+          @for (line of cart(); track line.product.id) {
+            <div class="kiosk-payment-summary__line">
+              <span class="text-muted">{{ line.quantity }}×</span>
+              <span>{{ line.product.name }}</span>
+              <span>{{ formatMoney(lineTotal(line)) }}</span>
+            </div>
           }
-        </div>
-      </section>
 
-      <aside class="kiosk-cart card card-elevated">
-        <div class="card-header">
-          <h2>🛒 Votre commande</h2>
-        </div>
-        <div class="card-body kiosk-cart__body">
-          <div class="kiosk-cart__lines">
-            @for (line of cart(); track line.product.id) {
-              <div class="kiosk-cart__line">
-                <div class="kiosk-cart__line-info">
-                  <span class="font-medium">{{ line.product.name }}</span>
-                  <span class="text-muted text-xs">{{ formatMoney(line.product.price) }} / unité</span>
-                </div>
-                <div class="qty-stepper">
-                  <button type="button" class="qty-stepper__btn" (click)="decrementCartLine(line.product)">−</button>
-                  <span>{{ line.quantity }}</span>
-                  <button type="button" class="qty-stepper__btn" [disabled]="isOutOfStock(line.product)" (click)="addToCart(line.product)">+</button>
-                </div>
-                <span class="kiosk-cart__line-total">{{ formatMoney(lineTotal(line)) }}</span>
-                <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeCartLine(line.product)">✕</button>
-              </div>
-            } @empty {
-              <div class="kiosk-cart__empty">
-                <span>🛒</span>
-                <p class="text-muted text-sm">Votre panier est vide — touchez un produit pour l'ajouter.</p>
-              </div>
-            }
-          </div>
-        </div>
-        <div class="card-footer">
-          <div class="kiosk-cart__totals-row kiosk-cart__totals-row--grand">
-            <span>Total à payer</span>
-            <span>{{ formatMoney(cartTotal()) }}</span>
-          </div>
-          <button type="button" class="btn btn-accent btn-lg" [disabled]="cart().length === 0" (click)="openPaymentModal()">
-            💳 Paiement — {{ formatMoney(cartTotal()) }}
-          </button>
-        </div>
-      </aside>
-    </div>
-  </div>
-
-  @if (showPaymentModal()) {
-    <div class="modal-overlay">
-      <div class="modal-panel">
-        <div class="card-header">
-          <h2>Paiement</h2>
-          <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="closePaymentModal()">✕</button>
-        </div>
-        <div class="card-body pos-payments">
           @if (appliedDiscount() || pointsAmount() > 0) {
-            <div class="pos-cart__totals-row text-sm">
+            <div class="kiosk-payment-summary__line kiosk-payment-summary__line--muted">
+              <span></span>
               <span>Sous-total</span>
               <span>{{ formatMoney(cartTotal()) }}</span>
             </div>
             @if (appliedDiscount(); as applied) {
-              <div class="pos-cart__totals-row text-sm" style="color: var(--color-success-text)">
+              <div class="kiosk-payment-summary__line kiosk-payment-summary__line--muted" style="color: var(--color-success-text)">
+                <span></span>
                 <span>Réduction ({{ applied.discount.code }})</span>
                 <span>−{{ formatMoney(applied.amount_off) }}</span>
               </div>
             }
             @if (pointsAmount() > 0) {
-              <div class="pos-cart__totals-row text-sm" style="color: var(--color-success-text)">
+              <div class="kiosk-payment-summary__line kiosk-payment-summary__line--muted" style="color: var(--color-success-text)">
+                <span></span>
                 <span>Points fidélité ({{ pointsToRedeemInput() }})</span>
                 <span>−{{ formatMoney(pointsAmount()) }}</span>
               </div>
             }
           }
 
-          <div class="pos-cart__totals-row pos-cart__totals-row--grand">
+          <div class="kiosk-payment-summary__total">
             <span>Total à payer</span>
             <span>{{ formatMoney(payableTotal()) }}</span>
           </div>
+        </div>
 
-          @if (!simulatingVariant()) {
-            <div class="pos-client">
-              @if (selectedClient(); as client) {
-                <div class="pos-client__chip">
-                  <span>👤 {{ client.firstname }} {{ client.lastname }}</span>
-                  <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="clearClient()">✕</button>
-                </div>
-              } @else {
-                <div style="display: flex; gap: var(--space-2)">
-                  <input
-                    class="input"
-                    type="tel"
-                    placeholder="N° de téléphone (optionnel)"
-                    [ngModel]="clientPhoneInput()"
-                    (ngModelChange)="clientPhoneInput.set($event)"
-                    (keyup.enter)="lookupClient()"
-                  />
-                  <button type="button" class="btn btn-outline" [disabled]="!clientPhoneInput().trim() || lookingUpClient()" (click)="lookupClient()">
-                    {{ lookingUpClient() ? '...' : 'Se connecter' }}
-                  </button>
-                </div>
-                @if (clientLookupError()) {
-                  <p class="error-text text-sm">{{ clientLookupError() }}</p>
-                }
-
-                <!-- Création de compte client désactivée pour l'instant sur le kiosque (retour
-                     utilisateur) — logique conservée (voir toggleNewClientForm()/submitNewClient()
-                     dans kiosk-order.ts), juste masquée ici. -->
-                @if (showNewClientForm()) {
-                  <div class="pos-client__new-form">
-                    <input class="input" type="text" placeholder="Prénom" [ngModel]="newClientFirstname()" (ngModelChange)="newClientFirstname.set($event)" />
-                    <input class="input" type="text" placeholder="Nom" [ngModel]="newClientLastname()" (ngModelChange)="newClientLastname.set($event)" />
-                    <input class="input" type="text" placeholder="Téléphone (optionnel)" [ngModel]="newClientPhone()" (ngModelChange)="newClientPhone.set($event)" />
-                    <div class="form-actions">
-                      <button type="button" class="btn btn-primary btn-sm" [disabled]="savingClient()" (click)="submitNewClient()">Ajouter</button>
-                      <button type="button" class="btn btn-ghost btn-sm" (click)="toggleNewClientForm()">Annuler</button>
-                    </div>
-                  </div>
-                }
-              }
-            </div>
-
-            @if (selectedClient(); as client) {
-              @if ((client.points_balance ?? 0) > 0) {
-                <div class="field">
-                  <label for="points-redeemed">🎁 Points fidélité ({{ client.points_balance }} pts disponibles)</label>
-                  <input
-                    id="points-redeemed"
-                    class="input"
-                    type="number"
-                    min="0"
-                    [max]="client.points_balance ?? 0"
-                    placeholder="0"
-                    [ngModel]="pointsToRedeemInput()"
-                    (ngModelChange)="setPointsToRedeem($event)"
-                  />
-                </div>
-              }
-            }
-
-            <div class="field">
-              @if (appliedDiscount(); as applied) {
-                <div class="pos-client__chip">
-                  <span>🏷️ {{ applied.discount.code }}</span>
-                  <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeDiscount()">✕</button>
-                </div>
-              } @else {
-                <div style="display: flex; gap: var(--space-2)">
-                  <input
-                    class="input"
-                    type="text"
-                    placeholder="Code promo"
-                    style="text-transform: uppercase"
-                    [ngModel]="discountCodeInput()"
-                    (ngModelChange)="discountCodeInput.set($event)"
-                    (keyup.enter)="applyDiscountCode()"
-                  />
-                  <button
-                    type="button"
-                    class="btn btn-outline"
-                    [disabled]="!discountCodeInput().trim() || checkingDiscount()"
-                    (click)="applyDiscountCode()"
-                  >
-                    {{ checkingDiscount() ? '...' : 'Appliquer' }}
-                  </button>
-                </div>
-              }
-              @if (discountError()) {
-                <p class="error-text text-sm">{{ discountError() }}</p>
-              }
-            </div>
-
-            <div class="tab-group kiosk-payment-methods">
-              <button type="button" class="tab-pill" (click)="choosePaymentVariant('qr')">📱 QR code</button>
-              <button type="button" class="tab-pill" (click)="choosePaymentVariant('terminal')">💳 Terminal Bancontact</button>
+        <div class="pos-client">
+          @if (selectedClient(); as client) {
+            <div class="pos-client__chip">
+              <span>👤 {{ client.firstname }} {{ client.lastname }}</span>
+              <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="clearClient()">✕</button>
             </div>
           } @else {
-            <div class="kiosk-terminal">
-              <div class="pos-keypad__header">
-                <button type="button" class="btn btn-ghost btn-sm" (click)="cancelSimulatedPayment()">← Retour</button>
-              </div>
-
-              <div class="kiosk-terminal__device">
-                @if (simulatingVariant() === 'qr') {
-                  @if (activeCheckout(); as checkout) {
-                    <div class="kiosk-terminal__qr">
-                      <img class="kiosk-terminal__qr-img" [src]="checkout.qr" alt="QR code Bancontact" />
-                    </div>
-                  } @else {
-                    <div class="kiosk-terminal__qr">
-                      <span class="kiosk-terminal__qr-icon">▦</span>
-                    </div>
-                  }
-                } @else {
-                  <p class="kiosk-terminal__card-icon">💳</p>
-                }
-                <p class="kiosk-terminal__amount">{{ formatMoney(payableTotal()) }}</p>
-              </div>
-
-              <p class="kiosk-terminal__status">
-                <span class="kiosk-terminal__dot"></span>
-                <span class="kiosk-terminal__dot"></span>
-                <span class="kiosk-terminal__dot"></span>
-                En attente — Bancontact
-              </p>
-              <p class="text-muted text-sm kiosk-terminal__hint">{{ terminalMessage(simulatingVariant()!) }}</p>
-
-              @if (simulatingVariant() === 'terminal') {
-                <button type="button" class="btn btn-primary btn-lg" [disabled]="submitting()" (click)="confirmSimulatedPayment()">
-                  {{ submitting() ? 'Envoi…' : '✅ Simuler la validation du paiement' }}
-                </button>
-              }
+            <div style="display: flex; gap: var(--space-2)">
+              <input
+                class="input"
+                type="tel"
+                placeholder="N° de téléphone (optionnel)"
+                [ngModel]="clientPhoneInput()"
+                (ngModelChange)="clientPhoneInput.set($event)"
+                (keyup.enter)="lookupClient()"
+              />
+              <button type="button" class="btn btn-outline kiosk-inline-btn" [disabled]="!clientPhoneInput().trim() || lookingUpClient()" (click)="lookupClient()">
+                {{ lookingUpClient() ? '...' : 'Se connecter' }}
+              </button>
             </div>
-          }
+            @if (clientLookupError()) {
+              <p class="error-text text-sm">{{ clientLookupError() }}</p>
+            }
 
-          @if (paymentError()) {
-            <p class="error-text">{{ paymentError() }}</p>
+            <!-- Création de compte client désactivée pour l'instant sur le kiosque (retour
+                 utilisateur) — logique conservée (voir toggleNewClientForm()/submitNewClient()
+                 dans kiosk-order.ts), juste masquée ici. -->
+            @if (showNewClientForm()) {
+              <div class="pos-client__new-form">
+                <input class="input" type="text" placeholder="Prénom" [ngModel]="newClientFirstname()" (ngModelChange)="newClientFirstname.set($event)" />
+                <input class="input" type="text" placeholder="Nom" [ngModel]="newClientLastname()" (ngModelChange)="newClientLastname.set($event)" />
+                <input class="input" type="text" placeholder="Téléphone (optionnel)" [ngModel]="newClientPhone()" (ngModelChange)="newClientPhone.set($event)" />
+                <div class="form-actions">
+                  <button type="button" class="btn btn-primary btn-sm" [disabled]="savingClient()" (click)="submitNewClient()">Ajouter</button>
+                  <button type="button" class="btn btn-ghost btn-sm" (click)="toggleNewClientForm()">Annuler</button>
+                </div>
+              </div>
+            }
           }
         </div>
-        @if (!simulatingVariant()) {
-          <div class="card-footer form-actions">
-            <button type="button" class="btn btn-outline" (click)="closePaymentModal()">Annuler</button>
-          </div>
+
+        @if (selectedClient(); as client) {
+          @if ((client.points_balance ?? 0) > 0) {
+            <div class="field">
+              <label for="points-redeemed">🎁 Points fidélité ({{ client.points_balance }} pts disponibles)</label>
+              <input
+                id="points-redeemed"
+                class="input"
+                type="number"
+                min="0"
+                [max]="client.points_balance ?? 0"
+                placeholder="0"
+                [ngModel]="pointsToRedeemInput()"
+                (ngModelChange)="setPointsToRedeem($event)"
+              />
+            </div>
+          }
+        }
+
+        <div class="field">
+          @if (appliedDiscount(); as applied) {
+            <div class="pos-client__chip">
+              <span>🏷️ {{ applied.discount.code }}</span>
+              <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeDiscount()">✕</button>
+            </div>
+          } @else {
+            <div style="display: flex; gap: var(--space-2)">
+              <input
+                class="input"
+                type="text"
+                placeholder="Code promo"
+                style="text-transform: uppercase"
+                [ngModel]="discountCodeInput()"
+                (ngModelChange)="discountCodeInput.set($event)"
+                (keyup.enter)="applyDiscountCode()"
+              />
+              <button
+                type="button"
+                class="btn btn-outline kiosk-inline-btn"
+                [disabled]="!discountCodeInput().trim() || checkingDiscount()"
+                (click)="applyDiscountCode()"
+              >
+                {{ checkingDiscount() ? '...' : 'Appliquer' }}
+              </button>
+            </div>
+          }
+          @if (discountError()) {
+            <p class="error-text text-sm">{{ discountError() }}</p>
+          }
+        </div>
+
+        <p class="kiosk-payment-methods__label">Choisissez un moyen de paiement</p>
+        <div class="kiosk-payment-methods">
+          <button type="button" class="kiosk-payment-method" (click)="choosePaymentVariant('qr')">
+            <span class="kiosk-payment-method__icon">📱</span>
+            <span>QR code</span>
+          </button>
+          <button type="button" class="kiosk-payment-method" (click)="choosePaymentVariant('terminal')">
+            <span class="kiosk-payment-method__icon">💳</span>
+            <span>Terminal Bancontact</span>
+          </button>
+        </div>
+
+        @if (paymentError()) {
+          <p class="error-text">{{ paymentError() }}</p>
         }
       </div>
+    } @else {
+      <div class="kiosk-terminal">
+        <div class="kiosk-terminal__device">
+          @if (simulatingVariant() === 'qr') {
+            @if (activeCheckout(); as checkout) {
+              <div class="kiosk-terminal__qr">
+                <img class="kiosk-terminal__qr-img" [src]="checkout.qr" alt="QR code Bancontact" />
+              </div>
+            } @else {
+              <div class="kiosk-terminal__qr">
+                <span class="kiosk-terminal__qr-icon">▦</span>
+              </div>
+            }
+          } @else {
+            <p class="kiosk-terminal__card-icon">💳</p>
+          }
+          <p class="kiosk-terminal__amount">{{ formatMoney(payableTotal()) }}</p>
+        </div>
+
+        <p class="kiosk-terminal__status">
+          <span class="kiosk-terminal__dot"></span>
+          <span class="kiosk-terminal__dot"></span>
+          <span class="kiosk-terminal__dot"></span>
+          En attente — Bancontact
+        </p>
+        <p class="text-muted text-sm kiosk-terminal__hint">{{ terminalMessage(simulatingVariant()!) }}</p>
+
+        @if (simulatingVariant() === 'terminal') {
+          <button type="button" class="btn btn-primary btn-lg" [disabled]="submitting()" (click)="confirmSimulatedPayment()">
+            {{ submitting() ? 'Envoi…' : '✅ Simuler la validation du paiement' }}
+          </button>
+        }
+
+        @if (paymentError()) {
+          <p class="error-text">{{ paymentError() }}</p>
+        }
+      </div>
+    }
+  </div>
+} @else {
+  <div class="kiosk-page">
+    <header class="kiosk-topbar">
+      @if (!homeScreen()) {
+        <button type="button" class="kiosk-topbar__back" (click)="goHome()">‹ Retour</button>
+      } @else {
+        <span class="kiosk-topbar__spacer"></span>
+      }
+      <span class="kiosk-topbar__brand">🍽️ ERP v2</span>
+      <span class="kiosk-topbar__spacer"></span>
+    </header>
+
+    @if (homeScreen()) {
+      <div class="kiosk-home">
+        <p class="kiosk-home__eyebrow">Bienvenue</p>
+        <h1 class="kiosk-home__title">Composez votre commande</h1>
+
+        <div class="kiosk-home__grid">
+          <button type="button" class="kiosk-tile" (click)="openCategory(null)">
+            <span class="kiosk-tile__media kiosk-tile__media--all">
+              <span class="kiosk-tile__emoji">🍽️</span>
+            </span>
+            <span class="kiosk-tile__label">Tout</span>
+          </button>
+          @for (category of categories(); track category.id) {
+            <button type="button" class="kiosk-tile" (click)="openCategory(category.id)">
+              <span class="kiosk-tile__media">
+                @if (category.image_url) {
+                  <img [src]="category.image_url" alt="" />
+                } @else {
+                  <span class="kiosk-tile__emoji">{{ category.icon ?? categoryEmoji(category.id) }}</span>
+                }
+              </span>
+              <span class="kiosk-tile__label">{{ category.name }}</span>
+            </button>
+          }
+        </div>
+      </div>
+    } @else {
+      <div class="kiosk-browse">
+        <nav class="kiosk-category-strip">
+          <button type="button" class="kiosk-category-pill" [class.is-active]="selectedCategoryId() === null" (click)="selectedCategoryId.set(null)">
+            <span class="kiosk-category-pill__icon">🍽️</span>
+            <span class="kiosk-category-pill__label">Tout</span>
+          </button>
+          @for (category of categories(); track category.id) {
+            <button
+              type="button"
+              class="kiosk-category-pill"
+              [class.is-active]="selectedCategoryId() === category.id"
+              (click)="selectedCategoryId.set(category.id)"
+            >
+              <span class="kiosk-category-pill__icon">
+                @if (category.image_url) {
+                  <img [src]="category.image_url" alt="" />
+                } @else {
+                  {{ category.icon ?? categoryEmoji(category.id) }}
+                }
+              </span>
+              <span class="kiosk-category-pill__label">{{ category.name }}</span>
+            </button>
+          }
+        </nav>
+
+        <section class="kiosk-menu">
+          <div class="kiosk-menu__grid">
+            @for (product of filteredProducts(); track product.id) {
+              <button type="button" class="kiosk-product-card" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
+                @if (isOutOfStock(product)) {
+                  <span class="kiosk-product-card__ribbon">Rupture de stock</span>
+                } @else if (quantityInCart(product) > 0) {
+                  <span class="kiosk-product-card__badge">{{ quantityInCart(product) }}</span>
+                }
+                <span class="kiosk-product-card__media">
+                  @if (product.image_url) {
+                    <img [src]="product.image_url" alt="" />
+                  } @else {
+                    <span class="kiosk-product-card__emoji">{{ product.icon ?? productEmoji(product) }}</span>
+                  }
+                </span>
+                <span class="kiosk-product-card__name">{{ product.name }}</span>
+                <span class="kiosk-product-card__price">{{ formatMoney(product.price) }}</span>
+                @if (remainingStock(product); as remaining) {
+                  @if (remaining > 0) {
+                    <span class="kiosk-product-card__stock" [class.kiosk-product-card__stock--low]="isLowStock(product)">
+                      {{ remaining }} en stock
+                    </span>
+                  }
+                }
+              </button>
+            } @empty {
+              <p class="text-muted">Aucun produit dans cette catégorie.</p>
+            }
+          </div>
+        </section>
+      </div>
+    }
+
+    <button type="button" class="kiosk-cart-bar" [disabled]="cart().length === 0" (click)="toggleCartDrawer()">
+      <span class="kiosk-cart-bar__icon">
+        🛒
+        @if (cartCount() > 0) {
+          <span class="kiosk-cart-bar__badge">{{ cartCount() }}</span>
+        }
+      </span>
+      <span class="kiosk-cart-bar__label">Mon panier</span>
+      <span class="kiosk-cart-bar__total">{{ formatMoney(cartTotal()) }}</span>
+      <span class="kiosk-cart-bar__chevron" [class.is-open]="cartDrawerOpen()">⌃</span>
+    </button>
+  </div>
+
+  <div class="kiosk-drawer-scrim" [class.is-visible]="cartDrawerOpen()" (click)="cartDrawerOpen.set(false)"></div>
+  <aside class="kiosk-drawer" [class.is-open]="cartDrawerOpen()">
+    <div class="kiosk-drawer__header">
+      <h2>Mon panier</h2>
+      <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="cartDrawerOpen.set(false)">✕</button>
     </div>
-  }
+    <div class="kiosk-drawer__lines">
+      @for (line of cart(); track line.product.id) {
+        <div class="kiosk-drawer-line">
+          <span class="kiosk-drawer-line__thumb">
+            @if (line.product.image_url) {
+              <img [src]="line.product.image_url" alt="" />
+            } @else {
+              {{ line.product.icon ?? productEmoji(line.product) }}
+            }
+          </span>
+          <div class="kiosk-drawer-line__info">
+            <span class="font-semibold">{{ line.product.name }}</span>
+            <span class="text-muted text-xs">{{ formatMoney(line.product.price) }} / unité</span>
+          </div>
+          <div class="qty-stepper">
+            <button type="button" class="qty-stepper__btn" (click)="decrementCartLine(line.product)">−</button>
+            <span>{{ line.quantity }}</span>
+            <button type="button" class="qty-stepper__btn" [disabled]="isOutOfStock(line.product)" (click)="addToCart(line.product)">+</button>
+          </div>
+          <span class="kiosk-drawer-line__total">{{ formatMoney(lineTotal(line)) }}</span>
+        </div>
+      } @empty {
+        <div class="kiosk-cart__empty">
+          <span>🛒</span>
+          <p class="text-muted text-sm">Votre panier est vide — touchez un produit pour l'ajouter.</p>
+        </div>
+      }
+    </div>
+    <div class="kiosk-drawer__footer">
+      <div class="kiosk-drawer__total-row">
+        <span>Total à payer</span>
+        <span>{{ formatMoney(cartTotal()) }}</span>
+      </div>
+      <button type="button" class="btn btn-accent btn-lg kiosk-drawer__pay" [disabled]="cart().length === 0" (click)="openPaymentModal()">
+        💳 Paiement — {{ formatMoney(cartTotal()) }}
+      </button>
+    </div>
+  </aside>
 }

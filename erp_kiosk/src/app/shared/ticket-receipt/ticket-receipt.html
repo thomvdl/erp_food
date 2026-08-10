@@ -1,7 +1,9 @@
 <p class="ticket-receipt__brand">ERP<span>v2</span></p>
 
-<p class="ticket-receipt__center text-xs" style="margin-top: var(--space-4)">
-  Ticket n°{{ ticket.id }} du {{ formatTicketDate(ticket.paid_at) }}
+<p class="ticket-receipt__order-number">N° {{ ticket.id }}</p>
+
+<p class="ticket-receipt__center text-xs" style="margin-top: var(--space-2)">
+  {{ formatTicketDate(ticket.paid_at) }}
 </p>
 <p class="ticket-receipt__center text-xs">
   @if (ticket.client) {

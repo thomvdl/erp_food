@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Param;
 use App\Models\Ticket;
 use Mike42\Escpos\PrintConnectors\NetworkPrintConnector;
 use Mike42\Escpos\Printer;
@@ -16,12 +17,17 @@ use RuntimeException;
  */
 class ThermalReceipt
 {
+    /** Voir Paramètres > Réglages (App\Models\Param, clé/valeur libre) — IP modifiable sans
+     *  redéploiement, contrairement à PRINTER_HOST (config/printer.php) qui reste le filet de
+     *  secours si aucune ligne "ip_printer_kiosk" n'existe encore en base. */
+    private const PARAM_KEY = 'ip_printer_kiosk';
+
     public static function print(Ticket $ticket): void
     {
-        $host = config('printer.host');
+        $host = Param::where('name', self::PARAM_KEY)->value('value') ?: config('printer.host');
 
         if (!$host) {
-            throw new RuntimeException('Aucune imprimante thermique configurée (PRINTER_HOST manquant).');
+            throw new RuntimeException("Aucune imprimante thermique configurée (ajoutez un réglage \"" . self::PARAM_KEY . "\" dans Paramètres > Réglages, ou PRINTER_HOST).");
         }
 
         // Timeout court (5s) plutôt que le défaut de fsockopen (souvent 60s) : une imprimante
@@ -55,6 +61,14 @@ class ThermalReceipt
         }
 
         $printer->feed();
+        // Numéro de commande en gros (x3) — repéré au comptoir de loin, pas juste dans la ligne
+        // de détail "Ticket n°... du ..." en taille normale juste en dessous (voir même logique
+        // .ticket-receipt__order-number côté reçu navigateur/kiosque).
+        $printer->setEmphasis(true);
+        $printer->setTextSize(3, 3);
+        $printer->text('N° ' . $ticket->id . "\n");
+        $printer->setTextSize(1, 1);
+        $printer->setEmphasis(false);
         $printer->text('Ticket n°' . $ticket->id . ' du ' . $ticket->paid_at->format('d/m/Y H:i') . "\n");
         if ($ticket->table) {
             $printer->text('Table ' . $ticket->table->label . "\n");

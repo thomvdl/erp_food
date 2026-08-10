@@ -1,5 +1,10 @@
 <!doctype html>
-<html lang="fr">
+<!-- data-theme="light" : le kiosque impose le thème clair, indépendamment de prefers-color-scheme
+     de l'appareil (voir styles.css — :root:not([data-theme='light']) dans le bloc @media dark
+     saute justement quand cet attribut est posé, c'est le mécanisme prévu pour ça). Une tablette
+     kiosque n'a pas de bascule de thème utilisateur — le design (fond crème/orange) n'a jamais été
+     pensé pour un rendu sombre. -->
+<html lang="fr" data-theme="light">
 <head>
   <meta charset="utf-8">
   <title>Commander — ERP v2</title>

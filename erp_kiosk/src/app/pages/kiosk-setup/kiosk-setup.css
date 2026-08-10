@@ -1,12 +1,14 @@
+/* Même bulbe arrondi que l'écran de commande (voir kiosk-order.css) — cohérence visuelle sur tout
+ *  le parcours kiosque plutôt qu'un dégradé flou. Couleur en dur : une data-URI SVG ne peut pas
+ *  référencer une custom property CSS. */
 :host {
   display: block;
   min-height: 100vh;
-  /* Même fond "pro" que l'écran de commande (voir kiosk-order.css) — cohérence visuelle sur
-   *  tout le parcours kiosque plutôt qu'un gris plat ici et un dégradé là. */
-  background:
-    radial-gradient(1100px circle at 12% -15%, var(--color-primary-100) 0%, transparent 55%),
-    radial-gradient(900px circle at 100% 115%, var(--color-primary-50) 0%, transparent 50%),
-    var(--surface-page);
+  background-color: var(--surface-page);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath fill='%23f5821f' d='M75,0 Q35,50 75,100 L100,100 L100,0 Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center right;
+  background-size: 42vw 100%;
 }
 
 .kiosk-setup {

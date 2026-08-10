@@ -92,4 +92,12 @@ export class KioskService {
   createClient(payload: Pick<Client, 'firstname' | 'lastname'> & Partial<Pick<Client, 'email' | 'phone'>>): Observable<Client> {
     return this.http.post<Client>(`${API_URL}/clients`, payload);
   }
+
+  /** Impression directe sur l'imprimante thermique réseau (voir App\Support\ThermalReceipt côté
+   *  API — IP lue depuis Paramètres > Réglages, clé "ip_printer_kiosk") — même endpoint que
+   *  erp-app/core/ticket.service.ts::printThermal(), un kiosque imprime toujours un Ticket comme
+   *  n'importe quel autre poste. */
+  printThermal(ticketId: number): Observable<void> {
+    return this.http.post<void>(`${API_URL}/tickets/${ticketId}/print-thermal`, {});
+  }
 }
