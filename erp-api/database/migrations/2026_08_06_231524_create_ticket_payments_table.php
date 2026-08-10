@@ -16,6 +16,12 @@ return new class extends Migration
             $table->decimal('value', 8, 2);
             $table->foreignId('payment_method_id')->constrained()->restrictOnDelete();
             $table->foreignId('ticket_id')->constrained()->cascadeOnDelete();
+            // Qui a encaissé ce paiement, et dans quelle session de caisse — permet de valider
+            // les paiements par utilisateur et de reconstituer le montant attendu en espèces à
+            // la fermeture d'une session. Nullable : une vente reste possible sans session de
+            // caisse ouverte.
+            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('cash_session_id')->nullable()->constrained()->nullOnDelete();
             $table->timestamps();
         });
     }

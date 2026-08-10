@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('barcode', 13)->nullable()->unique();
             $table->rememberToken();
             $table->timestamps();
+            $table->boolean('active')->default(true);
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

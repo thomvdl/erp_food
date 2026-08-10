@@ -18,6 +18,11 @@ return new class extends Migration
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
             $table->timestamps();
+            // Solde de points fidélité (voir App\Support\LoyaltyPoints) — jamais dans le
+            // Fillable de Client, mis à jour uniquement via LoyaltyPoints::apply(). Dénormalisé
+            // plutôt qu'un SUM recalculé sur client_point_movements à chaque lecture : affiché à
+            // chaque sélection de client au paiement, un aggregate serait inutilement coûteux.
+            $table->integer('points_balance')->default(0);
         });
     }
 

@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('slug')->unique();
             $table->decimal('value', 5, 2);
             $table->timestamps();
+            $table->boolean('active')->default(true);
         });
     }
 

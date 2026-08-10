@@ -28,6 +28,13 @@ return new class extends Migration
             $table->foreignId('client_id')->nullable()->constrained('clients')->nullOnDelete();
             $table->foreignId('discount_id')->nullable()->constrained('discounts')->nullOnDelete();
             $table->decimal('discount_amount', 8, 2)->nullable();
+            // Même principe que discount_id/discount_amount : le variant QR paie de façon
+            // asynchrone (webhook Stripe), les points doivent donc être résolus/figés au moment
+            // du scan (KioskCheckoutController::store) — le webhook
+            // (StripeWebhookController::markPaid) ne recalcule jamais.
+            $table->integer('points_earned')->nullable();
+            $table->integer('points_redeemed')->nullable();
+            $table->decimal('points_redeemed_amount', 8, 2)->nullable();
             $table->json('lines');
             $table->decimal('total', 8, 2);
             // Pas de contrainte FK — même raison que orders.ticket_id (voir migration

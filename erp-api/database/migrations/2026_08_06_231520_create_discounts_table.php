@@ -24,6 +24,10 @@ return new class extends Migration
             $table->string('code')->unique();
             $table->string('type');
             $table->decimal('value', 8, 2)->nullable();
+            // Seuil d'éligibilité optionnel : montant d'achat minimum requis pour utiliser le
+            // code (voir DiscountCalculator::amountOff), en dessous le code est refusé. Une fois
+            // atteint, la réduction s'applique toujours en entier. Null = pas de seuil.
+            $table->decimal('minimum_total', 8, 2)->nullable();
             $table->foreignId('free_product_id')->nullable()->constrained('products')->nullOnDelete();
             $table->date('starts_at');
             $table->date('ends_at');

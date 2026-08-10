@@ -15,7 +15,13 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('slug')->unique();
+            // "C'est dans station qu'on doit pouvoir choisir dans quelle passe ça doit aller"
+            // (voir Readme.md) : stations.passe_id, PLUSIEURS stations peuvent partager un même
+            // passe — modélise mieux la réalité d'une cuisine (un même point d'expédition dessert
+            // souvent plusieurs postes).
+            $table->foreignId('passe_id')->nullable()->constrained('passes')->nullOnDelete();
             $table->timestamps();
+            $table->boolean('active')->default(true);
         });
     }
 

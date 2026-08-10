@@ -16,6 +16,9 @@ return new class extends Migration
             $table->string('name');
             $table->string('slug')->unique();
             $table->timestamps();
+            $table->boolean('active')->default(true);
+            $table->string('icon', 8)->nullable();
+            $table->string('image_path')->nullable();
         });
     }
 
