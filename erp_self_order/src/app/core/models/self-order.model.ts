@@ -8,6 +8,10 @@ export interface SelfOrderCategory {
   id: number;
   name: string;
   slug: string;
+  /** Déjà renvoyés par l'API (ProductCategory::$appends côté modèle, voir icon/image_url sur
+   *  SelfOrderProduct) — juste absents du typage jusqu'ici, utilisés par l'accueil en tuiles. */
+  icon: string | null;
+  image_url: string | null;
 }
 
 export interface SelfOrderProduct {

@@ -1,7 +1,14 @@
+/* Même bulbe arrondi que order.css/kiosk-login.css — cohérence visuelle sur tout le parcours
+   (accueil scan QR jusqu'au panier). Couleur en dur : une data-URI SVG ne peut pas référencer
+   une custom property CSS. */
 :host {
   display: block;
   min-height: 100dvh;
-  background: var(--surface-page);
+  background-color: var(--surface-page);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath fill='%23f5821f' d='M75,0 Q35,50 75,100 L100,100 L100,0 Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center right;
+  background-size: 42vw 100%;
 }
 
 .home-state {

@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { SelfOrderService } from '../../core/self-order.service';
 import { ProductStockEchoService } from '../../core/product-stock-echo.service';
 import { SelfOrderContext, SelfOrderProduct } from '../../core/models/self-order.model';
@@ -16,6 +16,8 @@ interface CategoryFilter {
   id: number | null;
   name: string;
   count: number;
+  icon: string | null;
+  image_url: string | null;
 }
 
 const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜', '🥐', '🍦', '🥙'];
@@ -37,6 +39,7 @@ const LOW_STOCK_THRESHOLD = 3;
 })
 export class Order {
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly selfOrderService = inject(SelfOrderService);
   private readonly productStockEcho = inject(ProductStockEchoService);
 
@@ -50,6 +53,11 @@ export class Order {
   readonly selectedCategoryId = signal<number | null>(null);
   readonly numberOfGuests = signal<number | null>(null);
 
+  /** Écran d'accueil en tuiles catégories avant la grille produit — même pattern que
+   *  kiosk-order.ts (homeScreen). Vrai à l'arrivée sur le menu, puis basculé une fois pour la
+   *  session (voir openCategory()) : contrairement au kiosque, un client self_order ne revient
+   *  jamais "à l'accueil" entre deux commandes (une seule table, une seule visite). */
+  readonly homeScreen = signal(true);
   readonly showCart = signal(false);
   readonly submitting = signal(false);
   readonly submitError = signal<string | null>(null);
@@ -62,7 +70,7 @@ export class Order {
       const key = category?.id ?? null;
       const existing = byId.get(key);
       if (existing) existing.count++;
-      else byId.set(key, { id: key, name: category?.name ?? 'Autres', count: 1 });
+      else byId.set(key, { id: key, name: category?.name ?? 'Autres', count: 1, icon: category?.icon ?? null, image_url: category?.image_url ?? null });
     }
     return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
   });
@@ -122,6 +130,30 @@ export class Order {
   productEmoji(product: SelfOrderProduct): string {
     const categoryId = product.category?.id ?? product.id;
     return PRODUCT_EMOJIS[categoryId % PRODUCT_EMOJIS.length];
+  }
+
+  /** Icône de la tuile catégorie — même logique que productEmoji() (stable par id), 🍽️ pour
+   *  "Tout"/catégories sans id ("Autres"), pour rester cohérent visuellement avec les vignettes
+   *  produit de la même catégorie. */
+  categoryEmoji(categoryId: number | null): string {
+    return categoryId === null ? '🍽️' : PRODUCT_EMOJIS[categoryId % PRODUCT_EMOJIS.length];
+  }
+
+  /** Tuile catégorie de l'accueil tapée (ou "Tout") — voir homeScreen. */
+  openCategory(categoryId: number | null): void {
+    this.selectedCategoryId.set(categoryId);
+    this.homeScreen.set(false);
+  }
+
+  goHome(): void {
+    this.homeScreen.set(true);
+    this.selectedCategoryId.set(null);
+  }
+
+  /** Quitte cette table pour revenir à l'écran de scan (voir app.routes.ts, route ''/'' —
+   *  home.ts). Distinct de goHome() ci-dessus, qui reste sur cette même table. */
+  backToScan(): void {
+    this.router.navigateByUrl('/');
   }
 
   quantityInCart(product: SelfOrderProduct): number {
@@ -216,5 +248,7 @@ export class Order {
 
   orderAgain(): void {
     this.confirmedOrderId.set(null);
+    this.homeScreen.set(true);
+    this.selectedCategoryId.set(null);
   }
 }

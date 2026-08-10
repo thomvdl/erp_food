@@ -1,24 +1,597 @@
+/* ==========================================================================
+   Écran de commande — mêmes patterns visuels que kiosk-order.css (accueil en
+   tuiles catégories, bandeau de pastilles + grille produit, panier en tiroir
+   plein écran) adaptés à self_order : pas de paiement/client/fidélité ici
+   (voir order.ts), juste une note par ligne et le nombre de convives en plus.
+   ========================================================================== */
+
+/* Bulbe orange arrondi accroché au bord droit — même détail que kiosk-order.css
+   (:host). Couleur en dur (pas var(--color-primary-fill)) — une data-URI SVG est une
+   chaîne figée à la compilation CSS, elle ne peut pas référencer une custom property.
+   Contrairement à kiosk-order.css (height: 100dvh + overflow: hidden, régions scrollables
+   internes) : self_order tourne dans un navigateur mobile normal, pas sur un appareil dédié —
+   min-height + scroll de page classique, pour rester robuste au redimensionnement de la barre
+   d'adresse mobile (Safari/Chrome) plutôt que de dépendre d'un layout à hauteur figée. */
 :host {
   display: block;
   min-height: 100dvh;
-  background: var(--surface-page);
-  padding: var(--space-4);
-  padding-bottom: calc(var(--space-4) + 72px);
-  box-sizing: border-box;
+  background-color: var(--surface-page);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath fill='%23f5821f' d='M85,0 Q60,50 85,100 L100,100 L100,0 Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center right;
+  background-size: 20vw 100%;
 }
+
+/* ---------- Page ---------- */
+
+.self-order-page {
+  min-height: 100dvh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.self-order-topbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+
+.self-order-topbar__brand {
+  font-weight: 800;
+  font-size: var(--font-size-lg);
+  letter-spacing: -0.01em;
+}
+
+.self-order-topbar__back {
+  background: transparent;
+  border: none;
+  color: var(--color-primary-fill);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  padding: var(--space-2) 0;
+}
+
+.self-order-topbar__spacer {
+  flex: 1 1 0;
+  min-width: 2rem;
+}
+
+/* ---------- Accueil : grille de catégories ---------- */
+
+.self-order-home {
+  flex: 1;
+  padding: var(--space-2) var(--space-5) calc(96px + var(--space-5));
+}
+
+.self-order-home__eyebrow {
+  color: var(--color-primary-fill);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 var(--space-1);
+}
+
+.self-order-home__title {
+  margin: 0 0 var(--space-5);
+  font-size: var(--font-size-3xl);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.self-order-home__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-4);
+}
+
+.self-order-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.self-order-tile__media {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.self-order-tile__media--all {
+  background: var(--color-primary-100);
+}
+
+.self-order-tile:active .self-order-tile__media {
+  transform: scale(0.95);
+}
+
+.self-order-tile__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.self-order-tile__emoji {
+  font-size: 2.75rem;
+  line-height: 1;
+}
+
+.self-order-tile__label {
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+}
+
+/* ---------- Navigation catégorie : bandeau + grille produit ---------- */
+
+.self-order-browse {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.self-order-category-strip {
+  flex-shrink: 0;
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding: 0 var(--space-5) var(--space-2);
+}
+
+.self-order-category-pill {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  width: 76px;
+  padding: var(--space-2) 0;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.self-order-category-pill__icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.self-order-category-pill__icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.self-order-category-pill__label {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.self-order-category-pill.is-active .self-order-category-pill__icon {
+  background: var(--color-primary-fill);
+  box-shadow: var(--shadow-md);
+}
+
+.self-order-category-pill.is-active .self-order-category-pill__label {
+  color: var(--color-primary-fill);
+}
+
+.self-order-menu {
+  flex: 1;
+  /* padding-top : sans lui, le badge de quantité (top: -6px, voir __badge) de la première
+     rangée de produits se fait couper net par le bord du conteneur. */
+  padding: 10px var(--space-5) calc(96px + var(--space-5));
+}
+
+.self-order-menu__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-4);
+}
+
+.self-order-product-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: transform var(--transition-fast);
+}
+
+.self-order-product-card:active {
+  transform: scale(0.97);
+}
+
+.self-order-product-card:disabled {
+  cursor: not-allowed;
+}
+
+.self-order-product-card:disabled .self-order-product-card__media {
+  filter: grayscale(70%);
+  opacity: 0.65;
+}
+
+.self-order-product-card__media {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-card-muted);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  margin-bottom: var(--space-2);
+}
+
+.self-order-product-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.self-order-product-card__emoji {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.self-order-product-card__ribbon {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  padding: 0.2rem 0.6rem;
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+}
+
+.self-order-product-card__badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent-500);
+  color: #ffffff;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-sm);
+  font-weight: 800;
+  box-shadow: var(--shadow-md);
+}
+
+.self-order-product-card__name {
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  line-height: 1.25;
+}
+
+.self-order-product-card__price {
+  color: var(--color-primary-fill);
+  font-weight: 800;
+  font-size: var(--font-size-base);
+}
+
+.self-order-product-card__stock {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.self-order-product-card__stock--low {
+  color: var(--color-warning-text);
+  font-weight: 700;
+}
+
+/* ---------- Barre panier repliée ---------- */
+
+.self-order-cart-bar {
+  position: fixed;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-sidebar);
+  color: var(--text-on-sidebar);
+  border: none;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-lg);
+  font-family: inherit;
+  cursor: pointer;
+  max-width: 720px;
+  margin: 0 auto;
+  transition: transform var(--transition-fast), opacity var(--transition-fast);
+}
+
+.self-order-cart-bar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.self-order-cart-bar:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+.self-order-cart-bar__icon {
+  position: relative;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.self-order-cart-bar__badge {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 0.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent-500);
+  color: #ffffff;
+  border-radius: var(--radius-pill);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.self-order-cart-bar__label {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  text-align: left;
+}
+
+.self-order-cart-bar__total {
+  font-weight: 800;
+  font-size: var(--font-size-lg);
+}
+
+/* ---------- Tiroir "Mon panier" ---------- */
+
+.self-order-drawer-scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--surface-overlay);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-base);
+  z-index: 30;
+}
+
+.self-order-drawer-scrim.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.self-order-drawer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 31;
+  max-height: 82dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-card);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: var(--shadow-lg);
+  transform: translateY(100%);
+  transition: transform var(--transition-base);
+}
+
+.self-order-drawer.is-open {
+  transform: translateY(0);
+}
+
+.self-order-drawer__header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-5) var(--space-5) var(--space-3);
+}
+
+.self-order-drawer__header h2 {
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+}
+
+.self-order-drawer__lines {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Empêche un swipe qui arrive en bout de liste de "remonter" la page derrière le tiroir (scroll
+     chaining par défaut du navigateur) — le tiroir est en position: fixed, indépendant du flux de
+     la page, mais le geste de scroll continue sinon vers le premier ancêtre scrollable trouvé. */
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0 var(--space-5) var(--space-3);
+}
+
+.self-order-drawer__guests {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.self-order-drawer-line {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px dashed var(--border-color);
+}
+
+.self-order-drawer-line:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.self-order-drawer-line__row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.self-order-drawer-line__thumb {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: var(--surface-card-muted);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.self-order-drawer-line__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.self-order-drawer-line__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.self-order-drawer-line__total {
+  font-weight: 800;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.self-order-drawer-line__note {
+  font-size: var(--font-size-xs);
+  padding: 0.4rem 0.75rem;
+}
+
+.self-order-cart__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-3);
+  text-align: center;
+}
+
+.self-order-cart__empty span {
+  font-size: 2.5rem;
+  opacity: 0.5;
+}
+
+.self-order-drawer__footer {
+  flex-shrink: 0;
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  border-top: 1px solid var(--border-color);
+}
+
+.self-order-drawer__total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-weight: 800;
+  font-size: var(--font-size-xl);
+  margin-bottom: var(--space-3);
+}
+
+.self-order-drawer__submit {
+  width: 100%;
+}
+
+.qty-stepper__btn {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+}
+
+/* ---------- États pleine page (chargement / erreur / fermé / confirmation) ---------- */
 
 .self-order-state {
   min-height: 100dvh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: var(--space-3);
   text-align: center;
   padding: var(--space-5);
+  box-sizing: border-box;
+}
+
+/* Écran confirmation : même bulbe arrondi que :host (voir plus haut), en plus grand — c'est
+   l'écran "célébration", la marque doit y être plus présente que sur le reste du parcours. */
+.self-order-state--success {
+  background-color: var(--surface-page);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath fill='%23f5821f' d='M65,0 Q20,50 65,100 L100,100 L100,0 Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center right;
+  background-size: 55vw 100%;
 }
 
 .self-order-confirm {
   max-width: 420px;
+  width: 100%;
   text-align: center;
+  margin-top: 0;
+  border-radius: var(--radius-xl);
 }
 
 .self-order-confirm__icon {
@@ -26,55 +599,52 @@
   margin: 0 0 var(--space-2);
 }
 
-.self-order-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.self-order-header h1 {
-  margin: 0;
-  font-size: var(--font-size-2xl);
-}
-
-.self-order-tabs {
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  padding-bottom: var(--space-1);
-}
-
-.self-order-grid {
-  max-height: none;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  overflow-y: visible;
-  padding: 0;
-}
-
-.self-order-cart-bar {
-  position: fixed;
-  left: var(--space-4);
-  right: var(--space-4);
-  bottom: var(--space-4);
-  display: flex;
+.self-order-confirm__seal {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
-  background: var(--color-primary-fill);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-pill);
-  box-shadow: var(--shadow-lg);
-  font-weight: 700;
-  cursor: pointer;
-  max-width: 720px;
-  margin: 0 auto;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto var(--space-3);
+  border-radius: 50%;
+  background: var(--color-primary-100);
+  color: var(--color-primary-fill);
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: var(--shadow-md);
+  animation: self-order-seal-pop 400ms ease-out;
 }
 
-.self-order-cart-line {
+@keyframes self-order-seal-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.self-order-confirm__reference {
+  margin-top: var(--space-3);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.self-order-confirm .card-footer {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+@media (max-width: 420px) {
+  .self-order-home__grid,
+  .self-order-menu__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }

@@ -17,16 +17,17 @@
     </div>
   </div>
 } @else if (confirmedOrderId()) {
-  <div class="self-order-state">
+  <div class="self-order-state self-order-state--success">
     <div class="card card-elevated self-order-confirm">
       <div class="card-body">
-        <p class="self-order-confirm__icon">✅</p>
+        <span class="self-order-confirm__seal">✓</span>
         <h1>Commande envoyée !</h1>
         <p class="text-muted">Un serveur va la valider et l'apporter à votre table.</p>
-        <p class="text-muted text-sm">Référence #{{ confirmedOrderId() }}</p>
+        <p class="self-order-confirm__reference">Référence #{{ confirmedOrderId() }}</p>
       </div>
       <div class="card-footer">
         <button type="button" class="btn btn-primary" (click)="orderAgain()">Commander autre chose</button>
+        <button type="button" class="btn btn-outline" (click)="backToScan()">Retour au QR code</button>
       </div>
     </div>
   </div>
@@ -36,134 +37,180 @@
   </div>
 } @else {
   <div class="self-order-page">
-    <header class="self-order-header">
-      <div>
-        <h1>{{ context()?.table?.label }}</h1>
-        @if (context()?.table?.room_name) {
-          <p class="text-muted text-sm">{{ context()?.table?.room_name }}</p>
-        }
-      </div>
+    <header class="self-order-topbar">
+      @if (!homeScreen()) {
+        <button type="button" class="self-order-topbar__back" (click)="goHome()">‹ Retour</button>
+      } @else {
+        <button type="button" class="self-order-topbar__back" (click)="backToScan()">‹ Autre table</button>
+      }
+      <span class="self-order-topbar__brand">🍽️ {{ context()?.table?.label }}</span>
+      <span class="self-order-topbar__spacer"></span>
     </header>
 
-    <div class="tab-group self-order-tabs">
-      <button type="button" class="tab-pill" [class.is-active]="selectedCategoryId() === null" (click)="selectedCategoryId.set(null)">
-        Tout
-        <span class="tab-pill__count">{{ context()?.products?.length }}</span>
-      </button>
-      @for (category of categories(); track category.id) {
-        <button type="button" class="tab-pill" [class.is-active]="selectedCategoryId() === category.id" (click)="selectedCategoryId.set(category.id)">
-          {{ category.name }}
-          <span class="tab-pill__count">{{ category.count }}</span>
-        </button>
-      }
-    </div>
+    @if (homeScreen()) {
+      <div class="self-order-home">
+        <p class="self-order-home__eyebrow">{{ context()?.table?.room_name ?? 'Bienvenue' }}</p>
+        <h1 class="self-order-home__title">Composez votre commande</h1>
 
-    <div class="pos-grid self-order-grid">
-      @for (product of filteredProducts(); track product.id) {
-        <button type="button" class="pos-product-card" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
-          @if (isOutOfStock(product)) {
-            <span class="pos-product-card__out-of-stock">Rupture de stock</span>
-          } @else if (quantityInCart(product) > 0) {
-            <span class="pos-product-card__badge">{{ quantityInCart(product) }}</span>
-          }
-          @if (product.image_url) {
-            <img class="pos-product-card__thumb" style="width: 2rem; height: 2rem; object-fit: cover; border-radius: var(--radius-sm)" [src]="product.image_url" alt="" />
-          } @else {
-            <span class="pos-product-card__thumb">{{ product.icon ?? productEmoji(product) }}</span>
-          }
-          <span class="pos-product-card__name">{{ product.name }}</span>
-          @if (product.description) {
-            <span class="text-muted text-xs">{{ product.description }}</span>
-          }
-          <span class="pos-product-card__price">{{ formatMoney(product.price) }}</span>
-          @if (remainingStock(product); as remaining) {
-            @if (remaining > 0) {
-              <span class="pos-product-card__stock" [class.pos-product-card__stock--low]="isLowStock(product)">
-                {{ remaining }} en stock
-              </span>
-            }
-          }
-        </button>
-      }
-    </div>
-
-    @if (cartCount() > 0) {
-      <button type="button" class="self-order-cart-bar" (click)="showCart.set(true)">
-        <span>🛒 {{ cartCount() }} article{{ cartCount() > 1 ? 's' : '' }}</span>
-        <span>{{ formatMoney(cartTotal()) }}</span>
-        <span>Voir le panier →</span>
-      </button>
-    }
-  </div>
-
-  @if (showCart()) {
-    <div class="modal-overlay" (click)="showCart.set(false)">
-      <div class="modal-panel modal-panel--wide" (click)="$event.stopPropagation()">
-        <div class="card-header">
-          <h2>Votre panier</h2>
-          <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="showCart.set(false)">✕</button>
-        </div>
-        <div class="card-body pos-cart__body">
-          <div class="field">
-            <label>Nombre de convives (optionnel)</label>
-            <input
-              class="input"
-              type="number"
-              min="1"
-              placeholder="Ex : 2"
-              [ngModel]="numberOfGuests()"
-              (ngModelChange)="numberOfGuests.set($event ? +$event : null)"
-            />
-          </div>
-
-          <div class="pos-cart__lines">
-            @for (line of cart(); track line.product.id) {
-              <div class="self-order-cart-line">
-                <div class="pos-cart__line">
-                  <div class="pos-cart__line-info">
-                    <span class="font-medium">{{ line.product.name }}</span>
-                    <span class="text-muted text-xs">{{ formatMoney(line.product.price) }} / unité</span>
-                  </div>
-                  <div class="qty-stepper">
-                    <button type="button" class="qty-stepper__btn" (click)="decrementLine(line.product)">−</button>
-                    <span>{{ line.quantity }}</span>
-                    <button type="button" class="qty-stepper__btn" [disabled]="isOutOfStock(line.product)" (click)="addToCart(line.product)">+</button>
-                  </div>
-                  <span class="pos-cart__line-total">{{ formatMoney(lineTotal(line)) }}</span>
-                  <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeLine(line.product)">✕</button>
-                </div>
-                <input
-                  class="input"
-                  type="text"
-                  placeholder="Ajouter une note (ex : sans oignon)"
-                  [ngModel]="line.note"
-                  (ngModelChange)="updateNote(line.product, $event)"
-                />
-              </div>
-            } @empty {
-              <p class="text-muted text-sm">Le panier est vide.</p>
-            }
-          </div>
-
-          <hr class="divider" />
-
-          <div class="pos-cart__totals">
-            <div class="pos-cart__totals-row pos-cart__totals-row--grand">
-              <span>Total</span>
-              <span>{{ formatMoney(cartTotal()) }}</span>
-            </div>
-          </div>
-
-          @if (submitError()) {
-            <p class="error-text">{{ submitError() }}</p>
-          }
-        </div>
-        <div class="card-footer form-actions">
-          <button type="button" class="btn btn-primary btn-lg" [disabled]="cart().length === 0 || submitting()" (click)="submit()">
-            {{ submitting() ? 'Envoi…' : 'Envoyer la commande' }}
+        <div class="self-order-home__grid">
+          <button type="button" class="self-order-tile" (click)="openCategory(null)">
+            <span class="self-order-tile__media self-order-tile__media--all">
+              <span class="self-order-tile__emoji">🍽️</span>
+            </span>
+            <span class="self-order-tile__label">Tout</span>
           </button>
+          @for (category of categories(); track category.id) {
+            <button type="button" class="self-order-tile" (click)="openCategory(category.id)">
+              <span class="self-order-tile__media">
+                @if (category.image_url) {
+                  <img [src]="category.image_url" alt="" />
+                } @else {
+                  <span class="self-order-tile__emoji">{{ category.icon ?? categoryEmoji(category.id) }}</span>
+                }
+              </span>
+              <span class="self-order-tile__label">{{ category.name }}</span>
+            </button>
+          }
         </div>
       </div>
+    } @else {
+      <div class="self-order-browse">
+        <nav class="self-order-category-strip">
+          <button type="button" class="self-order-category-pill" [class.is-active]="selectedCategoryId() === null" (click)="selectedCategoryId.set(null)">
+            <span class="self-order-category-pill__icon">🍽️</span>
+            <span class="self-order-category-pill__label">Tout</span>
+          </button>
+          @for (category of categories(); track category.id) {
+            <button
+              type="button"
+              class="self-order-category-pill"
+              [class.is-active]="selectedCategoryId() === category.id"
+              (click)="selectedCategoryId.set(category.id)"
+            >
+              <span class="self-order-category-pill__icon">
+                @if (category.image_url) {
+                  <img [src]="category.image_url" alt="" />
+                } @else {
+                  {{ category.icon ?? categoryEmoji(category.id) }}
+                }
+              </span>
+              <span class="self-order-category-pill__label">{{ category.name }}</span>
+            </button>
+          }
+        </nav>
+
+        <section class="self-order-menu">
+          <div class="self-order-menu__grid">
+            @for (product of filteredProducts(); track product.id) {
+              <button type="button" class="self-order-product-card" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
+                @if (isOutOfStock(product)) {
+                  <span class="self-order-product-card__ribbon">Rupture de stock</span>
+                } @else if (quantityInCart(product) > 0) {
+                  <span class="self-order-product-card__badge">{{ quantityInCart(product) }}</span>
+                }
+                <span class="self-order-product-card__media">
+                  @if (product.image_url) {
+                    <img [src]="product.image_url" alt="" />
+                  } @else {
+                    <span class="self-order-product-card__emoji">{{ product.icon ?? productEmoji(product) }}</span>
+                  }
+                </span>
+                <span class="self-order-product-card__name">{{ product.name }}</span>
+                <span class="self-order-product-card__price">{{ formatMoney(product.price) }}</span>
+                @if (remainingStock(product); as remaining) {
+                  @if (remaining > 0) {
+                    <span class="self-order-product-card__stock" [class.self-order-product-card__stock--low]="isLowStock(product)">
+                      {{ remaining }} en stock
+                    </span>
+                  }
+                }
+              </button>
+            } @empty {
+              <p class="text-muted">Aucun produit dans cette catégorie.</p>
+            }
+          </div>
+        </section>
+      </div>
+    }
+
+    <button type="button" class="self-order-cart-bar" [disabled]="cart().length === 0" (click)="showCart.set(true)">
+      <span class="self-order-cart-bar__icon">
+        🛒
+        @if (cartCount() > 0) {
+          <span class="self-order-cart-bar__badge">{{ cartCount() }}</span>
+        }
+      </span>
+      <span class="self-order-cart-bar__label">Mon panier</span>
+      <span class="self-order-cart-bar__total">{{ formatMoney(cartTotal()) }}</span>
+    </button>
+  </div>
+
+  <div class="self-order-drawer-scrim" [class.is-visible]="showCart()" (click)="showCart.set(false)"></div>
+  <aside class="self-order-drawer" [class.is-open]="showCart()">
+    <div class="self-order-drawer__header">
+      <h2>Mon panier</h2>
+      <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="showCart.set(false)">✕</button>
     </div>
-  }
+    <div class="self-order-drawer__lines">
+      <div class="field self-order-drawer__guests">
+        <label>Nombre de convives (optionnel)</label>
+        <input
+          class="input"
+          type="number"
+          min="1"
+          placeholder="Ex : 2"
+          [ngModel]="numberOfGuests()"
+          (ngModelChange)="numberOfGuests.set($event ? +$event : null)"
+        />
+      </div>
+
+      @for (line of cart(); track line.product.id) {
+        <div class="self-order-drawer-line">
+          <span class="self-order-drawer-line__thumb">
+            @if (line.product.image_url) {
+              <img [src]="line.product.image_url" alt="" />
+            } @else {
+              {{ line.product.icon ?? productEmoji(line.product) }}
+            }
+          </span>
+          <div class="self-order-drawer-line__row">
+            <div class="self-order-drawer-line__info">
+              <span class="font-semibold">{{ line.product.name }}</span>
+              <span class="text-muted text-xs">{{ formatMoney(line.product.price) }} / unité</span>
+            </div>
+            <div class="qty-stepper">
+              <button type="button" class="qty-stepper__btn" (click)="decrementLine(line.product)">−</button>
+              <span>{{ line.quantity }}</span>
+              <button type="button" class="qty-stepper__btn" [disabled]="isOutOfStock(line.product)" (click)="addToCart(line.product)">+</button>
+            </div>
+            <span class="self-order-drawer-line__total">{{ formatMoney(lineTotal(line)) }}</span>
+          </div>
+          <input
+            class="input self-order-drawer-line__note"
+            type="text"
+            placeholder="Ajouter une note (ex : sans oignon)"
+            [ngModel]="line.note"
+            (ngModelChange)="updateNote(line.product, $event)"
+          />
+        </div>
+      } @empty {
+        <div class="self-order-cart__empty">
+          <span>🛒</span>
+          <p class="text-muted text-sm">Votre panier est vide — touchez un produit pour l'ajouter.</p>
+        </div>
+      }
+    </div>
+    <div class="self-order-drawer__footer">
+      @if (submitError()) {
+        <p class="error-text text-sm">{{ submitError() }}</p>
+      }
+      <div class="self-order-drawer__total-row">
+        <span>Total</span>
+        <span>{{ formatMoney(cartTotal()) }}</span>
+      </div>
+      <button type="button" class="btn btn-primary btn-lg self-order-drawer__submit" [disabled]="cart().length === 0 || submitting()" (click)="submit()">
+        {{ submitting() ? 'Envoi…' : 'Envoyer la commande' }}
+      </button>
+    </div>
+  </aside>
 }
