@@ -53,12 +53,6 @@
         <h1 class="self-order-home__title">Composez votre commande</h1>
 
         <div class="self-order-home__grid">
-          <button type="button" class="self-order-tile" (click)="openCategory(null)">
-            <span class="self-order-tile__media self-order-tile__media--all">
-              <span class="self-order-tile__emoji">🍽️</span>
-            </span>
-            <span class="self-order-tile__label">Tout</span>
-          </button>
           @for (category of categories(); track category.id) {
             <button type="button" class="self-order-tile" (click)="openCategory(category.id)">
               <span class="self-order-tile__media">
@@ -76,10 +70,6 @@
     } @else {
       <div class="self-order-browse">
         <nav class="self-order-category-strip">
-          <button type="button" class="self-order-category-pill" [class.is-active]="selectedCategoryId() === null" (click)="selectedCategoryId.set(null)">
-            <span class="self-order-category-pill__icon">🍽️</span>
-            <span class="self-order-category-pill__label">Tout</span>
-          </button>
           @for (category of categories(); track category.id) {
             <button
               type="button"

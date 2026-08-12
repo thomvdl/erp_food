@@ -118,10 +118,6 @@
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.self-order-tile__media--all {
-  background: var(--color-primary-100);
-}
-
 .self-order-tile:active .self-order-tile__media {
   transform: scale(0.95);
 }

@@ -23,8 +23,12 @@ interface CategoryFilter {
   id: number | null;
   name: string;
   count: number;
+  /** Voir SelfOrderCategory.icon/image_url — absents pour le bucket "Autres" (id null, produits
+   *  sans catégorie, pas une vraie catégorie). */
   icon: string | null;
   image_url: string | null;
+  /** Voir SelfOrderCategory.position — MAX_SAFE_INTEGER pour "Autres" afin qu'il reste en dernier. */
+  position: number;
 }
 
 const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜', '🥐', '🍦', '🥙'];
@@ -92,9 +96,17 @@ export class Order {
       const key = category?.id ?? null;
       const existing = byId.get(key);
       if (existing) existing.count++;
-      else byId.set(key, { id: key, name: category?.name ?? 'Autres', count: 1, icon: category?.icon ?? null, image_url: category?.image_url ?? null });
+      else
+        byId.set(key, {
+          id: key,
+          name: category?.name ?? 'Autres',
+          count: 1,
+          icon: category?.icon ?? null,
+          image_url: category?.image_url ?? null,
+          position: category?.position ?? Number.MAX_SAFE_INTEGER,
+        });
     }
-    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(byId.values()).sort((a, b) => a.position - b.position);
   });
 
   readonly filteredProducts = computed(() => {
@@ -154,14 +166,15 @@ export class Order {
     return PRODUCT_EMOJIS[categoryId % PRODUCT_EMOJIS.length];
   }
 
-  /** Icône de la tuile catégorie — même logique que productEmoji() (stable par id), 🍽️ pour
-   *  "Tout"/catégories sans id ("Autres"), pour rester cohérent visuellement avec les vignettes
+  /** Icône de la tuile catégorie — même logique que productEmoji() (stable par id), 🍽️ pour le
+   *  bucket "Autres" (catégorie null), pour rester cohérent visuellement avec les vignettes
    *  produit de la même catégorie. */
   categoryEmoji(categoryId: number | null): string {
     return categoryId === null ? '🍽️' : PRODUCT_EMOJIS[categoryId % PRODUCT_EMOJIS.length];
   }
 
-  /** Tuile catégorie de l'accueil tapée (ou "Tout") — voir homeScreen. */
+  /** Tuile catégorie de l'accueil tapée — categoryId est null pour le bucket "Autres" (produits
+   *  sans catégorie), voir `categories` computed. Voir homeScreen. */
   openCategory(categoryId: number | null): void {
     this.selectedCategoryId.set(categoryId);
     this.homeScreen.set(false);

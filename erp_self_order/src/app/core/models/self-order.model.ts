@@ -12,6 +12,8 @@ export interface SelfOrderCategory {
    *  SelfOrderProduct) — juste absents du typage jusqu'ici, utilisés par l'accueil en tuiles. */
   icon: string | null;
   image_url: string | null;
+  /** Ordre d'affichage manuel (croissant) — voir ProductCategoryController::index côté API. */
+  position: number;
 }
 
 /** Un produit éligible dans un groupe de choix de menu — juste de quoi l'afficher/l'identifier
