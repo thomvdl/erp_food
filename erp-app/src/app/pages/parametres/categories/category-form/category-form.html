@@ -8,6 +8,21 @@
     <input class="input" type="text" name="name" [ngModel]="name()" (ngModelChange)="name.set($event)" required />
   </label>
 
+  <label class="field">
+    Position d'affichage
+    <input
+      class="input"
+      type="number"
+      name="position"
+      min="0"
+      placeholder="Auto (fin de liste)"
+      style="max-width: 160px"
+      [ngModel]="position()"
+      (ngModelChange)="position.set($event)"
+    />
+  </label>
+  <p class="text-muted text-sm">Détermine l'ordre d'affichage des catégories (croissant). Laissé vide, la catégorie est placée en fin de liste.</p>
+
   <label class="checkbox-field">
     <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
     Actif

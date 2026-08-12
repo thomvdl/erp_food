@@ -121,10 +121,6 @@
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.kiosk-tile__media--all {
-  background: var(--color-primary-100);
-}
-
 .kiosk-tile:active .kiosk-tile__media {
   transform: scale(0.95);
 }

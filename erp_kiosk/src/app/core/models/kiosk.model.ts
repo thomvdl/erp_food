@@ -8,6 +8,8 @@ export interface ProductCategory {
   id: number;
   name: string;
   slug: string;
+  /** Ordre d'affichage manuel (croissant) — voir ProductCategoryController::index côté API. */
+  position: number;
   active: boolean;
   /** Icône (emoji) choisie par l'admin — mutuellement exclusive avec image_url (voir
    *  App\Support\ImageUpload côté API). Repli si les deux sont absents : voir categoryEmoji() dans kiosk-order.ts. */

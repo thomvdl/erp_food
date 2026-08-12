@@ -36,9 +36,12 @@ interface CategoryFilter {
   id: number | null;
   name: string;
   count: number;
-  /** Voir ProductCategory.icon/image_url — absents pour l'entrée "Tout" (id null, pas de vraie catégorie derrière). */
+  /** Voir ProductCategory.icon/image_url — absents pour le bucket "Autres" (id null, produits
+   *  sans catégorie, pas une vraie catégorie). */
   icon: string | null;
   image_url: string | null;
+  /** Voir ProductCategory.position — MAX_SAFE_INTEGER pour "Autres" afin qu'il reste en dernier. */
+  position: number;
 }
 
 type PaymentVariant = 'qr' | 'terminal';
@@ -210,9 +213,17 @@ export class KioskOrder implements OnInit, OnDestroy {
       const key = category?.id ?? null;
       const existing = byId.get(key);
       if (existing) existing.count++;
-      else byId.set(key, { id: key, name: category?.name ?? 'Autres', count: 1, icon: category?.icon ?? null, image_url: category?.image_url ?? null });
+      else
+        byId.set(key, {
+          id: key,
+          name: category?.name ?? 'Autres',
+          count: 1,
+          icon: category?.icon ?? null,
+          image_url: category?.image_url ?? null,
+          position: category?.position ?? Number.MAX_SAFE_INTEGER,
+        });
     }
-    return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(byId.values()).sort((a, b) => a.position - b.position);
   });
 
   readonly filteredProducts = computed(() => {
@@ -456,7 +467,8 @@ export class KioskOrder implements OnInit, OnDestroy {
       .join(' — ');
   }
 
-  /** Tuile catégorie de l'accueil tapée (ou "Tout") — voir homeScreen. */
+  /** Tuile catégorie de l'accueil tapée — categoryId est null pour le bucket "Autres" (produits
+   *  sans catégorie), voir `categories` computed. Voir homeScreen. */
   openCategory(categoryId: number | null): void {
     this.selectedCategoryId.set(categoryId);
     this.homeScreen.set(false);

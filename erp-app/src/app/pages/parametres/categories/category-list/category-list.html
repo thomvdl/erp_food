@@ -5,11 +5,17 @@
   <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
 </div>
 
+@if (error()) {
+  <p class="error-text">{{ error() }}</p>
+}
+
 <div class="card">
   <div class="card-body">
     <table class="table">
       <thead>
         <tr>
+          <th></th>
+          <th>Position</th>
           <th></th>
           <th>Nom</th>
           <th>Slug</th>
@@ -19,7 +25,18 @@
       </thead>
       <tbody>
         @for (category of categories(); track category.id) {
-          <tr>
+          <tr (dragover)="onDragOver($event, category)">
+            <td
+              class="text-muted"
+              draggable="true"
+              title="Glisser pour réordonner"
+              style="cursor: grab; text-align: center"
+              (dragstart)="onDragStart($event, category)"
+              (dragend)="onDragEnd()"
+            >
+              ⠿
+            </td>
+            <td class="text-muted">{{ category.position }}</td>
             <td>
               @if (category.image_url) {
                 <img class="list-thumb" [src]="category.image_url" alt="" />
@@ -44,7 +61,7 @@
           </tr>
         } @empty {
           <tr>
-            <td colspan="5" class="text-muted">Aucune catégorie pour le moment.</td>
+            <td colspan="7" class="text-muted">Aucune catégorie pour le moment.</td>
           </tr>
         }
       </tbody>

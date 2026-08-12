@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name', 'slug', 'active', 'icon', 'image_path'])]
+#[Fillable(['name', 'slug', 'position', 'active', 'icon', 'image_path'])]
 class ProductCategory extends Model
 {
     use HasSlug;
@@ -19,6 +19,7 @@ class ProductCategory extends Model
     protected function casts(): array
     {
         return [
+            'position' => 'integer',
             'active' => 'boolean',
         ];
     }

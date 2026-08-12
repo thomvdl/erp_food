@@ -243,12 +243,6 @@
         <h1 class="kiosk-home__title">Composez votre commande</h1>
 
         <div class="kiosk-home__grid">
-          <button type="button" class="kiosk-tile" (click)="openCategory(null)">
-            <span class="kiosk-tile__media kiosk-tile__media--all">
-              <span class="kiosk-tile__emoji">🍽️</span>
-            </span>
-            <span class="kiosk-tile__label">Tout</span>
-          </button>
           @for (category of categories(); track category.id) {
             <button type="button" class="kiosk-tile" (click)="openCategory(category.id)">
               <span class="kiosk-tile__media">
@@ -266,10 +260,6 @@
     } @else {
       <div class="kiosk-browse">
         <nav class="kiosk-category-strip">
-          <button type="button" class="kiosk-category-pill" [class.is-active]="selectedCategoryId() === null" (click)="selectedCategoryId.set(null)">
-            <span class="kiosk-category-pill__icon">🍽️</span>
-            <span class="kiosk-category-pill__label">Tout</span>
-          </button>
           @for (category of categories(); track category.id) {
             <button
               type="button"

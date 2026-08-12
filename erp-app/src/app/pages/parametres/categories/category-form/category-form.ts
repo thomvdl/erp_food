@@ -18,6 +18,7 @@ export class CategoryForm {
   readonly isEdit = signal(false);
 
   readonly name = signal('');
+  readonly position = signal<number | null>(null);
   readonly active = signal(true);
   readonly error = signal<string | null>(null);
 
@@ -38,6 +39,7 @@ export class CategoryForm {
         this.categoryService.get(this.id).subscribe({
           next: (category) => {
             this.name.set(category.name);
+            this.position.set(category.position);
             this.active.set(category.active);
             this.icon.set(category.icon ?? '');
             this.imageUrl.set(category.image_url);
@@ -51,7 +53,12 @@ export class CategoryForm {
   submit(): void {
     this.error.set(null);
 
-    const payload = { name: this.name(), active: this.active(), icon: this.icon().trim() || null };
+    const payload = {
+      name: this.name(),
+      position: this.position() ?? undefined,
+      active: this.active(),
+      icon: this.icon().trim() || null,
+    };
     const request =
       this.isEdit() && this.id !== null
         ? this.categoryService.update(this.id, payload)

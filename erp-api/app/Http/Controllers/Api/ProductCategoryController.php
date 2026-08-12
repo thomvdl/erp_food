@@ -11,12 +11,14 @@ class ProductCategoryController extends Controller
 {
     public function index()
     {
-        return ProductCategory::query()->orderBy('name')->get();
+        return ProductCategory::query()->orderBy('position')->orderBy('name')->get();
     }
 
     public function store(Request $request)
     {
         $data = $this->validated($request);
+        // Sans position fournie, la catégorie part en dernière position plutôt qu'en tête (0).
+        $data['position'] ??= (int) ProductCategory::query()->max('position') + 1;
 
         return response()->json(ProductCategory::query()->create($data), 201);
     }
@@ -60,6 +62,7 @@ class ProductCategoryController extends Controller
     {
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'position' => ['nullable', 'integer', 'min:0'],
             'active' => ['boolean'],
             'icon' => ['nullable', 'string', 'max:8'],
         ]);

@@ -2,6 +2,8 @@ export interface ProductCategory {
   id: number;
   name: string;
   slug: string;
+  /** Ordre d'affichage manuel (croissant) — voir ProductCategoryController::index, orderBy. */
+  position: number;
   /** "Ne plus avoir la possibilité de supprimer... ajouter un champ active" (voir Readme.md). */
   active: boolean;
   /** Voir product.model.ts::Product.icon — même principe, mutuellement exclusif avec image_url. */
