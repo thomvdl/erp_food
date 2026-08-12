@@ -194,6 +194,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('bookings/{booking}', [BookingController::class, 'update']);
     Route::delete('bookings/{booking}', [BookingController::class, 'destroy']);
     Route::post('bookings/{booking}/validate', [BookingController::class, 'validateBooking']);
+    Route::post('bookings/{booking}/mark-present', [BookingController::class, 'markPresent']);
 
     // Vente de place (voir Readme.md, "section vente de place où tous les rôles ont accès") :
     // juste vendre une place sur une occurrence déjà créée (EventDashboard) — créer/modifier

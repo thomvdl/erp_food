@@ -10,6 +10,9 @@ export interface Booking {
   date: string;
   hour: string;
   validated_at: string | null;
+  /** "Validée" -> "Présente" (voir BookingController::markPresent) — toujours accompagné de
+   *  validated_at (forcé s'il était absent), donc suffit seul à distinguer les 3 états. */
+  arrived_at: string | null;
   client?: Client;
 }
 

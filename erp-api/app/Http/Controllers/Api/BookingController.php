@@ -34,6 +34,10 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         $data = $this->validated($request);
+        // Seul canal de création de réservation aujourd'hui (voir Readme.md) : un staff qui la
+        // saisit ici l'a par définition déjà confirmée, contrairement à un hypothétique canal
+        // client (self-service) qui, lui, resterait "En attente" jusqu'à validation par le staff.
+        $data['validated_at'] = now();
 
         $booking = Booking::query()->create($data);
         $booking->load('client');
@@ -71,13 +75,29 @@ class BookingController extends Controller
     }
 
     /**
-     * "Valider la réservation d'un client" (voir Readme.md) — marque simplement l'arrivée du
-     * client, même idée que EventTicketController::validateCode mais sans code à saisir
-     * puisqu'une réservation se retrouve directement par son id dans la liste du jour.
+     * "Valider la réservation d'un client" (voir Readme.md) — confirme la réservation (ex. appel
+     * de rappel, prise en compte), distinct de l'arrivée physique (voir markPresent ci-dessous) :
+     * "En attente" -> "Validée" -> "Présente".
      */
     public function validateBooking(Booking $booking)
     {
         $booking->forceFill(['validated_at' => now()])->save();
+
+        return $booking->load('client');
+    }
+
+    /**
+     * Marque l'arrivée physique du client — "Validée" -> "Présente". Force aussi `validated_at`
+     * s'il était encore absent (marquer présent directement une réservation non validée reste
+     * autorisé plutôt que bloqué, pour ne pas gêner le staff sur un oubli d'étape) : le flux normal
+     * passe par validateBooking d'abord, mais rien n'empêche techniquement de sauter l'étape.
+     */
+    public function markPresent(Booking $booking)
+    {
+        $booking->forceFill([
+            'validated_at' => $booking->validated_at ?? now(),
+            'arrived_at' => now(),
+        ])->save();
 
         return $booking->load('client');
     }

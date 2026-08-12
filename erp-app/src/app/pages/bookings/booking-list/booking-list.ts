@@ -41,6 +41,11 @@ export class BookingList {
   readonly bookingToValidate = signal<Booking | null>(null);
   readonly validating = signal(false);
 
+  /** Même pattern que bookingToValidate, pour la transition "Validée" -> "Présente" (voir
+   *  markPresent()/confirmMarkPresent()). */
+  readonly bookingToMarkPresent = signal<Booking | null>(null);
+  readonly markingPresent = signal(false);
+
   readonly filteredBookings = computed(() => {
     const type = this.typeFilter();
     return type ? this.bookings().filter((booking) => booking.type === type) : this.bookings();
@@ -130,6 +135,31 @@ export class BookingList {
         this.refresh();
       },
       error: () => this.validating.set(false),
+    });
+  }
+
+  confirmMarkPresent(booking: Booking): void {
+    this.bookingToMarkPresent.set(booking);
+  }
+
+  cancelMarkPresent(): void {
+    this.bookingToMarkPresent.set(null);
+  }
+
+  markPresent(): void {
+    const booking = this.bookingToMarkPresent();
+    if (!booking || this.markingPresent()) {
+      return;
+    }
+
+    this.markingPresent.set(true);
+    this.bookingService.markPresent(booking.id).subscribe({
+      next: () => {
+        this.markingPresent.set(false);
+        this.bookingToMarkPresent.set(null);
+        this.refresh();
+      },
+      error: () => this.markingPresent.set(false),
     });
   }
 

@@ -50,8 +50,10 @@
             <td class="text-muted">{{ formatDate(booking) }} à {{ formatHour(booking) }}</td>
             <td class="text-muted">{{ booking.number_of_guests }}</td>
             <td>
-              @if (booking.validated_at) {
-                <span class="badge badge-success">Validée</span>
+              @if (booking.arrived_at) {
+                <span class="badge badge-success">Présente</span>
+              } @else if (booking.validated_at) {
+                <span class="badge badge-info">Validée</span>
               } @else {
                 <span class="badge badge-warning">En attente</span>
               }
@@ -60,6 +62,8 @@
               <div class="td-actions">
                 @if (!booking.validated_at) {
                   <button type="button" class="btn btn-accent btn-sm" (click)="confirmValidate(booking)">Valider</button>
+                } @else if (!booking.arrived_at) {
+                  <button type="button" class="btn btn-accent btn-sm" (click)="confirmMarkPresent(booking)">Marquer présente</button>
                 }
                 <a class="btn btn-outline btn-sm" [routerLink]="[booking.id]">Modifier</a>
                 <button type="button" class="btn btn-danger btn-sm" (click)="remove(booking)">Supprimer</button>
@@ -94,6 +98,29 @@
           {{ validating() ? 'Validation...' : 'Confirmer' }}
         </button>
         <button type="button" class="btn btn-outline" (click)="cancelValidate()">Annuler</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (bookingToMarkPresent(); as booking) {
+  <div class="modal-overlay" (click)="cancelMarkPresent()">
+    <div class="modal-panel" (click)="$event.stopPropagation()">
+      <div class="card-header">
+        <h2 class="text-lg">Marquer la réservation comme présente ?</h2>
+      </div>
+      <div class="card-body">
+        <p>
+          Confirmer l'arrivée de <strong>{{ booking.client?.firstname }} {{ booking.client?.lastname }}</strong>
+          pour {{ booking.number_of_guests }} personne{{ booking.number_of_guests > 1 ? 's' : '' }}
+          le {{ formatDate(booking) }} à {{ formatHour(booking) }} ({{ typeLabel(booking.type) }}) ?
+        </p>
+      </div>
+      <div class="card-footer form-actions">
+        <button type="button" class="btn btn-primary" [disabled]="markingPresent()" (click)="markPresent()">
+          {{ markingPresent() ? 'Enregistrement...' : 'Confirmer' }}
+        </button>
+        <button type="button" class="btn btn-outline" (click)="cancelMarkPresent()">Annuler</button>
       </div>
     </div>
   </div>

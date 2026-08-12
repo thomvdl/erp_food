@@ -33,4 +33,8 @@ export class BookingService {
   validate(id: number): Observable<Booking> {
     return this.http.post<Booking>(`${API_URL}/bookings/${id}/validate`, {});
   }
+
+  markPresent(id: number): Observable<Booking> {
+    return this.http.post<Booking>(`${API_URL}/bookings/${id}/mark-present`, {});
+  }
 }
