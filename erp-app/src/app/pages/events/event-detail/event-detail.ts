@@ -4,8 +4,9 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { EventService } from '../../../core/event.service';
 import { EventDateService } from '../../../core/event-date.service';
+import { EventTicketPriceService } from '../../../core/event-ticket-price.service';
 import { RoomService } from '../../../core/room.service';
-import { Event, EventDate } from '../../../core/models/event.model';
+import { Event, EventDate, EventTicketPrice } from '../../../core/models/event.model';
 import { Room } from '../../../core/models/floor-plan.model';
 import { DatePicker } from '../../../shared/date-picker/date-picker';
 import { TimePicker } from '../../../shared/time-picker/time-picker';
@@ -48,6 +49,7 @@ type SortDir = 'asc' | 'desc';
 export class EventDetail {
   private readonly eventService = inject(EventService);
   private readonly eventDateService = inject(EventDateService);
+  private readonly ticketPriceService = inject(EventTicketPriceService);
   private readonly roomService = inject(RoomService);
   private readonly route = inject(ActivatedRoute);
 
@@ -66,6 +68,12 @@ export class EventDetail {
 
   readonly sortField = signal<SortField>('date');
   readonly sortDir = signal<SortDir>('asc');
+
+  // --- Prix des places (par event, voir EventTicketPriceController) ---
+  readonly ticketPrices = signal<EventTicketPrice[]>([]);
+  readonly savingPrices = signal(false);
+  readonly pricesError = signal<string | null>(null);
+  readonly pricesSaved = signal(false);
 
   // --- Formulaire d'ajout/édition de date ---
   readonly editingDateId = signal<number | null>(null);
@@ -127,6 +135,7 @@ export class EventDetail {
     this.eventService.get(this.eventId).subscribe((event) => this.event.set(event));
     this.roomService.list().subscribe((rooms) => this.rooms.set(rooms));
     this.refreshDates();
+    this.refreshPrices();
   }
 
   formatDate(eventDate: EventDate): string {
@@ -242,6 +251,41 @@ export class EventDetail {
     }
 
     this.eventDateService.remove(eventDate.id).subscribe(() => this.refreshDates());
+  }
+
+  // --- Prix des places ---
+
+  updatePrice(typeId: number, value: number | null): void {
+    this.pricesSaved.set(false);
+    this.ticketPrices.set(
+      this.ticketPrices().map((row) => (row.event_ticket_type_id === typeId ? { ...row, price: value } : row)),
+    );
+  }
+
+  submitPrices(): void {
+    this.pricesError.set(null);
+    this.savingPrices.set(true);
+
+    const payload = this.ticketPrices().map((row) => ({
+      event_ticket_type_id: row.event_ticket_type_id,
+      price: row.price === null || row.price === ('' as unknown) ? null : Number(row.price),
+    }));
+
+    this.ticketPriceService.update(this.eventId, payload).subscribe({
+      next: (prices) => {
+        this.savingPrices.set(false);
+        this.pricesSaved.set(true);
+        this.ticketPrices.set(prices);
+      },
+      error: () => {
+        this.savingPrices.set(false);
+        this.pricesError.set("Impossible d'enregistrer les prix.");
+      },
+    });
+  }
+
+  private refreshPrices(): void {
+    this.ticketPriceService.list(this.eventId).subscribe((prices) => this.ticketPrices.set(prices));
   }
 
   private handleSaveError(err: { error?: { errors?: Record<string, string[]> } }): void {

@@ -54,7 +54,7 @@ export interface TicketPayment {
 
 /** D'où vient le ticket — voir Readme.md. Nullable : les tickets créés avant cette colonne
  *  (migration add_source_to_orders_and_tickets_tables) n'ont pas de valeur fiable à afficher. */
-export type TicketSource = 'pos_vente_directe' | 'pos_restaurant' | 'self_order' | 'kiosk';
+export type TicketSource = 'pos_vente_directe' | 'pos_restaurant' | 'self_order' | 'kiosk' | 'event';
 
 export interface Ticket {
   id: number;

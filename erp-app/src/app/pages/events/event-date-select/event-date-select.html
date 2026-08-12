@@ -62,7 +62,7 @@
               <td class="text-muted">{{ placesLeft(eventDate) ?? 'Illimité' }}</td>
               <td>
                 <div class="td-actions">
-                  <a class="btn btn-primary btn-sm" [routerLink]="['/gestion/evenements', eventDate.event_id, 'dates', eventDate.id]">
+                  <a class="btn btn-primary btn-sm" [routerLink]="['/vente-de-places', eventDate.event_id, 'dates', eventDate.id]">
                     Vendre des places
                   </a>
                 </div>
@@ -100,7 +100,7 @@
             @for (eventDate of cell.dates; track eventDate.id) {
               <a
                 class="calendar-event"
-                [routerLink]="['/gestion/evenements', eventDate.event_id, 'dates', eventDate.id]"
+                [routerLink]="['/vente-de-places', eventDate.event_id, 'dates', eventDate.id]"
                 [title]="eventDate.event?.name + ' — ' + formatHour(eventDate)"
               >
                 {{ formatHour(eventDate) }} {{ eventDate.event?.name }}

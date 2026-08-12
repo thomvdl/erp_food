@@ -42,7 +42,12 @@
   }
   @for (line of section.lines; track line.id) {
     <div class="ticket-receipt__row text-sm" [style.color]="line.is_correction ? 'var(--color-danger-text)' : null">
-      <span>{{ line.is_correction ? '🔧 Correction — ' : '' }}{{ line.product?.name }}</span>
+      <span>
+        {{ line.is_correction ? '🔧 Correction — ' : '' }}{{ line.product?.name }}
+        @if (line.note) {
+          <br /><span class="text-muted text-xs">{{ line.note }}</span>
+        }
+      </span>
       <span>{{ line.is_correction ? '−' + line.quantity : line.quantity }}</span>
       <span>{{ formatMoney(ticketLineTotal(line)) }}</span>
     </div>

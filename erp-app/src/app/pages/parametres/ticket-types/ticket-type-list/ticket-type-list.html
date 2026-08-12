@@ -1,0 +1,48 @@
+<a routerLink="/parametres" class="back-link">← Paramètres</a>
+
+<div class="app-topbar">
+  <h1 class="text-2xl">Types de place</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+<p class="text-muted text-sm">
+  Liste commune à tous les événements (ex. Adulte, Étudiant, Senior) — chaque événement fixe
+  ensuite son propre prix pour les types qu'il propose, depuis sa fiche.
+</p>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (ticketType of ticketTypes(); track ticketType.id) {
+          <tr>
+            <td>{{ ticketType.name }}</td>
+            <td>
+              @if (ticketType.active) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <span class="badge badge-neutral">Inactif</span>
+              }
+            </td>
+            <td>
+              <div class="td-actions">
+                <a class="btn btn-outline btn-sm" [routerLink]="[ticketType.id]">Modifier</a>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="3" class="text-muted">Aucun type de place pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

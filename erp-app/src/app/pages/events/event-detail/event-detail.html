@@ -90,6 +90,56 @@
   </div>
 </div>
 
+<div class="card" style="margin-top: var(--space-2)">
+  <div class="card-header">
+    <h2 class="text-lg">Prix des places</h2>
+    <a class="btn btn-outline btn-sm" routerLink="/parametres/types-place">Gérer les types</a>
+  </div>
+
+  <div class="card-body">
+    @if (ticketPrices().length === 0) {
+      <p class="text-muted text-sm">
+        Aucun type de place actif — <a routerLink="/parametres/types-place/nouveau">crée un type</a>
+        (ex. Adulte, Étudiant, Senior) avant de pouvoir lui fixer un prix ici.
+      </p>
+    } @else {
+      <p class="text-muted text-sm">
+        Laisse le prix vide pour un type que cet événement ne propose pas — il n'apparaîtra pas à la vente.
+      </p>
+      <div class="form-section" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: var(--space-4)">
+        @for (row of ticketPrices(); track row.event_ticket_type_id) {
+          <label class="field">
+            {{ row.name }}
+            <input
+              class="input"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Non proposée"
+              [ngModel]="row.price"
+              (ngModelChange)="updatePrice(row.event_ticket_type_id, $event === null || $event === '' ? null : +$event)"
+              [name]="'price-' + row.event_ticket_type_id"
+            />
+          </label>
+        }
+      </div>
+
+      @if (pricesError()) {
+        <p class="error-text">{{ pricesError() }}</p>
+      }
+      @if (pricesSaved()) {
+        <p class="text-muted text-sm">✓ Prix enregistrés.</p>
+      }
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" [disabled]="savingPrices()" (click)="submitPrices()">
+          {{ savingPrices() ? 'Enregistrement...' : 'Enregistrer les prix' }}
+        </button>
+      </div>
+    }
+  </div>
+</div>
+
 <div class="app-topbar" style="margin-top: var(--space-2)">
   <h2 class="text-lg">Dates programmées</h2>
   <div class="tab-group">
@@ -129,7 +179,6 @@
               <td class="text-muted">{{ eventDate.number_place_limit ?? 'Illimité' }}</td>
               <td>
                 <div class="td-actions">
-                  <a class="btn btn-primary btn-sm" [routerLink]="['dates', eventDate.id]">Places</a>
                   <button type="button" class="btn btn-outline btn-sm" (click)="startEdit(eventDate)">Modifier</button>
                   <button type="button" class="btn btn-danger btn-sm" (click)="removeDate(eventDate)">Supprimer</button>
                 </div>
@@ -165,9 +214,9 @@
           <div class="calendar-cell" [class.is-outside]="!cell.inMonth" [class.is-today]="cell.isToday">
             <span class="calendar-cell__day">{{ cell.day }}</span>
             @for (eventDate of cell.dates; track eventDate.id) {
-              <a class="calendar-event" [routerLink]="['dates', eventDate.id]" [title]="formatHour(eventDate)">
+              <span class="calendar-event" [title]="formatHour(eventDate)">
                 {{ formatHour(eventDate) }}
-              </a>
+              </span>
             }
           </div>
         }

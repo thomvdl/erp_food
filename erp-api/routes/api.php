@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\DiscountController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\EventDateController;
 use App\Http\Controllers\Api\EventTicketController;
+use App\Http\Controllers\Api\EventTicketPriceController;
+use App\Http\Controllers\Api\EventTicketTypeController;
 use App\Http\Controllers\Api\KioskCheckoutController;
 use App\Http\Controllers\Api\KioskOrderController;
 use App\Http\Controllers\Api\OrderController;
@@ -132,6 +134,10 @@ Route::middleware('auth:sanctum')->group(function () {
         // un update renvoyait {"station":null} avec un 200, un destroy renvoyait 204 sans rien supprimer.
         Route::apiResource('passes', PasseController::class)->parameters(['passes' => 'passe'])->except(['destroy', 'index']);
         Route::apiResource('taxes', TaxController::class)->except(['destroy', 'index']);
+        // Liste globale des types de place (Adulte/Étudiant/Senior...), réutilisable entre events
+        // — le prix, lui, est propre à chaque event (voir events/{event}/ticket-prices, resté
+        // superviseur+ ci-dessus avec le reste de la gestion des events).
+        Route::apiResource('event-ticket-types', EventTicketTypeController::class)->except(['destroy']);
         // Gérer les codes de réduction eux-mêmes (créer/modifier) est une action Paramètres — les
         // UTILISER au paiement (discounts/validate ci-dessous) est une action superviseur+.
         Route::apiResource('discounts', DiscountController::class)->except(['destroy']);
@@ -159,6 +165,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('reports/export/csv', [AccountingExportController::class, 'csv']);
         Route::get('reports/export/pdf', [AccountingExportController::class, 'pdf']);
         Route::apiResource('events', EventController::class);
+        Route::put('events/{event}/ticket-prices', [EventTicketPriceController::class, 'update']);
         Route::post('events/{event}/dates', [EventDateController::class, 'store']);
         Route::put('event-dates/{event_date}', [EventDateController::class, 'update']);
         Route::delete('event-dates/{event_date}', [EventDateController::class, 'destroy']);
@@ -195,8 +202,14 @@ Route::middleware('auth:sanctum')->group(function () {
     // bookings/orders déjà ouverts à tous.
     Route::get('event-dates', [EventDateController::class, 'index']);
     Route::get('event-dates/{event_date}', [EventDateController::class, 'show']);
+    // Lecture des tarifs : nécessaire pour peupler le sélecteur de type de place au moment de la
+    // vente (EventDashboard, ouvert à tous les rôles) — l'écriture reste superviseur+ ci-dessus.
+    Route::get('events/{event}/ticket-prices', [EventTicketPriceController::class, 'index']);
     Route::get('event-tickets', [EventTicketController::class, 'index']);
     Route::post('event-tickets', [EventTicketController::class, 'store']);
+    // Modale de paiement dédiée dans EventDashboard, pas POS Vente directe (voir docblock de
+    // EventTicketController::pay) — même groupe "tous rôles" que store ci-dessus.
+    Route::post('event-tickets/pay', [EventTicketController::class, 'pay']);
     Route::put('event-tickets/{event_ticket}', [EventTicketController::class, 'update']);
     Route::delete('event-tickets/{event_ticket}', [EventTicketController::class, 'destroy']);
 

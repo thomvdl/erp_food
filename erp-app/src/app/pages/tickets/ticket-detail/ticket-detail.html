@@ -38,6 +38,7 @@
             [class.badge-info]="ticket.source === 'pos_restaurant'"
             [class.badge-warning]="ticket.source === 'self_order'"
             [class.badge-success]="ticket.source === 'kiosk'"
+            [class.badge-danger]="ticket.source === 'event'"
           >
             {{ ticketSourceLabel(ticket) }}
           </span>

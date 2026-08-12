@@ -1,4 +1,4 @@
-<a [routerLink]="['/gestion/evenements', eventDate()?.event?.id]" class="back-link">← {{ eventDate()?.event?.name }}</a>
+<a routerLink="/vente-de-places" class="back-link">← Vente de places</a>
 
 <div class="app-topbar">
   <div>
@@ -105,18 +105,72 @@
         }
       }
 
-      @if (editingTicketId() === null) {
-        <label class="field">
-          Nombre de places
-          <input
-            class="input"
-            type="number"
-            min="1"
-            max="50"
-            [ngModel]="quantity()"
-            (ngModelChange)="quantity.set($event)"
-          />
-        </label>
+      @if (ticketPrices().length === 0) {
+        <p class="text-muted text-sm">
+          Aucun type de place configuré pour cet événement — <a [routerLink]="['/gestion/evenements', eventDate()?.event?.id]">configure les prix</a> avant de pouvoir vendre.
+        </p>
+      } @else if (sellableTicketTypes().length === 0) {
+        <p class="text-muted text-sm">
+          Aucun type de place n'a de prix pour cet événement — <a [routerLink]="['/gestion/evenements', eventDate()?.event?.id]">ajoute un prix</a> avant de pouvoir vendre.
+        </p>
+      } @else if (editingTicketId() !== null) {
+        @if (editingTicket()?.ticket_line_id) {
+          <p class="text-muted text-sm">Cette place est déjà payée — son type ne peut plus être modifié.</p>
+        } @else {
+          <label class="field">
+            Type de place
+            <select class="select" [ngModel]="selectedTicketTypeId()" (ngModelChange)="selectedTicketTypeId.set($event)">
+              <option [ngValue]="null">— Choisir —</option>
+              @for (type of sellableTicketTypes(); track type.event_ticket_type_id) {
+                <option [ngValue]="type.event_ticket_type_id">{{ type.name }} — {{ formatMoney(type.price!) }}</option>
+              }
+            </select>
+          </label>
+        }
+      } @else {
+        <!-- Panier de vente : une ligne par type de place, pour vendre plusieurs types à la même
+             personne en une fois (ex. 2 Adulte + 1 Étudiant) — voir saleLines côté .ts. -->
+        @for (line of saleLines(); track $index) {
+          <div class="date-row">
+            <label class="field">
+              Type de place
+              <select
+                class="select"
+                [ngModel]="line.event_ticket_type_id"
+                (ngModelChange)="updateSaleLine($index, { event_ticket_type_id: $event })"
+              >
+                <option [ngValue]="null">— Choisir —</option>
+                @for (type of sellableTicketTypes(); track type.event_ticket_type_id) {
+                  <option [ngValue]="type.event_ticket_type_id">{{ type.name }} — {{ formatMoney(type.price!) }}</option>
+                }
+              </select>
+            </label>
+
+            <label class="field">
+              Quantité
+              <input
+                class="input"
+                type="number"
+                min="1"
+                max="50"
+                [ngModel]="line.quantity"
+                (ngModelChange)="updateSaleLine($index, { quantity: $event })"
+              />
+            </label>
+
+            @if (saleLines().length > 1) {
+              <button type="button" class="btn btn-outline btn-sm" title="Retirer ce type" (click)="removeSaleLine($index)">✕</button>
+            }
+          </div>
+        }
+
+        <button type="button" class="btn btn-ghost btn-sm" (click)="addSaleLine()">+ Ajouter un autre type de place</button>
+
+        @if (saleLinesQuantity() > 0) {
+          <p class="text-sm">
+            Total : <strong>{{ saleLinesQuantity() }} place(s) — {{ formatMoney(saleLinesTotal()) }}</strong>
+          </p>
+        }
 
         <label class="checkbox-field">
           <input type="checkbox" [ngModel]="sendEmail()" (ngModelChange)="sendEmail.set($event)" />
@@ -139,12 +193,20 @@
           <button type="button" class="btn btn-outline btn-sm" (click)="printTickets(lastSoldTickets())">
             🖨️ Imprimer / PDF ces places
           </button>
+          <button type="button" class="btn btn-primary btn-sm" (click)="openPayModal(lastSoldTickets())">
+            💳 Encaisser
+          </button>
         </div>
       }
 
       <div class="form-actions">
-        <button type="button" class="btn btn-primary" [disabled]="!selectedClient() || saving()" (click)="submitSale()">
-          {{ editingTicketId() !== null ? 'Enregistrer' : (quantity() > 1 ? 'Vendre ' + quantity() + ' places' : 'Vendre la place') }}
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="!selectedClient() || saving() || (editingTicketId() === null && saleLinesQuantity() === 0)"
+          (click)="submitSale()"
+        >
+          {{ editingTicketId() !== null ? 'Enregistrer' : (saleLinesQuantity() > 1 ? 'Vendre ' + saleLinesQuantity() + ' places' : 'Vendre la place') }}
         </button>
         @if (editingTicketId() !== null) {
           <button type="button" class="btn btn-outline" (click)="cancelEdit()">Annuler</button>
@@ -282,6 +344,8 @@
       <thead>
         <tr>
           <th>Client</th>
+          <th>Type</th>
+          <th>Prix</th>
           <th>Code</th>
           <th>Statut</th>
           <th>Place</th>
@@ -292,6 +356,15 @@
         @for (ticket of tickets(); track ticket.id) {
           <tr>
             <td>{{ ticket.client?.firstname }} {{ ticket.client?.lastname }}</td>
+            <td class="text-muted">{{ ticket.ticket_type?.name ?? '—' }}</td>
+            <td class="text-muted">
+              {{ ticket.price !== null ? formatMoney(ticket.price) : '—' }}
+              @if (ticket.ticket_line_id) {
+                <span class="badge badge-success">Payée</span>
+              } @else {
+                <span class="badge badge-neutral">Non payée</span>
+              }
+            </td>
             <td class="text-muted">{{ ticket.validation_code }}</td>
             <td>
               @if (ticket.validated_at) {
@@ -304,6 +377,9 @@
             <td>
               <div class="td-actions">
                 <button type="button" class="btn btn-outline btn-sm" (click)="printTickets([ticket])" title="Imprimer / PDF">🖨️</button>
+                @if (!ticket.ticket_line_id) {
+                  <button type="button" class="btn btn-primary btn-sm" (click)="openPayModal([ticket])" title="Encaisser">💳 Encaisser</button>
+                }
                 <button type="button" class="btn btn-outline btn-sm" (click)="startEdit(ticket)">Modifier</button>
                 <button type="button" class="btn btn-danger btn-sm" (click)="removeTicket(ticket)">Supprimer</button>
               </div>
@@ -311,11 +387,76 @@
           </tr>
         } @empty {
           <tr>
-            <td colspan="5" class="text-muted">Aucune place vendue pour le moment.</td>
+            <td colspan="7" class="text-muted">Aucune place vendue pour le moment.</td>
           </tr>
         }
       </tbody>
     </table>
   </div>
 </div>
+}
+
+@if (showPayModal()) {
+  <div class="modal-overlay" (click)="closePayModal()">
+    <div class="modal-panel" (click)="$event.stopPropagation()">
+      <div class="card-header">
+        <h2 class="text-lg">Encaisser {{ payingTickets().length > 1 ? payingTickets().length + ' places' : 'la place' }}</h2>
+        <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="closePayModal()">✕</button>
+      </div>
+
+      <div class="card-body">
+        @if (hasUnknownPrice()) {
+          <p class="text-muted text-sm">
+            Place vendue avant l'ajout des tarifs — pas de prix connu, indique le montant à encaisser.
+          </p>
+          <label class="field">
+            Montant à encaisser (€)
+            <input
+              class="input"
+              type="number"
+              step="0.01"
+              min="0.01"
+              placeholder="0.00"
+              [ngModel]="manualAmount()"
+              (ngModelChange)="manualAmount.set($event === null || $event === '' ? null : +$event)"
+            />
+          </label>
+        } @else {
+          <div class="pos-cart__totals-row pos-cart__totals-row--grand">
+            <span>Total à payer</span>
+            <span>{{ formatMoney(payTotal()) }}</span>
+          </div>
+        }
+
+        <div class="tab-group" style="margin-top: var(--space-3); flex-wrap: wrap">
+          @for (method of paymentMethods(); track method.id) {
+            <button
+              type="button"
+              class="tab-pill"
+              [class.is-active]="selectedPaymentMethodId() === method.id"
+              (click)="selectedPaymentMethodId.set(method.id)"
+            >
+              {{ method.name }}
+            </button>
+          }
+        </div>
+
+        @if (payError()) {
+          <p class="error-text">{{ payError() }}</p>
+        }
+
+        <div class="form-actions">
+          <button
+            type="button"
+            class="btn btn-primary"
+            [disabled]="!selectedPaymentMethodId() || paying() || (hasUnknownPrice() && !manualAmount())"
+            (click)="confirmPayment()"
+          >
+            {{ paying() ? 'Encaissement...' : 'Confirmer le paiement' }}
+          </button>
+          <button type="button" class="btn btn-outline" (click)="closePayModal()">Annuler</button>
+        </div>
+      </div>
+    </div>
+  </div>
 }

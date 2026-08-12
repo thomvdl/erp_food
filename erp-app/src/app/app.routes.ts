@@ -152,6 +152,21 @@ export const routes: Routes = [
             loadComponent: () => import('./pages/parametres/discounts/discount-form/discount-form').then((m) => m.DiscountForm),
           },
           {
+            path: 'types-place',
+            loadComponent: () =>
+              import('./pages/parametres/ticket-types/ticket-type-list/ticket-type-list').then((m) => m.TicketTypeList),
+          },
+          {
+            path: 'types-place/nouveau',
+            loadComponent: () =>
+              import('./pages/parametres/ticket-types/ticket-type-form/ticket-type-form').then((m) => m.TicketTypeForm),
+          },
+          {
+            path: 'types-place/:id',
+            loadComponent: () =>
+              import('./pages/parametres/ticket-types/ticket-type-form/ticket-type-form').then((m) => m.TicketTypeForm),
+          },
+          {
             path: 'reglages',
             loadComponent: () => import('./pages/parametres/params/param-list/param-list').then((m) => m.ParamList),
           },
@@ -243,13 +258,6 @@ export const routes: Routes = [
                 canActivate: [roleGuard('superviseur')],
                 loadComponent: () => import('./pages/events/event-detail/event-detail').then((m) => m.EventDetail),
               },
-              {
-                // Sans garde, contrairement à ses voisins : accédé depuis /vente-de-places (route
-                // publique, voir plus bas) par un client qui achète une place, pas seulement par
-                // un superviseur qui gère l'événement.
-                path: ':id/dates/:dateId',
-                loadComponent: () => import('./pages/events/event-dashboard/event-dashboard').then((m) => m.EventDashboard),
-              },
             ],
           },
           {
@@ -288,11 +296,20 @@ export const routes: Routes = [
       {
         // Route de premier niveau, séparée de 'gestion/evenements' (voir Readme.md) : ouverte à tous les
         // rôles, contrairement à la gestion des événements (superviseur+) — les deux ont toujours
-        // été deux entrées distinctes dans la sidebar (voir shell.ts), le routeur reflète
-        // maintenant la même séparation plutôt que de nicher une page publique sous un préfixe
-        // réservé aux superviseurs.
+        // été deux entrées distinctes dans la sidebar (voir shell.ts). Le dashboard de vente/
+        // validation (:id/dates/:dateId) vit ici, PAS sous gestion/evenements : un seul point
+        // d'entrée pour vendre une place, plus de double emploi entre les deux sections.
         path: 'vente-de-places',
-        loadComponent: () => import('./pages/events/event-date-select/event-date-select').then((m) => m.EventDateSelect),
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./pages/events/event-date-select/event-date-select').then((m) => m.EventDateSelect),
+          },
+          {
+            path: ':id/dates/:dateId',
+            loadComponent: () => import('./pages/events/event-dashboard/event-dashboard').then((m) => m.EventDashboard),
+          },
+        ],
       },
       {
         path: 'caisse',

@@ -1,16 +1,26 @@
 import { Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, forkJoin, switchMap } from 'rxjs';
 import jsQR from 'jsqr';
 import { API_URL } from '../../../core/api-config';
 import { EventDateService } from '../../../core/event-date.service';
 import { EventTicketService } from '../../../core/event-ticket.service';
+import { EventTicketPriceService } from '../../../core/event-ticket-price.service';
 import { ClientService } from '../../../core/client.service';
-import { EventDate, EventTicket } from '../../../core/models/event.model';
-import { Client } from '../../../core/models/ticket.model';
+import { PaymentMethodService } from '../../../core/payment-method.service';
+import { ActiveCashierService } from '../../../core/active-cashier.service';
+import { EventDate, EventTicket, EventTicketPrice } from '../../../core/models/event.model';
+import { Client, PaymentMethod } from '../../../core/models/ticket.model';
 import { TableElement } from '../../../core/models/floor-plan.model';
 import { computeFitScale } from '../../../core/utils/fit-scale';
+import { formatMoney } from '../../../core/ticket-print.util';
+
+/** Une ligne du panier de vente (voir EventDashboard.saleLines) — un type + une quantité. */
+interface SaleLine {
+  event_ticket_type_id: number | null;
+  quantity: number;
+}
 
 /**
  * Dashboard unique par occurrence (event_date) : vendre des places (éventuellement plusieurs
@@ -28,9 +38,14 @@ import { computeFitScale } from '../../../core/utils/fit-scale';
   styleUrl: './event-dashboard.css',
 })
 export class EventDashboard implements OnDestroy {
+  readonly formatMoney = formatMoney;
+
   private readonly eventDateService = inject(EventDateService);
   private readonly eventTicketService = inject(EventTicketService);
+  private readonly ticketPriceService = inject(EventTicketPriceService);
   private readonly clientService = inject(ClientService);
+  private readonly paymentMethodService = inject(PaymentMethodService);
+  private readonly activeCashierService = inject(ActiveCashierService);
   private readonly route = inject(ActivatedRoute);
 
   private readonly eventDateId = Number(this.route.snapshot.paramMap.get('dateId'));
@@ -54,13 +69,60 @@ export class EventDashboard implements OnDestroy {
   readonly newClientPhone = signal('');
   readonly savingClient = signal(false);
   readonly sendEmail = signal(true);
-  readonly quantity = signal(1);
+  /** Type sélectionné en mode ÉDITION uniquement (une place existante, un seul type) — voir
+   *  startEdit()/cancelEdit(). La vente (création) utilise saleLines ci-dessous, en panier. */
+  readonly selectedTicketTypeId = signal<number | null>(null);
+
+  /** Tarifs de l'event (voir EventTicketPriceController) — non filtré ici pour distinguer un
+   *  event sans AUCUN type configuré (message dédié) d'un simple type non proposé. */
+  readonly ticketPrices = signal<EventTicketPrice[]>([]);
+  /** Seuls les types avec un prix non-null sont vendables — voir sellableTicketTypes(). */
+  readonly sellableTicketTypes = computed(() => this.ticketPrices().filter((row) => row.price !== null));
+
+  /** Panier de vente (création uniquement) : une ligne par type de place, pour pouvoir vendre
+   *  d'un coup plusieurs types différents à la même personne (ex. 2 Adulte + 1 Étudiant) — même
+   *  pattern "plusieurs lignes ajoutables" que pendingDates côté event-detail.ts. */
+  readonly saleLines = signal<SaleLine[]>([{ event_ticket_type_id: null, quantity: 1 }]);
+  /** Lignes réellement vendables : un type choisi et une quantité positive. */
+  private readonly validSaleLines = computed(() =>
+    this.saleLines().filter((line): line is { event_ticket_type_id: number; quantity: number } => line.event_ticket_type_id !== null && line.quantity > 0),
+  );
+  readonly saleLinesQuantity = computed(() => this.validSaleLines().reduce((sum, line) => sum + line.quantity, 0));
+  readonly saleLinesTotal = computed(() =>
+    this.validSaleLines().reduce((sum, line) => {
+      const price = this.sellableTicketTypes().find((row) => row.event_ticket_type_id === line.event_ticket_type_id)?.price;
+      return sum + (price === undefined ? 0 : Number(price) * line.quantity);
+    }, 0),
+  );
 
   readonly editingTicketId = signal<number | null>(null);
+  /** La place en cours d'édition — sert à savoir si elle est déjà payée (voir template, type non
+   *  modifiable dans ce cas, même contrainte que côté API). */
+  readonly editingTicket = computed(() => this.tickets().find((t) => t.id === this.editingTicketId()) ?? null);
   readonly saving = signal(false);
   readonly sellError = signal<string | null>(null);
   readonly lastSoldCodes = signal<string[]>([]);
   readonly lastSoldTickets = signal<EventTicket[]>([]);
+
+  // --- Modale de paiement (voir EventTicketController::pay) — dédiée, plus simple que le panier
+  // POS Vente directe : un seul moyen de paiement, montant toujours resommé depuis les places. ---
+  readonly paymentMethods = signal<PaymentMethod[]>([]);
+  readonly payingTickets = signal<EventTicket[]>([]);
+  readonly showPayModal = signal(false);
+  readonly selectedPaymentMethodId = signal<number | null>(null);
+  readonly paying = signal(false);
+  readonly payError = signal<string | null>(null);
+
+  /** Place(s) vendue(s) avant l'ajout des types/tarifs : pas de prix connu côté serveur, le
+   *  vendeur doit saisir le montant lui-même (voir manualAmount, EventTicketController::pay). */
+  readonly hasUnknownPrice = computed(() => this.payingTickets().some((t) => t.price === null));
+  readonly manualAmount = signal<number | null>(null);
+
+  readonly payTotal = computed(() =>
+    this.hasUnknownPrice()
+      ? (this.manualAmount() ?? 0)
+      : this.payingTickets().reduce((sum, t) => sum + Number(t.price ?? 0), 0),
+  );
 
   private readonly clientSearch$ = new Subject<string>();
 
@@ -127,8 +189,10 @@ export class EventDashboard implements OnDestroy {
       // Le canvas n'existe dans le DOM (@if eventDate()?.room_id) qu'une fois la salle chargée —
       // laisser Angular rendre avant d'y attacher le ResizeObserver.
       setTimeout(() => this.observeCanvas());
+      this.ticketPriceService.list(eventDate.event_id).subscribe((prices) => this.ticketPrices.set(prices));
     });
     this.refreshTickets();
+    this.paymentMethodService.list().subscribe((methods) => this.paymentMethods.set(methods));
 
     this.clientSearch$
       .pipe(
@@ -227,6 +291,7 @@ export class EventDashboard implements OnDestroy {
   startEdit(ticket: EventTicket): void {
     this.editingTicketId.set(ticket.id);
     this.selectedClient.set(ticket.client ?? null);
+    this.selectedTicketTypeId.set(ticket.event_ticket_type_id);
     this.sellError.set(null);
     this.lastSoldCodes.set([]);
   }
@@ -234,6 +299,7 @@ export class EventDashboard implements OnDestroy {
   cancelEdit(): void {
     this.editingTicketId.set(null);
     this.selectedClient.set(null);
+    this.selectedTicketTypeId.set(null);
   }
 
   removeTicket(ticket: EventTicket): void {
@@ -307,21 +373,94 @@ export class EventDashboard implements OnDestroy {
     ).then(() => printWindow.print());
   }
 
+  /** Ouvre la modale d'encaissement pour les places passées (voir EventTicketController::pay) —
+   *  places sans prix connu (vendues avant l'ajout des types/tarifs) incluses : la modale demande
+   *  alors un montant manuel (voir hasUnknownPrice/manualAmount). */
+  openPayModal(tickets: EventTicket[]): void {
+    const payable = tickets.filter((t) => !t.ticket_line_id);
+    if (payable.length === 0) {
+      return;
+    }
+
+    this.payingTickets.set(payable);
+    this.selectedPaymentMethodId.set(null);
+    this.manualAmount.set(null);
+    this.payError.set(null);
+    this.showPayModal.set(true);
+  }
+
+  closePayModal(): void {
+    this.showPayModal.set(false);
+    this.payingTickets.set([]);
+    this.selectedPaymentMethodId.set(null);
+    this.manualAmount.set(null);
+    this.payError.set(null);
+  }
+
+  confirmPayment(): void {
+    const methodId = this.selectedPaymentMethodId();
+    const tickets = this.payingTickets();
+    if (!methodId || tickets.length === 0 || (this.hasUnknownPrice() && !this.manualAmount())) {
+      return;
+    }
+
+    this.paying.set(true);
+    this.payError.set(null);
+
+    this.eventTicketService
+      .pay({
+        event_ticket_ids: tickets.map((t) => t.id),
+        payment_method_id: methodId,
+        cash_session_id: this.activeCashierService.activeSession()?.id ?? null,
+        amount: this.hasUnknownPrice() ? this.manualAmount() : null,
+      })
+      .subscribe({
+        next: () => {
+          this.paying.set(false);
+          this.closePayModal();
+          this.refreshTickets();
+        },
+        error: (err) => {
+          this.paying.set(false);
+          this.payError.set(err.error?.message ?? "Impossible d'enregistrer le paiement.");
+        },
+      });
+  }
+
+  /** Ajoute une ligne au panier de vente — même pattern que addPendingRow() côté event-detail.ts. */
+  addSaleLine(): void {
+    this.saleLines.set([...this.saleLines(), { event_ticket_type_id: null, quantity: 1 }]);
+  }
+
+  removeSaleLine(index: number): void {
+    const lines = this.saleLines();
+    if (lines.length <= 1) {
+      return;
+    }
+    this.saleLines.set(lines.filter((_, i) => i !== index));
+  }
+
+  updateSaleLine(index: number, patch: Partial<SaleLine>): void {
+    this.saleLines.set(this.saleLines().map((line, i) => (i === index ? { ...line, ...patch } : line)));
+  }
+
   submitSale(): void {
     const client = this.selectedClient();
+    const editingId = this.editingTicketId();
+
     if (!client) {
       return;
     }
 
     this.sellError.set(null);
     this.saving.set(true);
-    const editingId = this.editingTicketId();
 
     if (editingId !== null) {
-      this.eventTicketService.update(editingId, client.id).subscribe({
+      this.eventTicketService.update(editingId, { client_id: client.id, event_ticket_type_id: this.selectedTicketTypeId() }).subscribe({
         next: () => {
           this.saving.set(false);
           this.selectedClient.set(null);
+          this.selectedTicketTypeId.set(null);
           this.editingTicketId.set(null);
           this.refreshTickets();
         },
@@ -333,23 +472,43 @@ export class EventDashboard implements OnDestroy {
       return;
     }
 
-    this.eventTicketService
-      .create({ event_date_id: this.eventDateId, client_id: client.id, send_email: this.sendEmail(), quantity: this.quantity() })
-      .subscribe({
-        next: (tickets) => {
-          this.saving.set(false);
-          this.selectedClient.set(null);
-          this.sendEmail.set(true);
-          this.quantity.set(1);
-          this.lastSoldCodes.set(tickets.map((t) => t.validation_code));
-          this.lastSoldTickets.set(tickets);
-          this.refreshTickets();
-        },
-        error: (err) => {
-          this.saving.set(false);
-          this.sellError.set(err.error?.message ?? "Impossible d'enregistrer la vente.");
-        },
-      });
+    const lines = this.validSaleLines();
+    if (lines.length === 0) {
+      this.saving.set(false);
+      return;
+    }
+
+    // Une requête par type de place (pas de vrai "groupe" en base, voir discussion) — regroupées
+    // avec forkJoin comme le multi-ajout de dates côté event-detail.ts::submitDates.
+    forkJoin(
+      lines.map((line) =>
+        this.eventTicketService.create({
+          event_date_id: this.eventDateId,
+          client_id: client.id,
+          event_ticket_type_id: line.event_ticket_type_id,
+          send_email: this.sendEmail(),
+          quantity: line.quantity,
+        }),
+      ),
+    ).subscribe({
+      next: (results) => {
+        const tickets = results.flat();
+        this.saving.set(false);
+        this.selectedClient.set(null);
+        this.sendEmail.set(true);
+        this.saleLines.set([{ event_ticket_type_id: null, quantity: 1 }]);
+        this.lastSoldCodes.set(tickets.map((t) => t.validation_code));
+        this.lastSoldTickets.set(tickets);
+        this.refreshTickets();
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.sellError.set(err.error?.message ?? "Impossible d'enregistrer la vente.");
+        // Une partie a pu réussir avant l'échec d'une autre ligne (pas de transaction unique
+        // entre plusieurs types, voir docblock de la classe) — recharger pour refléter l'état réel.
+        this.refreshTickets();
+      },
+    });
   }
 
   // --- Validation & placement ---

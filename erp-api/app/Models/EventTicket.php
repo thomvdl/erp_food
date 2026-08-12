@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['event_date_id', 'client_id', 'table_id', 'validation_code', 'validated_at'])]
+#[Fillable(['event_date_id', 'client_id', 'table_id', 'event_ticket_type_id', 'price', 'ticket_line_id', 'validation_code', 'validated_at'])]
 class EventTicket extends Model
 {
     protected function casts(): array
@@ -29,5 +29,17 @@ class EventTicket extends Model
     public function table(): BelongsTo
     {
         return $this->belongsTo(TableElement::class, 'table_id');
+    }
+
+    public function ticketType(): BelongsTo
+    {
+        return $this->belongsTo(EventTicketType::class, 'event_ticket_type_id');
+    }
+
+    /** Ligne de ticket POS Vente directe qui a payé cette place — null tant que non encaissée
+     *  là-bas (voir TicketController::store et pos-vente.ts, redirection depuis EventDashboard). */
+    public function ticketLine(): BelongsTo
+    {
+        return $this->belongsTo(TicketLine::class);
     }
 }

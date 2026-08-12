@@ -75,6 +75,8 @@ export function ticketSourceLabel(ticket: Ticket): string {
       return 'Kiosque';
     case 'pos_vente_directe':
       return 'Vente directe';
+    case 'event':
+      return 'Vente de places';
     default:
       return '—';
   }

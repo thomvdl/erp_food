@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { API_URL } from './api-config';
-import { CreateEventTicketPayload, EventTicket, ValidateEventTicketPayload } from './models/event.model';
+import { CreateEventTicketPayload, EventTicket, PayEventTicketsPayload, ValidateEventTicketPayload } from './models/event.model';
 
 /**
  * Pas un ResourceService : toujours filtré par occurrence (event_date), pas de vue globale, et
@@ -21,8 +21,11 @@ export class EventTicketService {
     return this.http.post<EventTicket[]>(`${API_URL}/event-tickets`, payload);
   }
 
-  update(id: number, clientId: number): Observable<EventTicket> {
-    return this.http.put<EventTicket>(`${API_URL}/event-tickets/${id}`, { client_id: clientId });
+  /** `event_ticket_type_id` optionnel : absent/inchangé = pas touché, voir
+   *  EventTicketController::update (recalcule le prix si le type change, refuse sur une place
+   *  déjà payée). */
+  update(id: number, payload: { client_id: number; event_ticket_type_id?: number | null }): Observable<EventTicket> {
+    return this.http.put<EventTicket>(`${API_URL}/event-tickets/${id}`, payload);
   }
 
   remove(id: number): Observable<void> {
@@ -31,5 +34,11 @@ export class EventTicketService {
 
   validate(payload: ValidateEventTicketPayload): Observable<EventTicket> {
     return this.http.post<EventTicket>(`${API_URL}/event-tickets/validate`, payload);
+  }
+
+  /** Répond les places payées, à jour (voir EventTicket.ticket_line_id) — voir
+   *  EventTicketController::pay. */
+  pay(payload: PayEventTicketsPayload): Observable<EventTicket[]> {
+    return this.http.post<EventTicket[]>(`${API_URL}/event-tickets/pay`, payload);
   }
 }
