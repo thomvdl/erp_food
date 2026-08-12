@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\TicketMail;
 use App\Models\CashSession;
 use App\Models\Client;
+use App\Models\Printer;
 use App\Models\Product;
 use App\Models\Ticket;
 use App\Models\TicketPayment;
@@ -215,13 +216,22 @@ class TicketController extends Controller
      * Impression directe sur l'imprimante thermique réseau configurée (voir
      * App\Support\ThermalReceipt / config/printer.php) — en plus de l'impression navigateur
      * existante (window.print() côté front), qui reste utilisable sans aucun matériel.
+     *
+     * `printer_id` optionnel : l'imprimante choisie pour CE poste (voir ActivePrinterService
+     * côté erp-app/erp_kiosk) — absent, ThermalReceipt::print() retombe sur l'IP globale unique
+     * historique (installation à un seul poste).
      */
-    public function printThermal(Ticket $ticket)
+    public function printThermal(Request $request, Ticket $ticket)
     {
+        $data = $request->validate([
+            'printer_id' => ['nullable', 'integer', 'exists:printers,id'],
+        ]);
+
         $ticket->load(self::WITH);
+        $printer = isset($data['printer_id']) ? Printer::find($data['printer_id']) : null;
 
         try {
-            ThermalReceipt::print($ticket);
+            ThermalReceipt::print($ticket, $printer);
         } catch (Throwable $e) {
             throw ValidationException::withMessages([
                 'printer' => ["Impression impossible : {$e->getMessage()}"],

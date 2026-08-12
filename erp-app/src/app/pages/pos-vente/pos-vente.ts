@@ -10,6 +10,7 @@ import { ProductStockEchoService } from '../../core/product-stock-echo.service';
 import { PaymentMethodService } from '../../core/payment-method.service';
 import { ClientService } from '../../core/client.service';
 import { TicketService } from '../../core/ticket.service';
+import { ActivePrinterService } from '../../core/active-printer.service';
 import { DiscountService } from '../../core/discount.service';
 import { ActiveCashierService } from '../../core/active-cashier.service';
 import { MenuGroup, Product, ProductComponent } from '../../core/models/product.model';
@@ -69,6 +70,7 @@ export class PosVente {
   private readonly paymentMethodService = inject(PaymentMethodService);
   private readonly clientService = inject(ClientService);
   private readonly ticketService = inject(TicketService);
+  private readonly activePrinterService = inject(ActivePrinterService);
   private readonly discountService = inject(DiscountService);
   readonly activeCashierService = inject(ActiveCashierService);
   readonly authService = inject(AuthService);
@@ -890,7 +892,7 @@ export class PosVente {
 
     this.printingThermal.set(true);
     this.error.set(null);
-    this.ticketService.printThermal(ticket.id).subscribe({
+    this.ticketService.printThermal(ticket.id, this.activePrinterService.printer()?.id).subscribe({
       next: () => {
         this.printingThermal.set(false);
         this.thermalPrinted.set(true);

@@ -43,3 +43,18 @@ export interface Param {
   name: string;
   value: string | null;
 }
+
+/** Une imprimante thermique réseau par poste physique (ex. "Caisse bar", "Kiosque 1") — voir
+ *  ActivePrinterService pour le choix, propre à CE navigateur/poste, et
+ *  TicketController::printThermal côté API. */
+export interface Printer {
+  id: number;
+  name: string;
+  ip_address: string;
+  port: number;
+  /** Largeur papier en caractères (police par défaut) — null = utilise le réglage serveur par
+   *  défaut (voir App\Support\ThermalReceipt). */
+  chars_per_line: number | null;
+  /** "Ne plus avoir la possibilité de supprimer... ajouter un champ active" (voir Readme.md). */
+  active: boolean;
+}

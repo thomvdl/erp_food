@@ -27,6 +27,7 @@ export class ParametresHome {
     { icon: '🏷️', title: 'Réductions', description: 'Codes promo : pourcentage, montant fixe, produit gratuit', path: '/parametres/reductions' },
     { icon: '🧅', title: 'Ingrédients', description: 'Composition des produits, retirables au panier (ex. sans oignon)', path: '/parametres/ingredients' },
     { icon: '🎟️', title: 'Types de place', description: 'Adulte, Étudiant, Senior… le prix se fixe ensuite par événement', path: '/parametres/types-place' },
+    { icon: '🖨️', title: 'Imprimantes', description: 'Une imprimante thermique réseau par poste (caisse, kiosque…)', path: '/parametres/imprimantes' },
     { icon: '⚙️', title: 'Réglages', description: "Paramètres génériques clé/valeur (horaires d'ouverture, etc.)", path: '/parametres/reglages' },
   ];
 }

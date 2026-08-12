@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Param;
+use App\Models\Printer as PrinterModel;
 use App\Models\Ticket;
 use Mike42\Escpos\PrintConnectors\NetworkPrintConnector;
 use Mike42\Escpos\Printer;
@@ -19,32 +20,42 @@ class ThermalReceipt
 {
     /** Voir Paramètres > Réglages (App\Models\Param, clé/valeur libre) — IP modifiable sans
      *  redéploiement, contrairement à PRINTER_HOST (config/printer.php) qui reste le filet de
-     *  secours si aucune ligne "ip_printer_kiosk" n'existe encore en base. */
+     *  secours si aucune ligne "ip_printer_kiosk" n'existe encore en base. Utilisé uniquement
+     *  quand aucune App\Models\Printer précise n'est passée à print() (voir $printer ci-dessous) —
+     *  ancien comportement (une seule imprimante pour tout le système), conservé pour les
+     *  installations à un seul poste qui n'ont pas besoin de configurer plusieurs imprimantes. */
     private const PARAM_KEY = 'ip_printer_kiosk';
 
-    public static function print(Ticket $ticket): void
+    /**
+     * $printer : l'imprimante choisie par CE poste (voir ActivePrinterService côté erp-app/
+     * erp_kiosk, TicketController::printThermal) — absente, retombe sur l'IP globale unique
+     * (comportement historique, voir PARAM_KEY ci-dessus).
+     */
+    public static function print(Ticket $ticket, ?PrinterModel $printer = null): void
     {
-        $host = Param::where('name', self::PARAM_KEY)->value('value') ?: config('printer.host');
+        $host = $printer?->ip_address ?? (Param::where('name', self::PARAM_KEY)->value('value') ?: config('printer.host'));
 
         if (!$host) {
-            throw new RuntimeException("Aucune imprimante thermique configurée (ajoutez un réglage \"" . self::PARAM_KEY . "\" dans Paramètres > Réglages, ou PRINTER_HOST).");
+            throw new RuntimeException("Aucune imprimante thermique configurée (choisissez une imprimante pour ce poste, ou ajoutez un réglage \"" . self::PARAM_KEY . "\" dans Paramètres > Réglages, ou PRINTER_HOST).");
         }
+
+        $port = $printer?->port ?? (int) config('printer.port', 9100);
 
         // Timeout court (5s) plutôt que le défaut de fsockopen (souvent 60s) : une imprimante
         // éteinte/injoignable ne doit pas laisser la requête HTTP pendre une minute.
-        $connector = new NetworkPrintConnector($host, (int) config('printer.port', 9100), 5);
-        $printer = new Printer($connector);
+        $connector = new NetworkPrintConnector($host, $port, 5);
+        $escposPrinter = new Printer($connector);
 
         try {
-            static::render($printer, $ticket);
+            static::render($escposPrinter, $ticket, $printer);
         } finally {
-            $printer->close();
+            $escposPrinter->close();
         }
     }
 
-    private static function render(Printer $printer, Ticket $ticket): void
+    private static function render(Printer $printer, Ticket $ticket, ?PrinterModel $printerModel): void
     {
-        $width = (int) config('printer.chars_per_line', 42);
+        $width = $printerModel?->chars_per_line ?? (int) config('printer.chars_per_line', 42);
 
         $printer->setJustification(Printer::JUSTIFY_CENTER);
 

@@ -6,6 +6,7 @@ import { forkJoin } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { KioskPaymentEchoService } from '../../core/kiosk-payment-echo.service';
 import { KioskService } from '../../core/kiosk.service';
+import { ActivePrinterService } from '../../core/active-printer.service';
 import { ProductStockEchoService } from '../../core/product-stock-echo.service';
 import {
   Client,
@@ -86,6 +87,7 @@ const LOW_STOCK_THRESHOLD = 3;
 export class KioskOrder implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly kioskService = inject(KioskService);
+  private readonly activePrinterService = inject(ActivePrinterService);
   private readonly kioskPaymentEcho = inject(KioskPaymentEchoService);
   private readonly productStockEcho = inject(ProductStockEchoService);
   private readonly router = inject(Router);
@@ -927,7 +929,7 @@ export class KioskOrder implements OnInit, OnDestroy {
     this.printingThermal.set(true);
     this.printError.set(null);
 
-    this.kioskService.printThermal(ticket.id).subscribe({
+    this.kioskService.printThermal(ticket.id, this.activePrinterService.printer()?.id).subscribe({
       next: () => {
         this.printingThermal.set(false);
         this.thermalPrinted.set(true);

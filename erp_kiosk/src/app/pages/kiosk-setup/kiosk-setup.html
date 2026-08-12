@@ -29,6 +29,20 @@
           {{ submitting() ? 'Ouverture…' : 'Ouvrir la caisse' }}
         </button>
       }
+
+      <div class="field">
+        <label>Imprimante de ce kiosque</label>
+        <select
+          class="input"
+          [ngModel]="activePrinterService.printer()?.id ?? ''"
+          (ngModelChange)="onPrinterChange($event)"
+        >
+          <option value="">Aucune imprimante</option>
+          @for (printer of activePrinterService.activePrinters(); track printer.id) {
+            <option [value]="printer.id">{{ printer.name }}</option>
+          }
+        </select>
+      </div>
     </div>
     <div class="card-footer form-actions">
       <button type="button" class="btn btn-accent btn-lg" [disabled]="!session()" (click)="startKiosk()">Démarrer le kiosque</button>

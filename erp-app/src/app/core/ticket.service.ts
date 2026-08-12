@@ -28,8 +28,10 @@ export class TicketService {
   }
 
   /** Impression sur l'imprimante thermique réseau configurée (voir TicketController::printThermal
-   *  / App\Support\ThermalReceipt) — distinct de window.print() (navigateur, sans matériel requis). */
-  printThermal(id: number): Observable<void> {
-    return this.http.post<void>(`${API_URL}/tickets/${id}/print-thermal`, {});
+   *  / App\Support\ThermalReceipt) — distinct de window.print() (navigateur, sans matériel requis).
+   *  printerId : l'imprimante choisie pour CE poste (voir ActivePrinterService) — absente, le
+   *  serveur retombe sur l'ancien réglage global unique. */
+  printThermal(id: number, printerId?: number | null): Observable<void> {
+    return this.http.post<void>(`${API_URL}/tickets/${id}/print-thermal`, { printer_id: printerId ?? null });
   }
 }

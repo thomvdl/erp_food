@@ -1,6 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TicketService } from '../../../core/ticket.service';
+import { ActivePrinterService } from '../../../core/active-printer.service';
 import { Ticket } from '../../../core/models/ticket.model';
 import { TicketReceipt } from '../../../shared/ticket-receipt/ticket-receipt';
 import { formatMoney, formatTicketDate, ticketNetTotal, ticketSourceLabel } from '../../../core/ticket-print.util';
@@ -18,6 +19,7 @@ import { formatMoney, formatTicketDate, ticketNetTotal, ticketSourceLabel } from
 export class TicketDetail {
   private readonly route = inject(ActivatedRoute);
   private readonly ticketService = inject(TicketService);
+  private readonly activePrinterService = inject(ActivePrinterService);
 
   readonly ticket = signal<Ticket | null>(null);
   readonly loading = signal(true);
@@ -88,7 +90,7 @@ export class TicketDetail {
 
     this.printingThermal.set(true);
     this.error.set(null);
-    this.ticketService.printThermal(ticket.id).subscribe({
+    this.ticketService.printThermal(ticket.id, this.activePrinterService.printer()?.id).subscribe({
       next: () => {
         this.printingThermal.set(false);
         this.thermalPrinted.set(true);

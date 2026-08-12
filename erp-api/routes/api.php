@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\OrderSectionController;
 use App\Http\Controllers\Api\ParamController;
 use App\Http\Controllers\Api\PasseController;
 use App\Http\Controllers\Api\PaymentMethodController;
+use App\Http\Controllers\Api\PrinterController;
 use App\Http\Controllers\Api\ProductCatalogController;
 use App\Http\Controllers\Api\ProductCategoryController;
 use App\Http\Controllers\Api\ProductController;
@@ -93,6 +94,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('passes', [PasseController::class, 'index']);
     Route::get('taxes', [TaxController::class, 'index']);
     Route::get('payment-methods', [PaymentMethodController::class, 'index']);
+    // Chaque poste (kiosque ou POS) doit pouvoir lister les imprimantes pour choisir la sienne
+    // (voir ActivePrinterService) — pas réservé à admin comme le reste de Paramètres ci-dessous,
+    // même logique que product-categories/stations/taxes/payment-methods ci-dessus.
+    Route::get('printers', [PrinterController::class, 'index']);
     Route::get('clients', [ClientController::class, 'index']);
     Route::post('clients', [ClientController::class, 'store']);
     // Doit être déclarée AVANT clients/{client} (sinon "lookup" serait interprété comme un id
@@ -142,6 +147,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // Liste globale d'ingrédients (ex. Oignon, Fromage), rattachés à des produits depuis leur
         // fiche (voir ProductController::syncableIngredients) — même pattern "active" que le reste.
         Route::apiResource('ingredients', IngredientController::class)->except(['destroy']);
+        // Créer/modifier une imprimante est une action Paramètres — index déjà ouvert à tous
+        // les rôles authentifiés ci-dessus (voir ActivePrinterService).
+        Route::apiResource('printers', PrinterController::class)->except(['destroy', 'index']);
         // Gérer les codes de réduction eux-mêmes (créer/modifier) est une action Paramètres — les
         // UTILISER au paiement (discounts/validate ci-dessous) est une action superviseur+.
         Route::apiResource('discounts', DiscountController::class)->except(['destroy']);

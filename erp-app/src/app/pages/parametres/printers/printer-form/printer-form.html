@@ -1,0 +1,62 @@
+<a routerLink="/parametres/imprimantes" class="back-link">← Imprimantes</a>
+
+<h1 class="text-2xl">{{ isEdit() ? "Modifier l'imprimante" : 'Nouvelle imprimante' }}</h1>
+
+<div class="card">
+<div class="card-body">
+<form class="form" (ngSubmit)="submit()">
+  <label class="field">
+    Nom
+    <input class="input" type="text" name="name" placeholder="ex. Caisse bar, Kiosque 1…" [ngModel]="name()" (ngModelChange)="name.set($event)" required />
+  </label>
+
+  <label class="field">
+    Adresse IP
+    <input class="input" type="text" name="ip_address" placeholder="ex. 192.168.1.50" [ngModel]="ipAddress()" (ngModelChange)="ipAddress.set($event)" required />
+  </label>
+
+  <label class="field">
+    Port
+    <input
+      class="input"
+      type="number"
+      step="1"
+      min="1"
+      max="65535"
+      name="port"
+      [ngModel]="port()"
+      (ngModelChange)="port.set(+$event)"
+    />
+  </label>
+
+  <label class="field">
+    Largeur papier (caractères)
+    <input
+      class="input"
+      type="number"
+      step="1"
+      min="20"
+      max="64"
+      name="chars_per_line"
+      placeholder="Non renseigné — utilise le réglage par défaut (42)"
+      [ngModel]="charsPerLine()"
+      (ngModelChange)="charsPerLine.set($event === null || $event === '' ? null : +$event)"
+    />
+  </label>
+
+  <label class="checkbox-field">
+    <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
+    Actif
+  </label>
+
+  @if (error()) {
+    <p class="error-text">{{ error() }}</p>
+  }
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+    <a class="btn btn-outline" routerLink="/parametres/imprimantes">Annuler</a>
+  </div>
+</form>
+</div>
+</div>

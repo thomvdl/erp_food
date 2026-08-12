@@ -25,6 +25,20 @@
     </button>
 
     <div class="app-sidebar__footer">
+      <label class="app-nav-item printer-picker" title="Imprimante thermique de ce poste">
+        <span class="app-nav-item__icon">🖨️</span>
+        <select
+          class="printer-picker__select app-nav-item__label"
+          [ngModel]="activePrinterService.printer()?.id ?? ''"
+          (ngModelChange)="onPrinterChange($event)"
+        >
+          <option value="">Aucune imprimante</option>
+          @for (printer of activePrinterService.activePrinters(); track printer.id) {
+            <option [value]="printer.id">{{ printer.name }}</option>
+          }
+        </select>
+      </label>
+
       <button type="button" class="app-nav-item theme-toggle" (click)="toggleTheme()" [title]="isDark() ? 'Thème clair' : 'Thème sombre'">
         <span class="app-nav-item__icon">{{ isDark() ? '☀️' : '🌙' }}</span>
         <span class="app-nav-item__label">{{ isDark() ? 'Thème clair' : 'Thème sombre' }}</span>

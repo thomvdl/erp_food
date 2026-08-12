@@ -13,6 +13,7 @@ import { ProductCatalogService } from '../../../core/product-catalog.service';
 import { PaymentMethodService } from '../../../core/payment-method.service';
 import { ClientService } from '../../../core/client.service';
 import { TicketService } from '../../../core/ticket.service';
+import { ActivePrinterService } from '../../../core/active-printer.service';
 import { DiscountService } from '../../../core/discount.service';
 import { ActiveCashierService } from '../../../core/active-cashier.service';
 import { RoomService } from '../../../core/room.service';
@@ -71,6 +72,7 @@ export class OrderBuilder implements OnDestroy {
   private readonly paymentMethodService = inject(PaymentMethodService);
   private readonly clientService = inject(ClientService);
   private readonly ticketService = inject(TicketService);
+  private readonly activePrinterService = inject(ActivePrinterService);
   private readonly discountService = inject(DiscountService);
   readonly activeCashierService = inject(ActiveCashierService);
   readonly authService = inject(AuthService);
@@ -1222,7 +1224,7 @@ export class OrderBuilder implements OnDestroy {
 
     this.printingThermal.set(true);
     this.error.set(null);
-    this.ticketService.printThermal(ticket.id).subscribe({
+    this.ticketService.printThermal(ticket.id, this.activePrinterService.printer()?.id).subscribe({
       next: () => {
         this.printingThermal.set(false);
         this.thermalPrinted.set(true);

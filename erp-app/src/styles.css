@@ -434,6 +434,26 @@ button {
   padding-top: var(--space-4);
 }
 
+/* Imprimante de ce poste (voir ActivePrinterService) — un <select> plutôt qu'un modal pour un
+   choix aussi simple, stylé pour se fondre dans la nav (même look que .app-nav-item). */
+.printer-picker__select {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.printer-picker__select:focus {
+  outline: none;
+}
+
+.printer-picker__select option {
+  color: #0f172a;
+}
+
 .user-chip {
   display: flex;
   align-items: center;

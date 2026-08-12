@@ -1,0 +1,52 @@
+<a routerLink="/parametres" class="back-link">← Paramètres</a>
+
+<div class="app-topbar">
+  <h1 class="text-2xl">Imprimantes</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+<p class="text-muted text-sm">
+  Une imprimante thermique réseau par poste physique (caisse, kiosque…) — chaque poste choisit
+  ensuite la sienne dans son propre écran (voir « Imprimante de ce poste »).
+</p>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Adresse IP</th>
+          <th>Port</th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (printer of printers(); track printer.id) {
+          <tr>
+            <td>{{ printer.name }}</td>
+            <td>{{ printer.ip_address }}</td>
+            <td>{{ printer.port }}</td>
+            <td>
+              @if (printer.active) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <span class="badge badge-neutral">Inactif</span>
+              }
+            </td>
+            <td>
+              <div class="td-actions">
+                <a class="btn btn-outline btn-sm" [routerLink]="[printer.id]">Modifier</a>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5" class="text-muted">Aucune imprimante pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

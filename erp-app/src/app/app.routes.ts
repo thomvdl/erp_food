@@ -182,6 +182,18 @@ export const routes: Routes = [
               import('./pages/parametres/ticket-types/ticket-type-form/ticket-type-form').then((m) => m.TicketTypeForm),
           },
           {
+            path: 'imprimantes',
+            loadComponent: () => import('./pages/parametres/printers/printer-list/printer-list').then((m) => m.PrinterList),
+          },
+          {
+            path: 'imprimantes/nouveau',
+            loadComponent: () => import('./pages/parametres/printers/printer-form/printer-form').then((m) => m.PrinterForm),
+          },
+          {
+            path: 'imprimantes/:id',
+            loadComponent: () => import('./pages/parametres/printers/printer-form/printer-form').then((m) => m.PrinterForm),
+          },
+          {
             path: 'reglages',
             loadComponent: () => import('./pages/parametres/params/param-list/param-list').then((m) => m.ParamList),
           },

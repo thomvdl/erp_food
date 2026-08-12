@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { KioskService } from '../../core/kiosk.service';
+import { ActivePrinterService } from '../../core/active-printer.service';
 import { CashSession } from '../../core/models/kiosk.model';
 
 /**
@@ -22,6 +23,7 @@ export class KioskSetup implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly kioskService = inject(KioskService);
   private readonly router = inject(Router);
+  readonly activePrinterService = inject(ActivePrinterService);
 
   readonly loading = signal(true);
   readonly session = signal<CashSession | null>(null);
@@ -72,6 +74,13 @@ export class KioskSetup implements OnInit {
         this.error.set(messages?.length ? messages.join(' ') : "Impossible d'ouvrir la caisse.");
       },
     });
+  }
+
+  /** value : id de l'imprimante choisie (chaîne, voir <select>) ou '' pour "aucune". */
+  onPrinterChange(value: string): void {
+    const id = value ? Number(value) : null;
+    const printer = id !== null ? (this.activePrinterService.activePrinters().find((p) => p.id === id) ?? null) : null;
+    this.activePrinterService.setPrinter(printer);
   }
 
   startKiosk(): void {

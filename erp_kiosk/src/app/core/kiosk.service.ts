@@ -11,6 +11,7 @@ import {
   KioskCheckoutState,
   OpenCashSessionPayload,
   PaymentMethod,
+  Printer,
   Product,
   ProductCatalog,
   Ticket,
@@ -39,6 +40,11 @@ export class KioskService {
 
   listPaymentMethods(): Observable<PaymentMethod[]> {
     return this.http.get<PaymentMethod[]>(`${API_URL}/payment-methods`);
+  }
+
+  /** Voir ActivePrinterService — l'imprimante choisie pour CE kiosque (écran de configuration). */
+  listPrinters(): Observable<Printer[]> {
+    return this.http.get<Printer[]>(`${API_URL}/printers`);
   }
 
   /** Le backend renvoie {} (pas null) quand il n'y a pas de session ouverte — comportement de
@@ -94,10 +100,11 @@ export class KioskService {
   }
 
   /** Impression directe sur l'imprimante thermique réseau (voir App\Support\ThermalReceipt côté
-   *  API — IP lue depuis Paramètres > Réglages, clé "ip_printer_kiosk") — même endpoint que
-   *  erp-app/core/ticket.service.ts::printThermal(), un kiosque imprime toujours un Ticket comme
-   *  n'importe quel autre poste. */
-  printThermal(ticketId: number): Observable<void> {
-    return this.http.post<void>(`${API_URL}/tickets/${ticketId}/print-thermal`, {});
+   *  API) — même endpoint que erp-app/core/ticket.service.ts::printThermal(), un kiosque imprime
+   *  toujours un Ticket comme n'importe quel autre poste. printerId : l'imprimante choisie pour
+   *  CE kiosque (voir écran de configuration) — absente, le serveur retombe sur l'ancien réglage
+   *  global unique. */
+  printThermal(ticketId: number, printerId?: number | null): Observable<void> {
+    return this.http.post<void>(`${API_URL}/tickets/${ticketId}/print-thermal`, { printer_id: printerId ?? null });
   }
 }

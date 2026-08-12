@@ -106,6 +106,17 @@ export interface PaymentMethod {
   slug: string;
 }
 
+/** Une imprimante thermique réseau par poste physique — voir écran de configuration du kiosque
+ *  (choix mémorisé en localStorage pour CE kiosque) et TicketController::printThermal côté API. */
+export interface Printer {
+  id: number;
+  name: string;
+  ip_address: string;
+  port: number;
+  chars_per_line: number | null;
+  active: boolean;
+}
+
 export interface CashSession {
   id: number;
   user_id: number;

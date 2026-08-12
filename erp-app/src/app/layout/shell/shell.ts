@@ -1,7 +1,9 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { filter } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
+import { ActivePrinterService } from '../../core/active-printer.service';
 
 interface NavItem {
   icon: string;
@@ -28,12 +30,13 @@ function isFixedLayoutUrl(url: string): boolean {
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, FormsModule],
   templateUrl: './shell.html',
 })
 export class Shell {
   private readonly router = inject(Router);
   private readonly authService = inject(AuthService);
+  readonly activePrinterService = inject(ActivePrinterService);
 
   private readonly allNavItems: NavItem[] = [
     { icon: '🏠', label: 'Dashboard', path: '/', exact: true, requiredRole: 'superviseur' },
@@ -96,6 +99,13 @@ export class Shell {
       complete: () => this.router.navigateByUrl('/login'),
       error: () => this.router.navigateByUrl('/login'),
     });
+  }
+
+  /** value : id de l'imprimante choisie (chaîne, voir <select>) ou '' pour "aucune". */
+  onPrinterChange(value: string): void {
+    const id = value ? Number(value) : null;
+    const printer = id !== null ? (this.activePrinterService.activePrinters().find((p) => p.id === id) ?? null) : null;
+    this.activePrinterService.setPrinter(printer);
   }
 
   toggleTheme(): void {
