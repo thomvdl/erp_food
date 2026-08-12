@@ -1,8 +1,8 @@
-<a routerLink="/evenements" class="back-link">← Événements</a>
+<a routerLink="/gestion/evenements" class="back-link">← Événements</a>
 
 <div class="app-topbar">
   <h1 class="text-2xl">{{ event()?.name }}</h1>
-  <a class="btn btn-outline" [routerLink]="['/evenements', event()?.id, 'modifier']">Renommer</a>
+  <a class="btn btn-outline" [routerLink]="['/gestion/evenements', event()?.id, 'modifier']">Renommer</a>
 </div>
 
 <div class="card">

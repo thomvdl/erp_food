@@ -58,7 +58,7 @@ export class ClientForm {
     const request = this.isEdit() && this.id !== null ? this.clientService.update(this.id, payload) : this.clientService.create(payload);
 
     request.subscribe({
-      next: () => this.router.navigateByUrl('/clients'),
+      next: () => this.router.navigateByUrl('/gestion/clients'),
       error: () => {
         this.saving.set(false);
         this.error.set("Impossible d'enregistrer le client.");

@@ -1,6 +1,6 @@
 <div class="app-topbar">
   <div>
-    <a routerLink="/clients" class="text-muted text-sm">← Retour aux clients</a>
+    <a routerLink="/gestion/clients" class="text-muted text-sm">← Retour aux clients</a>
     <h1 class="text-2xl">@if (client(); as client) {{{ client.firstname }} {{ client.lastname }}}</h1>
   </div>
   @if (client(); as client) {
@@ -45,7 +45,7 @@
         <tbody>
           @for (ticket of client.tickets; track ticket.id) {
             <tr>
-              <td><a [routerLink]="['/tickets', ticket.id]">{{ ticketLabel(ticket) }}</a></td>
+              <td><a [routerLink]="['/gestion/tickets',ticket.id]">{{ ticketLabel(ticket) }}</a></td>
               <td>{{ formatMoney(ticketTotal(ticket)) }}</td>
             </tr>
           } @empty {
@@ -150,7 +150,7 @@
               </td>
               <td>
                 @if (movement.ticket_id) {
-                  <a [routerLink]="['/tickets', movement.ticket_id]">#{{ movement.ticket_id }}</a>
+                  <a [routerLink]="['/gestion/tickets',movement.ticket_id]">#{{ movement.ticket_id }}</a>
                 } @else {
                   —
                 }

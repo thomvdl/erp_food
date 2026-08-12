@@ -312,7 +312,7 @@ export class ProductForm {
         : this.productService.create(payload);
 
     request.subscribe({
-      next: () => this.router.navigateByUrl('/produits'),
+      next: () => this.router.navigateByUrl('/gestion/produits'),
       error: () => {
         this.saving.set(false);
         this.error.set("Impossible d'enregistrer le produit.");

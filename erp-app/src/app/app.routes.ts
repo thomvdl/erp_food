@@ -166,6 +166,109 @@ export const routes: Routes = [
         ],
       },
       {
+        // Hub qui regroupe les anciennes entrées "Gestion des ..." de la sidebar (voir shell.ts)
+        // pour l'épurer — pas de garde ici contrairement à `parametres` : les routes enfants
+        // (commandes/evenements/tickets/produits/clients) gardent chacune leur propre garde
+        // existante, pas uniformes (ex. commandes reste accessible à tous les rôles).
+        path: 'gestion',
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./pages/gestion/gestion-home/gestion-home').then((m) => m.GestionHome),
+          },
+          {
+            path: 'commandes',
+            loadComponent: () => import('./pages/orders/order-list/order-list').then((m) => m.OrderList),
+          },
+          {
+            path: 'produits',
+            canActivate: [roleGuard('superviseur')],
+            children: [
+              {
+                path: '',
+                loadComponent: () => import('./pages/products/product-list/product-list').then((m) => m.ProductList),
+              },
+              {
+                path: 'nouveau',
+                loadComponent: () => import('./pages/products/product-form/product-form').then((m) => m.ProductForm),
+              },
+              {
+                path: ':id',
+                loadComponent: () => import('./pages/products/product-form/product-form').then((m) => m.ProductForm),
+              },
+            ],
+          },
+          {
+            path: 'clients',
+            canActivate: [roleGuard('superviseur')],
+            children: [
+              {
+                path: '',
+                loadComponent: () => import('./pages/clients/client-list/client-list').then((m) => m.ClientList),
+              },
+              {
+                path: 'nouveau',
+                loadComponent: () => import('./pages/clients/client-form/client-form').then((m) => m.ClientForm),
+              },
+              {
+                path: ':id',
+                loadComponent: () => import('./pages/clients/client-detail/client-detail').then((m) => m.ClientDetail),
+              },
+              {
+                path: ':id/modifier',
+                loadComponent: () => import('./pages/clients/client-form/client-form').then((m) => m.ClientForm),
+              },
+            ],
+          },
+          {
+            path: 'evenements',
+            children: [
+              {
+                path: '',
+                canActivate: [roleGuard('superviseur')],
+                loadComponent: () => import('./pages/events/event-list/event-list').then((m) => m.EventList),
+              },
+              {
+                path: 'nouveau',
+                canActivate: [roleGuard('superviseur')],
+                loadComponent: () => import('./pages/events/event-form/event-form').then((m) => m.EventForm),
+              },
+              {
+                path: ':id/modifier',
+                canActivate: [roleGuard('superviseur')],
+                loadComponent: () => import('./pages/events/event-form/event-form').then((m) => m.EventForm),
+              },
+              {
+                path: ':id',
+                canActivate: [roleGuard('superviseur')],
+                loadComponent: () => import('./pages/events/event-detail/event-detail').then((m) => m.EventDetail),
+              },
+              {
+                // Sans garde, contrairement à ses voisins : accédé depuis /vente-de-places (route
+                // publique, voir plus bas) par un client qui achète une place, pas seulement par
+                // un superviseur qui gère l'événement.
+                path: ':id/dates/:dateId',
+                loadComponent: () => import('./pages/events/event-dashboard/event-dashboard').then((m) => m.EventDashboard),
+              },
+            ],
+          },
+          {
+            path: 'tickets',
+            canActivate: [roleGuard('superviseur')],
+            children: [
+              {
+                path: '',
+                loadComponent: () => import('./pages/tickets/ticket-list/ticket-list').then((m) => m.TicketList),
+              },
+              {
+                path: ':id',
+                loadComponent: () => import('./pages/tickets/ticket-detail/ticket-detail').then((m) => m.TicketDetail),
+              },
+            ],
+          },
+        ],
+      },
+      {
         path: 'pos-vente',
         loadComponent: () => import('./pages/pos-vente/pos-vente').then((m) => m.PosVente),
       },
@@ -183,80 +286,7 @@ export const routes: Routes = [
         ],
       },
       {
-        path: 'commandes',
-        loadComponent: () => import('./pages/orders/order-list/order-list').then((m) => m.OrderList),
-      },
-      {
-        path: 'produits',
-        canActivate: [roleGuard('superviseur')],
-        children: [
-          {
-            path: '',
-            loadComponent: () => import('./pages/products/product-list/product-list').then((m) => m.ProductList),
-          },
-          {
-            path: 'nouveau',
-            loadComponent: () => import('./pages/products/product-form/product-form').then((m) => m.ProductForm),
-          },
-          {
-            path: ':id',
-            loadComponent: () => import('./pages/products/product-form/product-form').then((m) => m.ProductForm),
-          },
-        ],
-      },
-      {
-        path: 'clients',
-        canActivate: [roleGuard('superviseur')],
-        children: [
-          {
-            path: '',
-            loadComponent: () => import('./pages/clients/client-list/client-list').then((m) => m.ClientList),
-          },
-          {
-            path: 'nouveau',
-            loadComponent: () => import('./pages/clients/client-form/client-form').then((m) => m.ClientForm),
-          },
-          {
-            path: ':id',
-            loadComponent: () => import('./pages/clients/client-detail/client-detail').then((m) => m.ClientDetail),
-          },
-          {
-            path: ':id/modifier',
-            loadComponent: () => import('./pages/clients/client-form/client-form').then((m) => m.ClientForm),
-          },
-        ],
-      },
-      {
-        path: 'evenements',
-        children: [
-          {
-            path: '',
-            canActivate: [roleGuard('superviseur')],
-            loadComponent: () => import('./pages/events/event-list/event-list').then((m) => m.EventList),
-          },
-          {
-            path: 'nouveau',
-            canActivate: [roleGuard('superviseur')],
-            loadComponent: () => import('./pages/events/event-form/event-form').then((m) => m.EventForm),
-          },
-          {
-            path: ':id/modifier',
-            canActivate: [roleGuard('superviseur')],
-            loadComponent: () => import('./pages/events/event-form/event-form').then((m) => m.EventForm),
-          },
-          {
-            path: ':id',
-            canActivate: [roleGuard('superviseur')],
-            loadComponent: () => import('./pages/events/event-detail/event-detail').then((m) => m.EventDetail),
-          },
-          {
-            path: ':id/dates/:dateId',
-            loadComponent: () => import('./pages/events/event-dashboard/event-dashboard').then((m) => m.EventDashboard),
-          },
-        ],
-      },
-      {
-        // Route de premier niveau, séparée de 'evenements' (voir Readme.md) : ouverte à tous les
+        // Route de premier niveau, séparée de 'gestion/evenements' (voir Readme.md) : ouverte à tous les
         // rôles, contrairement à la gestion des événements (superviseur+) — les deux ont toujours
         // été deux entrées distinctes dans la sidebar (voir shell.ts), le routeur reflète
         // maintenant la même séparation plutôt que de nicher une page publique sous un préfixe
@@ -294,20 +324,6 @@ export const routes: Routes = [
           {
             path: ':id',
             loadComponent: () => import('./pages/bookings/booking-form/booking-form').then((m) => m.BookingForm),
-          },
-        ],
-      },
-      {
-        path: 'tickets',
-        canActivate: [roleGuard('superviseur')],
-        children: [
-          {
-            path: '',
-            loadComponent: () => import('./pages/tickets/ticket-list/ticket-list').then((m) => m.TicketList),
-          },
-          {
-            path: ':id',
-            loadComponent: () => import('./pages/tickets/ticket-detail/ticket-detail').then((m) => m.TicketDetail),
           },
         ],
       },

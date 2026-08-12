@@ -1,4 +1,4 @@
-<a routerLink="/produits" class="back-link">← Produits</a>
+<a routerLink="/gestion/produits" class="back-link">← Produits</a>
 
 <h1 class="text-2xl">{{ isEdit() ? 'Modifier le produit' : 'Nouveau produit' }}</h1>
 
@@ -339,6 +339,6 @@
     <button type="submit" class="btn btn-primary" [disabled]="saving()">
       {{ saving() ? 'Enregistrement...' : 'Enregistrer' }}
     </button>
-    <a class="btn btn-outline" routerLink="/produits">Annuler</a>
+    <a class="btn btn-outline" routerLink="/gestion/produits">Annuler</a>
   </div>
 </form>

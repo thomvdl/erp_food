@@ -40,14 +40,13 @@ export class Shell {
     { icon: '📊', label: 'Rapports', path: '/rapports', requiredRole: 'superviseur' },
     { icon: '🪑', label: 'POS - Restaurant', path: '/pos-restaurant' },
     { icon: '🏷️​', label: 'POS - Vente directe', path: '/pos-vente' },
-    { icon: '🎫', label: 'Événements', path: '/evenements', requiredRole: 'superviseur' },
     { icon: '🎟️', label: 'Vente de place', path: '/vente-de-places' },
     { icon: '📅', label: 'Réservations', path: '/reservations' },
     { icon: '💶', label: 'Fond de caisse', path: '/caisse', requiredRole: 'superviseur' },
-    { icon: '📋', label: 'Gestion des commandes', path: '/commandes' },
-    { icon: '🧾', label: 'Gestion des tickets', path: '/tickets', requiredRole: 'superviseur' },
-    { icon: '🍔', label: 'Gestion des produits', path: '/produits', requiredRole: 'superviseur' },
-    { icon: '👤', label: 'Gestion des clients', path: '/clients', requiredRole: 'superviseur' },
+    // "Gestion des événements/commandes/tickets/produits/clients" consolidées sous un seul hub
+    // (voir gestion-home.ts) pour épurer la sidebar — pas de requiredRole ici : la page hub
+    // filtre elle-même ses tuiles par rôle, et "Commandes" y reste accessible à tous.
+    { icon: '🗂️', label: 'Gestion', path: '/gestion' },
     { icon: '⚙️', label: 'Paramètres', path: '/parametres', requiredRole: 'admin' },
   ];
 

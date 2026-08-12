@@ -1,4 +1,4 @@
-<a routerLink="/evenements" class="back-link">← Événements</a>
+<a routerLink="/gestion/evenements" class="back-link">← Événements</a>
 
 <h1 class="text-2xl">{{ isEdit() ? "Modifier l'événement" : 'Nouvel événement' }}</h1>
 
@@ -22,7 +22,7 @@
     <button type="submit" class="btn btn-primary" [disabled]="saving()">
       {{ saving() ? 'Enregistrement...' : 'Enregistrer' }}
     </button>
-    <a class="btn btn-outline" routerLink="/evenements">Annuler</a>
+    <a class="btn btn-outline" routerLink="/gestion/evenements">Annuler</a>
   </div>
 </form>
 </div>

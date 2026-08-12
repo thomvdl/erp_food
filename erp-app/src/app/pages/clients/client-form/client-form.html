@@ -1,4 +1,4 @@
-<a routerLink="/clients" class="back-link">← Clients</a>
+<a routerLink="/gestion/clients" class="back-link">← Clients</a>
 
 <h1 class="text-2xl">{{ isEdit() ? 'Modifier le client' : 'Nouveau client' }}</h1>
 
@@ -33,7 +33,7 @@
     <button type="submit" class="btn btn-primary" [disabled]="saving()">
       {{ saving() ? 'Enregistrement...' : 'Enregistrer' }}
     </button>
-    <a class="btn btn-outline" routerLink="/clients">Annuler</a>
+    <a class="btn btn-outline" routerLink="/gestion/clients">Annuler</a>
   </div>
 </form>
 </div>

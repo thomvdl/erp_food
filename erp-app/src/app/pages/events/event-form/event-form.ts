@@ -48,7 +48,7 @@ export class EventForm {
         : this.eventService.create(payload);
 
     request.subscribe({
-      next: (event) => this.router.navigateByUrl(this.isEdit() ? '/evenements' : `/evenements/${event.id}`),
+      next: (event) => this.router.navigateByUrl(this.isEdit() ? '/gestion/evenements' : `/gestion/evenements/${event.id}`),
       error: (err) => {
         this.saving.set(false);
         const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;

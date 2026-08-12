@@ -6,9 +6,10 @@ import { TableElement } from './models/floor-plan.model';
 
 /**
  * Pas un ResourceService : la création est imbriquée sous une room
- * (`/rooms/{room}/tables`) mais lecture/mise à jour/suppression sont shallow
- * (`/tables/{table}`) — ne correspond pas à la forme mono-endpoint du
- * ResourceService générique (même raison que RoomElementService dans ERP/).
+ * (`/rooms/{room}/tables`) mais mise à jour est shallow (`/tables/{table}`) —
+ * ne correspond pas à la forme mono-endpoint du ResourceService générique
+ * (même raison que RoomElementService dans ERP/). Pas de suppression : voir
+ * TableElementController côté API, désactivation (`active`) à la place.
  */
 @Injectable({ providedIn: 'root' })
 export class TableElementService {
@@ -20,10 +21,6 @@ export class TableElementService {
 
   update(tableId: number, payload: Partial<TableElement>): Observable<TableElement> {
     return this.http.put<TableElement>(`${API_URL}/tables/${tableId}`, payload);
-  }
-
-  remove(tableId: number): Observable<void> {
-    return this.http.delete<void>(`${API_URL}/tables/${tableId}`);
   }
 
   /** PNG du QR self-order de cette table (voir SelfOrderController::qr — route publique, comme
