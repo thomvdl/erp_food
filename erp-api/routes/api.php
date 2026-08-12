@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\EventDateController;
 use App\Http\Controllers\Api\EventTicketController;
 use App\Http\Controllers\Api\EventTicketPriceController;
 use App\Http\Controllers\Api\EventTicketTypeController;
+use App\Http\Controllers\Api\IngredientController;
 use App\Http\Controllers\Api\KioskCheckoutController;
 use App\Http\Controllers\Api\KioskOrderController;
 use App\Http\Controllers\Api\OrderController;
@@ -138,6 +139,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // — le prix, lui, est propre à chaque event (voir events/{event}/ticket-prices, resté
         // superviseur+ ci-dessus avec le reste de la gestion des events).
         Route::apiResource('event-ticket-types', EventTicketTypeController::class)->except(['destroy']);
+        // Liste globale d'ingrédients (ex. Oignon, Fromage), rattachés à des produits depuis leur
+        // fiche (voir ProductController::syncableIngredients) — même pattern "active" que le reste.
+        Route::apiResource('ingredients', IngredientController::class)->except(['destroy']);
         // Gérer les codes de réduction eux-mêmes (créer/modifier) est une action Paramètres — les
         // UTILISER au paiement (discounts/validate ci-dessous) est une action superviseur+.
         Route::apiResource('discounts', DiscountController::class)->except(['destroy']);

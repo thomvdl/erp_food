@@ -8,6 +8,11 @@ export interface ProductComponent {
   name: string;
   price: number | string;
   pivot: { quantity: number };
+  /** Uniquement renseigné pour les options d'un groupe de menu (voir MenuGroup.options,
+   *  ProductController::WITH menuGroups.options.ingredients) — permet de proposer la même
+   *  personnalisation ("sans oignon") pour un produit choisi À L'INTÉRIEUR d'un menu que pour ce
+   *  même produit vendu seul (voir Product.ingredients). Absent pour un composant de combo. */
+  ingredients?: ProductIngredient[];
 }
 
 /** write-only : payload create/update pour la composition d'un combo (voir `component_ids`
@@ -15,6 +20,22 @@ export interface ProductComponent {
 export interface ProductComponentPayload {
   product_id: number;
   quantity: number;
+}
+
+/** Ingrédient global (voir Ingredient dans reference.model.ts pour la liste brute) rattaché à un
+ *  produit — `pivot.removable` détermine si le client peut le décocher au panier (ex. le pain
+ *  d'un burger reste coché mais non décochable), voir la modale de personnalisation panier. */
+export interface ProductIngredient {
+  id: number;
+  name: string;
+  pivot: { removable: boolean };
+}
+
+/** write-only : payload create/update pour les ingrédients d'un produit (voir `ingredient_ids`
+ *  côté Product ci-dessous) — distinct du champ de lecture `ingredients`. */
+export interface ProductIngredientPayload {
+  ingredient_id: number;
+  removable: boolean;
 }
 
 /** Un groupe de choix d'un menu (voir Product.menu_groups) — le client choisit entre min_choices
@@ -93,4 +114,9 @@ export interface Product {
   menu_groups?: MenuGroup[];
   /** write-only : envoyé en payload create/update (voir `menu_groups`). */
   menu_group_ids?: MenuGroupPayload[];
+  /** Ingrédients de ce produit, retirables ou non au panier — voir la modale de personnalisation
+   *  panier (pos-vente.ts/order-builder.ts/...). */
+  ingredients?: ProductIngredient[];
+  /** write-only : envoyé en payload create/update (voir `ingredients`). */
+  ingredient_ids?: ProductIngredientPayload[];
 }

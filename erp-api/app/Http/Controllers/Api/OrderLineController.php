@@ -45,6 +45,12 @@ class OrderLineController extends Controller
             'menu_choices.*.menu_group_id' => ['integer'],
             'menu_choices.*.product_ids' => ['array'],
             'menu_choices.*.product_ids.*' => ['integer'],
+            // Note d'exclusion d'ingrédients par produit choisi dans le menu (voir
+            // App\Support\MenuResolver::resolve) — même texte libre que 'note' ci-dessus, jamais
+            // validé contre la vraie liste d'ingrédients.
+            'menu_choices.*.product_notes' => ['array'],
+            'menu_choices.*.product_notes.*.product_id' => ['integer'],
+            'menu_choices.*.product_notes.*.note' => ['nullable', 'string', 'max:255'],
         ]);
 
         $quantity = $data['quantity'] ?? 1;
@@ -145,7 +151,13 @@ class OrderLineController extends Controller
                 $line = $targetSection->lines()
                     ->where('product_id', $component['product_id'])
                     ->where('menu_id', $menu->id)
+                    ->where('note', $component['note'])
                     ->first();
+                // ^ 'note' inclus dans le match : sinon un même produit choisi deux fois dans le
+                //   menu avec des personnalisations d'ingrédients différentes ("Burger — Sans
+                //   oignon" vs "Burger — Sans tomate") fusionnerait silencieusement en une seule
+                //   ligne, perdant l'une des deux notes (voir App\Support\MenuResolver::resolve,
+                //   qui les garde déjà distinctes en amont).
 
                 if ($line) {
                     $line->increment('quantity', $component['quantity']);

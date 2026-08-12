@@ -1,0 +1,28 @@
+<a routerLink="/parametres/ingredients" class="back-link">← Ingrédients</a>
+
+<h1 class="text-2xl">{{ isEdit() ? "Modifier l'ingrédient" : 'Nouvel ingrédient' }}</h1>
+
+<div class="card">
+<div class="card-body">
+<form class="form" (ngSubmit)="submit()">
+  <label class="field">
+    Nom
+    <input class="input" type="text" name="name" placeholder="ex. Oignon, Fromage…" [ngModel]="name()" (ngModelChange)="name.set($event)" required />
+  </label>
+
+  <label class="checkbox-field">
+    <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
+    Actif
+  </label>
+
+  @if (error()) {
+    <p class="error-text">{{ error() }}</p>
+  }
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+    <a class="btn btn-outline" routerLink="/parametres/ingredients">Annuler</a>
+  </div>
+</form>
+</div>
+</div>

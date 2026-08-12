@@ -152,6 +152,21 @@ export const routes: Routes = [
             loadComponent: () => import('./pages/parametres/discounts/discount-form/discount-form').then((m) => m.DiscountForm),
           },
           {
+            path: 'ingredients',
+            loadComponent: () =>
+              import('./pages/parametres/ingredients/ingredient-list/ingredient-list').then((m) => m.IngredientList),
+          },
+          {
+            path: 'ingredients/nouveau',
+            loadComponent: () =>
+              import('./pages/parametres/ingredients/ingredient-form/ingredient-form').then((m) => m.IngredientForm),
+          },
+          {
+            path: 'ingredients/:id',
+            loadComponent: () =>
+              import('./pages/parametres/ingredients/ingredient-form/ingredient-form').then((m) => m.IngredientForm),
+          },
+          {
             path: 'types-place',
             loadComponent: () =>
               import('./pages/parametres/ticket-types/ticket-type-list/ticket-type-list').then((m) => m.TicketTypeList),

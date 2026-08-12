@@ -1,0 +1,48 @@
+<a routerLink="/parametres" class="back-link">← Paramètres</a>
+
+<div class="app-topbar">
+  <h1 class="text-2xl">Ingrédients</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+<p class="text-muted text-sm">
+  Liste commune à tous les produits (ex. Oignon, Fromage) — chaque produit choisit ensuite lesquels
+  le composent, et lesquels le client peut retirer au panier, depuis sa fiche.
+</p>
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (ingredient of ingredients(); track ingredient.id) {
+          <tr>
+            <td>{{ ingredient.name }}</td>
+            <td>
+              @if (ingredient.active) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <span class="badge badge-neutral">Inactif</span>
+              }
+            </td>
+            <td>
+              <div class="td-actions">
+                <a class="btn btn-outline btn-sm" [routerLink]="[ingredient.id]">Modifier</a>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="3" class="text-muted">Aucun ingrédient pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

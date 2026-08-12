@@ -12,7 +12,9 @@ import {
   KioskCheckout,
   KioskCheckoutState,
   MenuChoice,
+  MenuChoiceProductNote,
   MenuGroup,
+  MenuOption,
   PaymentMethod,
   Product,
   Ticket,
@@ -30,6 +32,10 @@ interface CartLine {
   /** Choix du client pour un produit `is_menu` (voir App\Support\MenuResolver côté API) — absent
    *  pour un produit normal. */
   menuChoices?: MenuChoice[];
+  /** Ingrédients retirés (voir Product.ingredients/modale de personnalisation) — résumé en texte
+   *  libre ("Sans oignon, sans fromage"), envoyé tel quel au serveur (jamais validé contre la
+   *  vraie liste d'ingrédients, comme n'importe quelle autre note). */
+  note?: string | null;
 }
 
 interface CategoryFilter {
@@ -133,11 +139,22 @@ export class KioskOrder implements OnInit, OnDestroy {
   /** Nombre d'exemplaires de CETTE configuration (mêmes choix) à ajouter en un coup — voir
    *  confirmAddMenu(). */
   readonly menuQuantity = signal(1);
+  /** Ingrédients retirés PAR produit choisi dans le menu (ex. le burger pris comme plat), pas
+   *  pour le menu lui-même — clé "{groupId}:{productId}", même pattern que pos-vente.ts. */
+  readonly menuOptionExclusions = signal<Map<string, Set<number>>>(new Map());
+  readonly showMenuOptionIngredientsModal = signal<{ group: MenuGroup; product: MenuOption } | null>(null);
+  readonly menuOptionExcludedIngredientIds = signal<Set<number>>(new Set());
 
   readonly canConfirmMenu = computed(() => {
     const product = this.showMenuModal();
     return !!product && (product.menu_groups ?? []).every((group) => this.isMenuGroupValid(group));
   });
+
+  // --- Personnalisation des ingrédients (voir Product.ingredients) — modale ouverte au clic
+  // uniquement si le produit a au moins un ingrédient retirable, sinon ajout direct comme avant. ---
+  readonly showIngredientsModal = signal<Product | null>(null);
+  readonly excludedIngredientIds = signal<Set<number>>(new Set());
+  readonly ingredientsQuantity = signal(1);
 
   /** Écran d'accueil (grille de catégories, voir kiosk-order.html) vs écran de navigation dans
    *  une catégorie — purement visuel (aucune donnée métier derrière), nécessaire pour le
@@ -335,13 +352,85 @@ export class KioskOrder implements OnInit, OnDestroy {
       return;
     }
 
-    const current = this.cart();
-    const existing = current.find((line) => line.product.id === product.id && !line.menuChoices);
-    if (existing) {
-      this.cart.set(current.map((line) => (line.lineId === existing.lineId ? { ...line, quantity: line.quantity + 1 } : line)));
-    } else {
-      this.cart.set([...current, { lineId: this.nextCartLineId++, product, quantity: 1 }]);
+    if (this.hasRemovableIngredients(product)) {
+      this.openIngredientsModal(product);
+      return;
     }
+
+    this.addLineToCart(product, null, 1);
+  }
+
+  /** Ajoute (ou fusionne avec) une ligne — factorisé entre addToCart() (pas de personnalisation)
+   *  et confirmAddIngredients() (voir ci-dessous), les deux devant fusionner à l'identique par
+   *  (product, note), pas seulement product : "Burger" et "Burger — Sans oignon" doivent rester
+   *  deux lignes distinctes, jamais fusionnées silencieusement. */
+  private addLineToCart(product: Product, note: string | null, quantity: number): void {
+    const current = this.cart();
+    const existing = current.find((line) => line.product.id === product.id && !line.menuChoices && (line.note ?? null) === note);
+    if (existing) {
+      this.cart.set(current.map((line) => (line.lineId === existing.lineId ? { ...line, quantity: line.quantity + quantity } : line)));
+    } else {
+      this.cart.set([...current, { lineId: this.nextCartLineId++, product, quantity, note }]);
+    }
+  }
+
+  private hasRemovableIngredients(product: Product): boolean {
+    return (product.ingredients ?? []).some((ingredient) => ingredient.pivot.removable);
+  }
+
+  // --- Modale de personnalisation (voir Product.ingredients) ---
+
+  openIngredientsModal(product: Product): void {
+    this.showIngredientsModal.set(product);
+    this.excludedIngredientIds.set(new Set());
+    this.ingredientsQuantity.set(1);
+  }
+
+  closeIngredientsModal(): void {
+    this.showIngredientsModal.set(null);
+    this.excludedIngredientIds.set(new Set());
+    this.ingredientsQuantity.set(1);
+  }
+
+  isIngredientExcluded(ingredientId: number): boolean {
+    return this.excludedIngredientIds().has(ingredientId);
+  }
+
+  toggleExcludedIngredient(ingredientId: number): void {
+    const next = new Set(this.excludedIngredientIds());
+    if (next.has(ingredientId)) {
+      next.delete(ingredientId);
+    } else {
+      next.add(ingredientId);
+    }
+    this.excludedIngredientIds.set(next);
+  }
+
+  setIngredientsQuantity(value: number): void {
+    this.ingredientsQuantity.set(Math.max(1, Math.floor(value) || 1));
+  }
+
+  /** Résumé texte de la personnalisation en cours — affiché dans la modale ET utilisé comme note
+   *  de ligne (voir confirmAddIngredients()). Vide si rien n'est décoché. */
+  ingredientsNotePreview(): string {
+    const product = this.showIngredientsModal();
+    if (!product) {
+      return '';
+    }
+    const excluded = this.excludedIngredientIds();
+    const names = (product.ingredients ?? []).filter((i) => excluded.has(i.id)).map((i) => `Sans ${i.name}`);
+    return names.join(', ');
+  }
+
+  confirmAddIngredients(): void {
+    const product = this.showIngredientsModal();
+    if (!product) {
+      return;
+    }
+
+    const note = this.ingredientsNotePreview() || null;
+    this.addLineToCart(product, note, this.ingredientsQuantity());
+    this.closeIngredientsModal();
   }
 
   incrementCartLine(lineId: number): void {
@@ -372,12 +461,14 @@ export class KioskOrder implements OnInit, OnDestroy {
     this.showMenuModal.set(product);
     this.menuSelections.set(new Map((product.menu_groups ?? []).map((group) => [group.id, []])));
     this.menuQuantity.set(1);
+    this.menuOptionExclusions.set(new Map());
   }
 
   closeMenuModal(): void {
     this.showMenuModal.set(null);
     this.menuSelections.set(new Map());
     this.menuQuantity.set(1);
+    this.menuOptionExclusions.set(new Map());
   }
 
   setMenuQuantity(value: number): void {
@@ -424,14 +515,91 @@ export class KioskOrder implements OnInit, OnDestroy {
     return count >= group.min_choices && count <= group.max_choices;
   }
 
+  // --- Personnalisation d'un produit choisi À L'INTÉRIEUR d'un menu (ex. "le burger pris comme
+  // plat, sans oignon") — modale imbriquée dans la modale menu, même mécanique que
+  // showIngredientsModal mais sur une option de groupe plutôt qu'une ligne de panier. ---
+
+  private menuOptionKey(groupId: number, productId: number): string {
+    return `${groupId}:${productId}`;
+  }
+
+  optionHasRemovableIngredients(option: MenuOption): boolean {
+    return (option.ingredients ?? []).some((ingredient) => ingredient.pivot.removable);
+  }
+
+  openMenuOptionIngredientsModal(group: MenuGroup, option: MenuOption): void {
+    this.showMenuOptionIngredientsModal.set({ group, product: option });
+    this.menuOptionExcludedIngredientIds.set(new Set(this.menuOptionExclusions().get(this.menuOptionKey(group.id, option.id)) ?? []));
+  }
+
+  closeMenuOptionIngredientsModal(): void {
+    this.showMenuOptionIngredientsModal.set(null);
+    this.menuOptionExcludedIngredientIds.set(new Set());
+  }
+
+  isMenuOptionIngredientExcluded(ingredientId: number): boolean {
+    return this.menuOptionExcludedIngredientIds().has(ingredientId);
+  }
+
+  toggleMenuOptionExcludedIngredient(ingredientId: number): void {
+    const next = new Set(this.menuOptionExcludedIngredientIds());
+    if (next.has(ingredientId)) {
+      next.delete(ingredientId);
+    } else {
+      next.add(ingredientId);
+    }
+    this.menuOptionExcludedIngredientIds.set(next);
+  }
+
+  menuOptionNotePreview(): string {
+    const current = this.showMenuOptionIngredientsModal();
+    if (!current) return '';
+    const excluded = this.menuOptionExcludedIngredientIds();
+    return (current.product.ingredients ?? [])
+      .filter((ingredient) => excluded.has(ingredient.id))
+      .map((ingredient) => `Sans ${ingredient.name}`)
+      .join(', ');
+  }
+
+  confirmMenuOptionIngredients(): void {
+    const current = this.showMenuOptionIngredientsModal();
+    if (!current) return;
+
+    const key = this.menuOptionKey(current.group.id, current.product.id);
+    const next = new Map(this.menuOptionExclusions());
+    if (this.menuOptionExcludedIngredientIds().size > 0) {
+      next.set(key, new Set(this.menuOptionExcludedIngredientIds()));
+    } else {
+      next.delete(key);
+    }
+    this.menuOptionExclusions.set(next);
+    this.closeMenuOptionIngredientsModal();
+  }
+
+  /** Résumé texte ("Sans oignon") de la personnalisation déjà enregistrée pour cette option —
+   *  affiché sous sa pastille dans la modale menu, et réutilisé comme note de ligne côté serveur
+   *  (voir confirmAddMenu() et App\Support\MenuResolver::resolve). */
+  menuOptionNoteFor(groupId: number, productId: number): string {
+    const excluded = this.menuOptionExclusions().get(this.menuOptionKey(groupId, productId));
+    if (!excluded || excluded.size === 0) return '';
+    const group = (this.showMenuModal()?.menu_groups ?? []).find((g) => g.id === groupId);
+    const option = group?.options.find((o) => o.id === productId);
+    return (option?.ingredients ?? [])
+      .filter((ingredient) => excluded.has(ingredient.id))
+      .map((ingredient) => `Sans ${ingredient.name}`)
+      .join(', ');
+  }
+
   confirmAddMenu(): void {
     const product = this.showMenuModal();
     if (!product || !this.canConfirmMenu()) return;
 
-    const menuChoices: MenuChoice[] = Array.from(this.menuSelections().entries()).map(([menu_group_id, product_ids]) => ({
-      menu_group_id,
-      product_ids,
-    }));
+    const menuChoices: MenuChoice[] = Array.from(this.menuSelections().entries()).map(([menu_group_id, product_ids]) => {
+      const product_notes: MenuChoiceProductNote[] = product_ids
+        .map((product_id) => ({ product_id, note: this.menuOptionNoteFor(menu_group_id, product_id) }))
+        .filter((entry) => entry.note !== '');
+      return product_notes.length > 0 ? { menu_group_id, product_ids, product_notes } : { menu_group_id, product_ids };
+    });
 
     const current = this.cart();
     const existing = current.find(
@@ -649,7 +817,7 @@ export class KioskOrder implements OnInit, OnDestroy {
         cash_session_id: this.cashSessionId,
         discount_code: this.appliedDiscount()?.discount.code ?? null,
         points_redeemed: this.pointsToRedeemInput() > 0 ? this.pointsToRedeemInput() : null,
-        lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity, menu_choices: line.menuChoices })),
+        lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity, note: line.note, menu_choices: line.menuChoices })),
       })
       .subscribe({
         next: (checkout) => {
@@ -729,7 +897,7 @@ export class KioskOrder implements OnInit, OnDestroy {
         cash_session_id: this.cashSessionId,
         discount_code: this.appliedDiscount()?.discount.code ?? null,
         points_redeemed: this.pointsToRedeemInput() > 0 ? this.pointsToRedeemInput() : null,
-        lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity, menu_choices: line.menuChoices })),
+        lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity, note: line.note, menu_choices: line.menuChoices })),
         payments: [{ payment_method_id: method.id, value: this.payableTotal() }],
       })
       .subscribe({

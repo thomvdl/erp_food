@@ -64,7 +64,7 @@ class SelfOrderController extends Controller
         $products = Product::query()
             ->whereHas('catalogs', fn ($query) => $query->whereIn('product_catalogs.id', $catalogIds))
             ->where('products.active', true)
-            ->with(['tax', 'category', 'menuGroups.options'])
+            ->with(['tax', 'category', 'menuGroups.options.ingredients', 'ingredients'])
             ->orderBy('name')
             ->get([
                 'products.id', 'products.name', 'products.description', 'products.price', 'products.tax_id',
@@ -119,6 +119,9 @@ class SelfOrderController extends Controller
             'lines.*.menu_choices.*.menu_group_id' => ['integer'],
             'lines.*.menu_choices.*.product_ids' => ['array'],
             'lines.*.menu_choices.*.product_ids.*' => ['integer'],
+            'lines.*.menu_choices.*.product_notes' => ['array'],
+            'lines.*.menu_choices.*.product_notes.*.product_id' => ['integer'],
+            'lines.*.menu_choices.*.product_notes.*.note' => ['nullable', 'string', 'max:255'],
         ]);
 
         // Ne fait jamais confiance au front pour savoir quels produits sont vraiment

@@ -13,7 +13,10 @@ use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
-    private const WITH = ['station', 'category', 'catalogs', 'tax', 'components', 'menuGroups.options'];
+    // menuGroups.options.ingredients : nécessaire pour que la modale de choix d'un menu sache
+    // quelles options ont des ingrédients retirables (voir pos-vente.ts/order-builder.ts/kiosk/
+    // self-order, personnalisation d'un produit choisi À L'INTÉRIEUR d'un menu).
+    private const WITH = ['station', 'category', 'catalogs', 'tax', 'components', 'menuGroups.options.ingredients', 'ingredients'];
 
     public function index()
     {
@@ -26,13 +29,15 @@ class ProductController extends Controller
         $catalogIds = $data['catalog_ids'] ?? [];
         $components = $data['component_ids'] ?? [];
         $menuGroups = $data['menu_group_ids'] ?? [];
-        unset($data['catalog_ids'], $data['component_ids'], $data['menu_group_ids']);
+        $ingredients = $data['ingredient_ids'] ?? [];
+        unset($data['catalog_ids'], $data['component_ids'], $data['menu_group_ids'], $data['ingredient_ids']);
 
-        $product = DB::transaction(function () use ($data, $catalogIds, $components, $menuGroups) {
+        $product = DB::transaction(function () use ($data, $catalogIds, $components, $menuGroups, $ingredients) {
             $product = Product::query()->create($data);
             $product->catalogs()->sync($catalogIds);
             $product->components()->sync($this->syncableComponents($components));
             $this->syncMenuGroups($product, $menuGroups);
+            $product->ingredients()->sync($this->syncableIngredients($ingredients));
 
             return $product;
         });
@@ -51,16 +56,18 @@ class ProductController extends Controller
         $catalogIds = $data['catalog_ids'] ?? [];
         $components = $data['component_ids'] ?? [];
         $menuGroups = $data['menu_group_ids'] ?? [];
-        unset($data['catalog_ids'], $data['component_ids'], $data['menu_group_ids']);
+        $ingredients = $data['ingredient_ids'] ?? [];
+        unset($data['catalog_ids'], $data['component_ids'], $data['menu_group_ids'], $data['ingredient_ids']);
         $data = array_merge($data, ImageUpload::clearIfIconChosen($product, $data['icon'] ?? null));
 
         $previousStock = $product->stock_quantity;
 
-        DB::transaction(function () use ($product, $data, $catalogIds, $components, $menuGroups) {
+        DB::transaction(function () use ($product, $data, $catalogIds, $components, $menuGroups, $ingredients) {
             $product->update($data);
             $product->catalogs()->sync($catalogIds);
             $product->components()->sync($this->syncableComponents($components));
             $this->syncMenuGroups($product, $menuGroups);
+            $product->ingredients()->sync($this->syncableIngredients($ingredients));
         });
 
         // Réapprovisionnement/correction manuelle depuis Paramètres > Produits — voir
@@ -156,6 +163,11 @@ class ProductController extends Controller
                 'integer',
                 Rule::exists('products', 'id')->where('is_combo', false)->where('is_menu', false),
             ],
+            // Ingrédients de CE produit (voir Product::ingredients) — "removable" détermine si le
+            // client peut le décocher au panier (ex. le pain reste coché, non décochable).
+            'ingredient_ids' => ['array'],
+            'ingredient_ids.*.ingredient_id' => ['integer', 'exists:ingredients,id'],
+            'ingredient_ids.*.removable' => ['boolean'],
         ]);
 
         // Pas de règle Laravel native pour comparer deux champs du même élément d'un tableau
@@ -186,6 +198,17 @@ class ProductController extends Controller
     {
         return collect($components)->mapWithKeys(fn (array $component) => [
             $component['product_id'] => ['quantity' => $component['quantity'] ?? 1],
+        ])->all();
+    }
+
+    /**
+     * @param array<int, array{ingredient_id: int, removable?: bool}> $ingredients
+     * @return array<int, array{removable: bool}>
+     */
+    private function syncableIngredients(array $ingredients): array
+    {
+        return collect($ingredients)->mapWithKeys(fn (array $ingredient) => [
+            $ingredient['ingredient_id'] => ['removable' => $ingredient['removable'] ?? true],
         ])->all();
     }
 

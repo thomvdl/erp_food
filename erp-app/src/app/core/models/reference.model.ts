@@ -27,6 +27,16 @@ export interface Tax {
   active: boolean;
 }
 
+/** Liste globale et réutilisable entre tous les produits (ex. Oignon, Fromage) — voir
+ *  ProductIngredient (product.model.ts) pour le rattachement (removable ou non) à un produit. */
+export interface Ingredient {
+  id: number;
+  name: string;
+  position: number;
+  /** "Ne plus avoir la possibilité de supprimer... ajouter un champ active" (voir Readme.md). */
+  active: boolean;
+}
+
 /** Réglage générique clé/valeur (ex. name: "open_at", value: "09:00"). */
 export interface Param {
   id: number;

@@ -83,4 +83,11 @@ class Product extends Model
     {
         return $this->hasMany(MenuGroup::class)->orderBy('position');
     }
+
+    /** Ingrédients de ce produit, retirables ou non au panier (voir migration
+     *  create_product_ingredients_table et la modale de personnalisation côté front). */
+    public function ingredients(): BelongsToMany
+    {
+        return $this->belongsToMany(Ingredient::class, 'product_ingredients')->withPivot('removable')->withTimestamps();
+    }
 }

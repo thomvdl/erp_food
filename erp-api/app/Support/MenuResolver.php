@@ -29,7 +29,7 @@ use Illuminate\Validation\ValidationException;
 class MenuResolver
 {
     /**
-     * @param  array<int, array{menu_group_id: int, product_ids: array<int, int>}>  $choices
+     * @param  array<int, array{menu_group_id: int, product_ids: array<int, int>, product_notes?: array<int, array{product_id: int, note: string}>}>  $choices
      * @return array{
      *     component_lines: array<int, array{product_id: int, quantity: int, note: string, priced: bool, menu_group_id: int, group_label: string}>,
      *     carrier_line: array{product_id: int, quantity: int, note: string, priced: bool},
@@ -46,18 +46,24 @@ class MenuResolver
         }
 
         $choicesByGroup = collect($choices)->keyBy('menu_group_id');
-        // Agrégé par (groupe, produit) et non par produit seul : App\Http\Controllers\Api\
-        // OrderLineController::addMenu a besoin de savoir de quel groupe vient chaque ligne pour
-        // router chaque composant vers sa propre section (voir Product::split_by_section). Si un
-        // même produit est choisi dans deux groupes différents (cas rare), ça donne deux entrées
-        // component_lines distinctes plutôt qu'une fusionnée — sans conséquence : la fusion en
-        // ligne (par product_id+menu_id sur la section cible) absorbe les deux passages.
+        // Agrégé par (groupe, produit, note) plutôt que (groupe, produit) seul : deux mêmes
+        // options choisies avec des ingrédients retirés différemment ("Burger" vs "Burger — Sans
+        // oignon") doivent rester deux lignes distinctes, jamais fusionnées silencieusement
+        // (perdrait la personnalisation) — même principe que le panier côté front (voir
+        // pos-vente.ts::addLineToCart). App\Http\Controllers\Api\OrderLineController::addMenu a
+        // par ailleurs besoin de savoir de quel groupe vient chaque ligne pour router chaque
+        // composant vers sa propre section (voir Product::split_by_section).
         $componentQuantities = [];
         $summaryParts = [];
 
         foreach ($groups as $group) {
             $entry = $choicesByGroup->get($group->id);
             $productIds = collect($entry['product_ids'] ?? [])->unique()->values();
+            // Note d'exclusion d'ingrédients par produit choisi (voir Product::ingredients côté
+            // modale) — jamais validée contre la vraie liste d'ingrédients, texte libre comme
+            // n'importe quelle autre note (voir TicketController::store pour le même choix sur
+            // un produit normal).
+            $notesByProduct = collect($entry['product_notes'] ?? [])->keyBy('product_id');
 
             if ($productIds->count() < $group->min_choices || $productIds->count() > $group->max_choices) {
                 throw ValidationException::withMessages([
@@ -78,12 +84,14 @@ class MenuResolver
             }
 
             foreach ($productIds as $productId) {
-                $key = "{$group->id}:{$productId}";
+                $note = trim((string) ($notesByProduct->get($productId)['note'] ?? ''));
+                $key = "{$group->id}:{$productId}:{$note}";
                 $componentQuantities[$key] = [
                     'product_id' => $productId,
                     'quantity' => ($componentQuantities[$key]['quantity'] ?? 0) + $quantity,
                     'menu_group_id' => $group->id,
                     'group_label' => $group->label,
+                    'note' => $note,
                 ];
             }
         }
@@ -92,7 +100,7 @@ class MenuResolver
             ->map(fn (array $entry) => [
                 'product_id' => $entry['product_id'],
                 'quantity' => $entry['quantity'],
-                'note' => $menu->name,
+                'note' => $entry['note'] !== '' ? "{$menu->name} — {$entry['note']}" : $menu->name,
                 'priced' => false,
                 'menu_group_id' => $entry['menu_group_id'],
                 'group_label' => $entry['group_label'],

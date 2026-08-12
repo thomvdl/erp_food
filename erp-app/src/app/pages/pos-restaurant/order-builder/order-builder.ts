@@ -17,8 +17,8 @@ import { DiscountService } from '../../../core/discount.service';
 import { ActiveCashierService } from '../../../core/active-cashier.service';
 import { RoomService } from '../../../core/room.service';
 import { Order, OrderLine, OrderSection } from '../../../core/models/order.model';
-import { MenuGroup, Product } from '../../../core/models/product.model';
-import { MenuChoice } from '../../../core/models/menu-choice.model';
+import { MenuGroup, Product, ProductComponent } from '../../../core/models/product.model';
+import { MenuChoice, MenuChoiceProductNote } from '../../../core/models/menu-choice.model';
 import { ProductCategory } from '../../../core/models/catalog.model';
 import { Room, TableElement } from '../../../core/models/floor-plan.model';
 import { Client, PaymentMethod, Ticket } from '../../../core/models/ticket.model';
@@ -145,11 +145,23 @@ export class OrderBuilder implements OnDestroy {
   readonly menuQuantity = signal(1);
   readonly addingMenu = signal(false);
   readonly menuError = signal<string | null>(null);
+  /** Ingrédients retirés PAR produit choisi dans le menu (ex. le plat pris dans une formule), pas
+   *  pour le menu lui-même — clé "{groupId}:{productId}" (voir menuOptionKey()), même pattern que
+   *  pos-vente.ts. */
+  readonly menuOptionExclusions = signal<Map<string, Set<number>>>(new Map());
+  readonly showMenuOptionIngredientsModal = signal<{ group: MenuGroup; product: ProductComponent } | null>(null);
+  readonly menuOptionExcludedIngredientIds = signal<Set<number>>(new Set());
 
   readonly canConfirmMenu = computed(() => {
     const product = this.showMenuModal();
     return !!product && (product.menu_groups ?? []).every((group) => this.isMenuGroupValid(group));
   });
+
+  // --- Personnalisation des ingrédients (voir Product.ingredients) — modale ouverte au clic
+  // uniquement si le produit a au moins un ingrédient retirable, sinon ajout direct comme avant. ---
+  readonly showIngredientsModal = signal<Product | null>(null);
+  readonly excludedIngredientIds = signal<Set<number>>(new Set());
+  readonly ingredientsQuantity = signal(1);
 
   // --- Transfert de table ("le client change de place") — même pattern de plan de salle en
   // lecture seule que table-select.ts, mais dans une modale plutôt qu'un écran plein. ---
@@ -514,8 +526,78 @@ export class OrderBuilder implements OnDestroy {
       return;
     }
 
+    if (this.hasRemovableIngredients(product)) {
+      this.openIngredientsModal(product);
+      return;
+    }
+
     this.orderLineService.add(section.id, product.id).subscribe({
       next: () => this.refreshOrder(),
+      error: () => this.error.set("Impossible d'ajouter ce produit."),
+    });
+  }
+
+  private hasRemovableIngredients(product: Product): boolean {
+    return (product.ingredients ?? []).some((ingredient) => ingredient.pivot.removable);
+  }
+
+  // --- Modale de personnalisation (voir Product.ingredients) ---
+
+  openIngredientsModal(product: Product): void {
+    this.showIngredientsModal.set(product);
+    this.excludedIngredientIds.set(new Set());
+    this.ingredientsQuantity.set(1);
+  }
+
+  closeIngredientsModal(): void {
+    this.showIngredientsModal.set(null);
+    this.excludedIngredientIds.set(new Set());
+    this.ingredientsQuantity.set(1);
+  }
+
+  isIngredientExcluded(ingredientId: number): boolean {
+    return this.excludedIngredientIds().has(ingredientId);
+  }
+
+  toggleExcludedIngredient(ingredientId: number): void {
+    const next = new Set(this.excludedIngredientIds());
+    if (next.has(ingredientId)) {
+      next.delete(ingredientId);
+    } else {
+      next.add(ingredientId);
+    }
+    this.excludedIngredientIds.set(next);
+  }
+
+  setIngredientsQuantity(value: number): void {
+    this.ingredientsQuantity.set(Math.max(1, Math.floor(value) || 1));
+  }
+
+  /** Résumé texte de la personnalisation en cours — affiché dans la modale ET utilisé comme note
+   *  de ligne (voir confirmAddIngredients()). Vide si rien n'est décoché. */
+  ingredientsNotePreview(): string {
+    const product = this.showIngredientsModal();
+    if (!product) {
+      return '';
+    }
+    const excluded = this.excludedIngredientIds();
+    const names = (product.ingredients ?? []).filter((i) => excluded.has(i.id)).map((i) => `Sans ${i.name}`);
+    return names.join(', ');
+  }
+
+  confirmAddIngredients(): void {
+    const section = this.activeSection();
+    const product = this.showIngredientsModal();
+    if (!section || !product) {
+      return;
+    }
+
+    const note = this.ingredientsNotePreview() || null;
+    this.orderLineService.add(section.id, product.id, undefined, this.ingredientsQuantity(), note).subscribe({
+      next: () => {
+        this.closeIngredientsModal();
+        this.refreshOrder();
+      },
       error: () => this.error.set("Impossible d'ajouter ce produit."),
     });
   }
@@ -527,6 +609,7 @@ export class OrderBuilder implements OnDestroy {
     this.menuSelections.set(new Map((product.menu_groups ?? []).map((group) => [group.id, []])));
     this.menuQuantity.set(1);
     this.menuError.set(null);
+    this.menuOptionExclusions.set(new Map());
   }
 
   closeMenuModal(): void {
@@ -534,6 +617,7 @@ export class OrderBuilder implements OnDestroy {
     this.menuSelections.set(new Map());
     this.menuQuantity.set(1);
     this.menuError.set(null);
+    this.menuOptionExclusions.set(new Map());
   }
 
   setMenuQuantity(value: number): void {
@@ -583,6 +667,88 @@ export class OrderBuilder implements OnDestroy {
     return count >= group.min_choices && count <= group.max_choices;
   }
 
+  // --- Personnalisation d'un produit choisi À L'INTÉRIEUR d'un menu (ex. "le plat pris dans la
+  // formule, sans oignon") — modale imbriquée dans la modale menu, même mécanique que
+  // showIngredientsModal mais sur une option de groupe plutôt qu'une ligne de commande, résultat
+  // stocké dans menuOptionExclusions plutôt qu'envoyé directement au serveur. ---
+
+  private menuOptionKey(groupId: number, productId: number): string {
+    return `${groupId}:${productId}`;
+  }
+
+  optionHasRemovableIngredients(option: ProductComponent): boolean {
+    return (option.ingredients ?? []).some((ingredient) => ingredient.pivot.removable);
+  }
+
+  openMenuOptionIngredientsModal(group: MenuGroup, option: ProductComponent): void {
+    this.showMenuOptionIngredientsModal.set({ group, product: option });
+    this.menuOptionExcludedIngredientIds.set(new Set(this.menuOptionExclusions().get(this.menuOptionKey(group.id, option.id)) ?? []));
+  }
+
+  closeMenuOptionIngredientsModal(): void {
+    this.showMenuOptionIngredientsModal.set(null);
+    this.menuOptionExcludedIngredientIds.set(new Set());
+  }
+
+  isMenuOptionIngredientExcluded(ingredientId: number): boolean {
+    return this.menuOptionExcludedIngredientIds().has(ingredientId);
+  }
+
+  toggleMenuOptionExcludedIngredient(ingredientId: number): void {
+    const next = new Set(this.menuOptionExcludedIngredientIds());
+    if (next.has(ingredientId)) {
+      next.delete(ingredientId);
+    } else {
+      next.add(ingredientId);
+    }
+    this.menuOptionExcludedIngredientIds.set(next);
+  }
+
+  menuOptionNotePreview(): string {
+    const current = this.showMenuOptionIngredientsModal();
+    if (!current) {
+      return '';
+    }
+    const excluded = this.menuOptionExcludedIngredientIds();
+    return (current.product.ingredients ?? [])
+      .filter((ingredient) => excluded.has(ingredient.id))
+      .map((ingredient) => `Sans ${ingredient.name}`)
+      .join(', ');
+  }
+
+  confirmMenuOptionIngredients(): void {
+    const current = this.showMenuOptionIngredientsModal();
+    if (!current) {
+      return;
+    }
+
+    const key = this.menuOptionKey(current.group.id, current.product.id);
+    const next = new Map(this.menuOptionExclusions());
+    if (this.menuOptionExcludedIngredientIds().size > 0) {
+      next.set(key, new Set(this.menuOptionExcludedIngredientIds()));
+    } else {
+      next.delete(key);
+    }
+    this.menuOptionExclusions.set(next);
+    this.closeMenuOptionIngredientsModal();
+  }
+
+  /** Résumé texte ("Sans oignon") de la personnalisation déjà enregistrée pour cette option —
+   *  affiché sous sa pastille dans la modale menu, et réutilisé tel quel comme note de la ligne
+   *  composant côté serveur (voir confirmAddMenu() et App\Support\MenuResolver::resolve). */
+  menuOptionNoteFor(groupId: number, productId: number): string {
+    const excluded = this.menuOptionExclusions().get(this.menuOptionKey(groupId, productId));
+    if (!excluded || excluded.size === 0) {
+      return '';
+    }
+    const group = (this.showMenuModal()?.menu_groups ?? []).find((g) => g.id === groupId);
+    const option = group?.options.find((o) => o.id === productId);
+    return (option?.ingredients ?? [])
+      .filter((ingredient) => excluded.has(ingredient.id))
+      .map((ingredient) => `Sans ${ingredient.name}`)
+      .join(', ');
+  }
+
   confirmAddMenu(): void {
     const product = this.showMenuModal();
     const section = this.activeSection();
@@ -590,10 +756,12 @@ export class OrderBuilder implements OnDestroy {
       return;
     }
 
-    const menuChoices: MenuChoice[] = Array.from(this.menuSelections().entries()).map(([menu_group_id, product_ids]) => ({
-      menu_group_id,
-      product_ids,
-    }));
+    const menuChoices: MenuChoice[] = Array.from(this.menuSelections().entries()).map(([menu_group_id, product_ids]) => {
+      const product_notes: MenuChoiceProductNote[] = product_ids
+        .map((product_id) => ({ product_id, note: this.menuOptionNoteFor(menu_group_id, product_id) }))
+        .filter((entry) => entry.note !== '');
+      return product_notes.length > 0 ? { menu_group_id, product_ids, product_notes } : { menu_group_id, product_ids };
+    });
 
     this.addingMenu.set(true);
     this.menuError.set(null);

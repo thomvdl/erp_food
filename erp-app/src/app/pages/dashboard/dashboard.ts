@@ -4,9 +4,11 @@ import { BookingService } from '../../core/booking.service';
 import { EventDateService } from '../../core/event-date.service';
 import { ProductService } from '../../core/product.service';
 import { TicketService } from '../../core/ticket.service';
+import { ReportService } from '../../core/report.service';
 import { Booking, BookingType } from '../../core/models/booking.model';
 import { EventDate } from '../../core/models/event.model';
 import { Ticket } from '../../core/models/ticket.model';
+import { ReportPeriodStats } from '../../core/models/report.model';
 import { ticketTotal as sharedTicketTotal } from '../../core/ticket-print.util';
 
 const BOOKING_TYPE_LABELS: Record<BookingType, string> = {
@@ -16,8 +18,10 @@ const BOOKING_TYPE_LABELS: Record<BookingType, string> = {
 };
 
 const RECENT_TICKETS_DISPLAY_LIMIT = 8;
-// Fetch plus large que ce qui est affiché : la stat "Ventes du jour" doit compter toutes les
-// ventes du jour, pas seulement les 8 dernières visibles dans la mini-liste.
+// Fetch plus large que ce qui est affiché, juste pour laisser de la marge à la mini-liste
+// "tickets récents" (RECENT_TICKETS_DISPLAY_LIMIT) — la stat "Ventes du jour" ne vient plus de
+// cette liste (voir todaySummary/ReportService.summary('jour'), une vraie somme serveur sans
+// limite ni écart de fuseau horaire).
 const TICKETS_FETCH_LIMIT = 50;
 const UPCOMING_EVENT_DATES_LIMIT = 5;
 
@@ -36,6 +40,7 @@ export class Dashboard {
   private readonly eventDateService = inject(EventDateService);
   private readonly ticketService = inject(TicketService);
   private readonly productService = inject(ProductService);
+  private readonly reportService = inject(ReportService);
 
   private readonly todayKey = this.todayIso();
 
@@ -43,6 +48,12 @@ export class Dashboard {
   readonly upcomingEventDates = signal<EventDate[]>([]);
   readonly fetchedTickets = signal<Ticket[]>([]);
   readonly activeProductsCount = signal(0);
+  /** Voir ReportController::summary('jour') — même source que la page Rapports, pour éviter tout
+   *  écart entre les deux écrans (voir Readme.md/discussion : le calcul à partir des 50 derniers
+   *  tickets ci-dessous ne comptait ni au-delà de cette limite, ni net de réduction/points, ni sur
+   *  la même frontière de journée que le serveur). `fetchedTickets` reste utilisé pour la mini-liste
+   *  "tickets récents" seulement, qui n'a pas besoin d'être exhaustive. */
+  readonly todaySummary = signal<ReportPeriodStats | null>(null);
 
   readonly recentTickets = computed(() => this.fetchedTickets().slice(0, RECENT_TICKETS_DISPLAY_LIMIT));
 
@@ -51,11 +62,8 @@ export class Dashboard {
   );
 
   readonly salesToday = computed(() => {
-    const todaysTickets = this.fetchedTickets().filter((ticket) => ticket.paid_at.slice(0, 10) === this.todayKey);
-    return {
-      count: todaysTickets.length,
-      total: todaysTickets.reduce((sum, ticket) => sum + this.ticketTotal(ticket), 0),
-    };
+    const summary = this.todaySummary();
+    return { count: summary?.tickets_count ?? 0, total: summary?.revenue ?? 0 };
   });
 
   constructor() {
@@ -69,6 +77,8 @@ export class Dashboard {
     });
 
     this.ticketService.list(TICKETS_FETCH_LIMIT).subscribe((tickets) => this.fetchedTickets.set(tickets));
+
+    this.reportService.summary('jour').subscribe((summary) => this.todaySummary.set(summary.current));
 
     this.productService.list().subscribe((products) => this.activeProductsCount.set(products.filter((p) => p.active).length));
   }

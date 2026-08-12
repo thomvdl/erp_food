@@ -61,11 +61,18 @@ class TicketController extends Controller
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
+            // Personnalisation libre (ex. "Sans oignon", voir Product::ingredients côté modale
+            // panier) — jamais validée contre la vraie liste d'ingrédients du produit, comme le
+            // reste des notes déjà en place (voir OrderLineController::store).
+            'lines.*.note' => ['nullable', 'string', 'max:255'],
             // Requis uniquement si le produit est un menu (is_menu) — voir App\Support\MenuResolver.
             'lines.*.menu_choices' => ['array'],
             'lines.*.menu_choices.*.menu_group_id' => ['integer'],
             'lines.*.menu_choices.*.product_ids' => ['array'],
             'lines.*.menu_choices.*.product_ids.*' => ['integer'],
+            'lines.*.menu_choices.*.product_notes' => ['array'],
+            'lines.*.menu_choices.*.product_notes.*.product_id' => ['integer'],
+            'lines.*.menu_choices.*.product_notes.*.note' => ['nullable', 'string', 'max:255'],
             'payments' => ['required', 'array', 'min:1'],
             'payments.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'payments.*.value' => ['required', 'numeric', 'min:0.01'],

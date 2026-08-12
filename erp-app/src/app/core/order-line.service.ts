@@ -9,17 +9,20 @@ import { MenuChoice } from './models/menu-choice.model';
 export class OrderLineService {
   private readonly http = inject(HttpClient);
 
-  /** Incrémente côté backend si ce produit est déjà présent dans la section — pas de doublon.
-   *  `menuChoices` requis uniquement pour un produit `is_menu` (voir App\Support\MenuResolver
-   *  côté API) — un seul produit par ligne ajouté à la fois, contrairement à Ticket/SelfOrder/
-   *  Kiosk qui envoient un panier entier en une fois. `quantity` (défaut 1) permet d'ajouter
-   *  plusieurs exemplaires d'un même menu (même configuration de choix) en un seul appel, via le
-   *  compteur de la modale de choix. */
-  add(orderSectionId: number, productId: number, menuChoices?: MenuChoice[], quantity?: number): Observable<OrderLine> {
+  /** Incrémente côté backend si ce produit est déjà présent dans la section AVEC LA MÊME note —
+   *  pas de doublon (voir OrderLineController::store, fusion par product_id+note). `menuChoices`
+   *  requis uniquement pour un produit `is_menu` (voir App\Support\MenuResolver côté API) — un
+   *  seul produit par ligne ajouté à la fois, contrairement à Ticket/SelfOrder/Kiosk qui envoient
+   *  un panier entier en une fois. `quantity` (défaut 1) permet d'ajouter plusieurs exemplaires
+   *  d'un même menu (même configuration de choix) en un seul appel, via le compteur de la modale
+   *  de choix. `note` : résumé des ingrédients retirés (voir Product.ingredients/modale de
+   *  personnalisation), ex. "Sans oignon" — jamais utilisé conjointement à menuChoices. */
+  add(orderSectionId: number, productId: number, menuChoices?: MenuChoice[], quantity?: number, note?: string | null): Observable<OrderLine> {
     return this.http.post<OrderLine>(`${API_URL}/order-sections/${orderSectionId}/lines`, {
       product_id: productId,
       menu_choices: menuChoices,
       quantity,
+      note,
     });
   }
 

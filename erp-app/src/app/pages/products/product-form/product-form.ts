@@ -6,9 +6,10 @@ import { ProductCategoryService } from '../../../core/product-category.service';
 import { ProductCatalogService } from '../../../core/product-catalog.service';
 import { StationService } from '../../../core/station.service';
 import { TaxService } from '../../../core/tax.service';
+import { IngredientService } from '../../../core/ingredient.service';
 import { ProductCatalog, ProductCategory } from '../../../core/models/catalog.model';
 import { Product } from '../../../core/models/product.model';
-import { Station, Tax } from '../../../core/models/reference.model';
+import { Ingredient, Station, Tax } from '../../../core/models/reference.model';
 
 /** État d'édition d'un groupe de choix de menu, encore non sauvegardé — `tempId` est un
  *  identifiant purement client (pas l'id serveur, qui n'existe pas encore pour un nouveau
@@ -36,6 +37,7 @@ export class ProductForm {
   private readonly catalogService = inject(ProductCatalogService);
   private readonly stationService = inject(StationService);
   private readonly taxService = inject(TaxService);
+  private readonly ingredientService = inject(IngredientService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
@@ -49,6 +51,7 @@ export class ProductForm {
   readonly stations = signal<Station[]>([]);
   readonly taxes = signal<Tax[]>([]);
   readonly allProducts = signal<Product[]>([]);
+  readonly ingredients = signal<Ingredient[]>([]);
 
   readonly name = signal('');
   readonly description = signal('');
@@ -88,6 +91,16 @@ export class ProductForm {
    *  lieu de la section active du serveur (POS Restaurant uniquement). */
   readonly splitBySection = signal(false);
 
+  /** Ingrédients de ce produit (voir Product.ingredients) — clé = id ingrédient présent dans la
+   *  composition, valeur = retirable au panier ou non (ex. le pain reste coché, non décochable).
+   *  Même pattern recherche + ajout que les composants d'un combo (voir componentSearch) : la
+   *  liste globale d'ingrédients peut devenir longue, une recherche scale mieux qu'une case à
+   *  cocher par ingrédient affichée en permanence. */
+  readonly ingredientSelections = signal<Map<number, boolean>>(new Map());
+  /** Recherche pour trouver un ingrédient à ajouter — voir ingredientSearchResults(). */
+  readonly ingredientSearch = signal('');
+  readonly creatingIngredient = signal(false);
+
   /**
    * "Mettre à jour les composants pour n'afficher que les éléments actifs" (voir Readme.md) —
    * mais sans faire disparaître silencieusement la valeur DÉJÀ choisie sur ce produit si elle
@@ -100,6 +113,42 @@ export class ProductForm {
   readonly selectableCatalogs = computed(() =>
     this.catalogs().filter((catalog) => catalog.active || this.catalogIds().includes(catalog.id)),
   );
+  /** Ingrédients actifs, disponibles pour la recherche — un ingrédient désactivé mais déjà
+   *  sélectionné reste néanmoins visible dans selectedIngredients() ci-dessous (même logique que
+   *  selectableCategories/... : ne pas faire disparaître silencieusement une valeur déjà choisie). */
+  private readonly activeIngredients = computed(() => this.ingredients().filter((i) => i.active));
+
+  /** Résultats de recherche pour ajouter un ingrédient — exclut ceux déjà sélectionnés. Limité à
+   *  8 résultats, même logique que componentSearchResults. */
+  readonly ingredientSearchResults = computed(() => {
+    const term = this.ingredientSearch().trim().toLowerCase();
+    if (!term) {
+      return [];
+    }
+    const selected = this.ingredientSelections();
+    return this.activeIngredients()
+      .filter((ingredient) => !selected.has(ingredient.id) && ingredient.name.toLowerCase().includes(term))
+      .slice(0, 8);
+  });
+
+  /** Aucun ingrédient (actif ou non, sélectionné ou non) ne porte déjà ce nom — évite de proposer
+   *  d'en créer un doublon plutôt que de retrouver l'existant. */
+  readonly canCreateIngredient = computed(() => {
+    const term = this.ingredientSearch().trim();
+    if (!term) {
+      return false;
+    }
+    return !this.ingredients().some((i) => i.name.toLowerCase() === term.toLowerCase());
+  });
+
+  /** Ingrédients déjà ajoutés, avec leur nom et leur statut retirable — dérivé de
+   *  ingredientSelections() + ingredients() pour afficher le nom sans requête supplémentaire. */
+  readonly selectedIngredients = computed(() => {
+    const ingredients = new Map(this.ingredients().map((i) => [i.id, i]));
+    return Array.from(this.ingredientSelections().entries())
+      .map(([id, removable]) => ({ ingredient: ingredients.get(id), removable }))
+      .filter((item): item is { ingredient: Ingredient; removable: boolean } => !!item.ingredient);
+  });
 
   /** Un combo ne peut pas se composer de lui-même ni d'un autre combo (voir ProductController,
    *  même contrainte imposée côté serveur) — évite un combo imbriqué qui casserait
@@ -140,6 +189,7 @@ export class ProductForm {
     this.stationService.list().subscribe((stations) => this.stations.set(stations));
     this.taxService.list().subscribe((taxes) => this.taxes.set(taxes));
     this.productService.list().subscribe((products) => this.allProducts.set(products));
+    this.ingredientService.list().subscribe((ingredients) => this.ingredients.set(ingredients));
 
     this.route.paramMap.subscribe((params) => {
       const idParam = params.get('id');
@@ -164,6 +214,7 @@ export class ProductForm {
             this.imageUrl.set(product.image_url);
             this.isCombo.set(product.is_combo);
             this.componentQuantities.set(new Map((product.components ?? []).map((c) => [c.id, c.pivot.quantity])));
+            this.ingredientSelections.set(new Map((product.ingredients ?? []).map((i) => [i.id, i.pivot.removable])));
             this.isMenu.set(product.is_menu);
             this.splitBySection.set(product.split_by_section);
             this.menuGroups.set(
@@ -215,6 +266,51 @@ export class ProductForm {
     const next = new Map(this.componentQuantities());
     next.set(productId, quantity);
     this.componentQuantities.set(next);
+  }
+
+  addIngredient(ingredientId: number): void {
+    const next = new Map(this.ingredientSelections());
+    next.set(ingredientId, true);
+    this.ingredientSelections.set(next);
+    this.ingredientSearch.set('');
+  }
+
+  /** Crée l'ingrédient recherché (introuvable dans la liste, voir canCreateIngredient()) puis
+   *  l'ajoute directement à ce produit — même geste que "+ Nouveau client" ailleurs dans l'app,
+   *  pour ne pas devoir aller sur /parametres/ingredients et revenir juste pour un nom manquant. */
+  createAndAddIngredient(): void {
+    const name = this.ingredientSearch().trim();
+    if (!name || this.creatingIngredient()) {
+      return;
+    }
+
+    this.creatingIngredient.set(true);
+    this.ingredientService.create({ name, active: true }).subscribe({
+      next: (ingredient) => {
+        this.creatingIngredient.set(false);
+        this.ingredients.set([...this.ingredients(), ingredient]);
+        this.addIngredient(ingredient.id);
+      },
+      error: () => {
+        this.creatingIngredient.set(false);
+        this.error.set("Impossible de créer l'ingrédient.");
+      },
+    });
+  }
+
+  removeIngredient(ingredientId: number): void {
+    const next = new Map(this.ingredientSelections());
+    next.delete(ingredientId);
+    this.ingredientSelections.set(next);
+  }
+
+  setIngredientRemovable(ingredientId: number, removable: boolean): void {
+    if (!this.ingredientSelections().has(ingredientId)) {
+      return;
+    }
+    const next = new Map(this.ingredientSelections());
+    next.set(ingredientId, removable);
+    this.ingredientSelections.set(next);
   }
 
   addMenuGroup(): void {
@@ -304,6 +400,10 @@ export class ProductForm {
             product_ids: group.productIds,
           }))
         : [],
+      ingredient_ids: Array.from(this.ingredientSelections().entries()).map(([ingredient_id, removable]) => ({
+        ingredient_id,
+        removable,
+      })),
     };
 
     const request =

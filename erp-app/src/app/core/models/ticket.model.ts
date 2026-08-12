@@ -86,6 +86,6 @@ export interface CreateTicketPayload {
   points_redeemed?: number | null;
   /** menu_choices requis uniquement si le produit de la ligne est un menu (is_menu) — voir
    *  App\Support\MenuResolver côté API. */
-  lines: { product_id: number; quantity: number; menu_choices?: MenuChoice[] }[];
+  lines: { product_id: number; quantity: number; note?: string | null; menu_choices?: MenuChoice[] }[];
   payments: { payment_method_id: number; value: number }[];
 }

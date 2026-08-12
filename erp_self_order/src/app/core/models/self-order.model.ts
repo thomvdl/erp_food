@@ -16,12 +16,23 @@ export interface SelfOrderCategory {
   position: number;
 }
 
+/** Ingrédient d'un produit (voir Product.ingredients côté API) — `pivot.removable` détermine si
+ *  le client peut le décocher au panier (ex. le pain reste coché, non décochable). */
+export interface SelfOrderProductIngredient {
+  id: number;
+  name: string;
+  pivot: { removable: boolean };
+}
+
 /** Un produit éligible dans un groupe de choix de menu — juste de quoi l'afficher/l'identifier
- *  (voir SelfOrderMenuGroup ci-dessous). */
+ *  (voir SelfOrderMenuGroup ci-dessous). `ingredients` uniquement renseigné pour permettre de
+ *  personnaliser ("sans oignon") ce produit quand il est choisi À L'INTÉRIEUR d'un menu (voir
+ *  ProductController::WITH menuGroups.options.ingredients côté API). */
 export interface SelfOrderMenuOption {
   id: number;
   name: string;
   price: number | string;
+  ingredients?: SelfOrderProductIngredient[];
 }
 
 /** Groupe de choix d'un menu (voir Product.menu_groups côté API) — le client choisit entre
@@ -34,11 +45,21 @@ export interface SelfOrderMenuGroup {
   options: SelfOrderMenuOption[];
 }
 
+/** Note d'exclusion d'ingrédients pour UN produit choisi dans un groupe (voir
+ *  SelfOrderMenuChoice.product_notes) — texte libre, jamais validé côté serveur. */
+export interface SelfOrderMenuChoiceProductNote {
+  product_id: number;
+  note: string;
+}
+
 /** Ce que le client a choisi pour un groupe — envoyé dans SelfOrderLinePayload.menu_choices, voir
  *  App\Support\MenuResolver côté API. */
 export interface SelfOrderMenuChoice {
   menu_group_id: number;
   product_ids: number[];
+  /** Personnalisation d'ingrédients par produit choisi (voir SelfOrderMenuOption.ingredients) —
+   *  absent/vide si aucun produit choisi de ce groupe n'a d'ingrédient retiré. */
+  product_notes?: SelfOrderMenuChoiceProductNote[];
 }
 
 export interface SelfOrderProduct {
@@ -63,6 +84,8 @@ export interface SelfOrderProduct {
    *  menu_groups, order.ts::openMenuModal). */
   is_menu?: boolean;
   menu_groups?: SelfOrderMenuGroup[];
+  /** Ingrédients de ce produit, retirables ou non au panier — voir la modale de personnalisation. */
+  ingredients?: SelfOrderProductIngredient[];
 }
 
 export interface SelfOrderContext {

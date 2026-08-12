@@ -175,6 +175,64 @@
   </section>
 
   <section class="form-section">
+    <h2 class="form-section-title">Ingrédients</h2>
+    <p class="text-muted text-sm">
+      Ingrédients qui composent ce produit — <a routerLink="/parametres/ingredients">gérer la liste</a>.
+      "Retirable" laisse le client le décocher au panier (ex. "Sans oignon") ; laissé décoché, l'ingrédient reste
+      toujours présent (ex. le pain d'un burger).
+    </p>
+
+    <div class="field">
+      <div class="search-input">
+        <span class="icon">🔍</span>
+        <input
+          class="input"
+          type="text"
+          placeholder="Rechercher un ingrédient à ajouter…"
+          [ngModel]="ingredientSearch()"
+          [ngModelOptions]="{ standalone: true }"
+          (ngModelChange)="ingredientSearch.set($event)"
+        />
+      </div>
+
+      @if (ingredientSearchResults().length > 0 || canCreateIngredient()) {
+        <div class="combo-picker__results">
+          @for (ingredient of ingredientSearchResults(); track ingredient.id) {
+            <button type="button" class="combo-picker__result" (click)="addIngredient(ingredient.id)">
+              {{ ingredient.name }}
+            </button>
+          }
+          @if (canCreateIngredient()) {
+            <button type="button" class="combo-picker__result" [disabled]="creatingIngredient()" (click)="createAndAddIngredient()">
+              {{ creatingIngredient() ? 'Création…' : '+ Créer « ' + ingredientSearch().trim() + ' »' }}
+            </button>
+          }
+        </div>
+      }
+
+      <div class="combo-picker__selected">
+        @for (item of selectedIngredients(); track item.ingredient.id) {
+          <div class="combo-picker__line">
+            <span class="font-medium" style="flex: 1">{{ item.ingredient.name }}</span>
+            <label class="checkbox-field text-muted text-sm">
+              <input
+                type="checkbox"
+                [ngModel]="item.removable"
+                [ngModelOptions]="{ standalone: true }"
+                (ngModelChange)="setIngredientRemovable(item.ingredient.id, $event)"
+              />
+              Retirable
+            </label>
+            <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeIngredient(item.ingredient.id)">✕</button>
+          </div>
+        } @empty {
+          <span class="text-muted text-sm">Aucun ingrédient ajouté pour le moment.</span>
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="form-section">
     <h2 class="form-section-title">Combo</h2>
 
     <label class="checkbox-field">

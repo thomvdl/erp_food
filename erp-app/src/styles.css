@@ -1193,6 +1193,31 @@ textarea.input {
   font-size: var(--font-size-sm);
 }
 
+/* Modale de personnalisation des ingrédients (voir Product.ingredients) — cases à cocher plus
+   grandes et empilées verticalement plutôt qu'en ligne (contrairement à .checkbox-group, utilisé
+   ailleurs pour de courtes listes horizontales type rôles/catalogues) : pensé tactile
+   (kiosk/self-order) autant que souris (POS Vente directe/Restaurant). */
+.ingredient-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ingredient-picker__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-lg);
+}
+
+.ingredient-picker__item input[type='checkbox'] {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--color-primary-500);
+}
+
 /* ---------- POS Vente directe / POS Restaurant ---------- */
 /* Page "fixe" (voir .app-main--fixed) : confirmé par capture d'écran (Safari) que CSS Grid avec
    minmax(0, 1fr) imbriqué ne se comporte pas de façon fiable ici — WebKit a des bugs connus sur

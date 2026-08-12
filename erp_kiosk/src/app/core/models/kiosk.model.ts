@@ -28,11 +28,23 @@ export interface ProductCatalog {
   active_kiosk: boolean;
 }
 
-/** Un produit éligible dans un groupe de choix de menu — juste de quoi l'afficher/l'identifier. */
+/** Ingrédient d'un produit (voir Product.ingredients côté API) — `pivot.removable` détermine si
+ *  le client peut le décocher au panier (ex. le pain reste coché, non décochable). */
+export interface ProductIngredient {
+  id: number;
+  name: string;
+  pivot: { removable: boolean };
+}
+
+/** Un produit éligible dans un groupe de choix de menu — juste de quoi l'afficher/l'identifier.
+ *  `ingredients` uniquement renseigné pour permettre de personnaliser ("sans oignon") ce produit
+ *  quand il est choisi À L'INTÉRIEUR d'un menu (voir ProductController::WITH
+ *  menuGroups.options.ingredients côté API). */
 export interface MenuOption {
   id: number;
   name: string;
   price: number | string;
+  ingredients?: ProductIngredient[];
 }
 
 /** Groupe de choix d'un menu (voir Product.menu_groups côté API) — le staff/client choisit entre
@@ -45,11 +57,21 @@ export interface MenuGroup {
   options: MenuOption[];
 }
 
+/** Note d'exclusion d'ingrédients pour UN produit choisi dans un groupe (voir
+ *  MenuChoice.product_notes) — texte libre, jamais validé côté serveur. */
+export interface MenuChoiceProductNote {
+  product_id: number;
+  note: string;
+}
+
 /** Ce qui a été choisi pour un groupe — envoyé dans CreateKioskOrderPayload.lines[].menu_choices,
  *  voir App\Support\MenuResolver côté API. */
 export interface MenuChoice {
   menu_group_id: number;
   product_ids: number[];
+  /** Personnalisation d'ingrédients par produit choisi (voir MenuOption.ingredients) — absent/vide
+   *  si aucun produit choisi de ce groupe n'a d'ingrédient retiré. */
+  product_notes?: MenuChoiceProductNote[];
 }
 
 export interface Product {
@@ -74,6 +96,8 @@ export interface Product {
    *  savoir qu'il faut ouvrir le sélecteur de choix avant de l'ajouter au panier. */
   is_menu?: boolean;
   menu_groups?: MenuGroup[];
+  /** Ingrédients de ce produit, retirables ou non au panier — voir la modale de personnalisation. */
+  ingredients?: ProductIngredient[];
 }
 
 export interface PaymentMethod {
@@ -104,7 +128,9 @@ export interface CreateKioskOrderPayload {
   points_redeemed?: number | null;
   /** menu_choices requis uniquement si le produit de la ligne est un menu (is_menu) — voir
    *  App\Support\MenuResolver côté API. */
-  lines: { product_id: number; quantity: number; menu_choices?: MenuChoice[] }[];
+  /** note : résumé des ingrédients retirés (ex. "Sans oignon", voir Product.ingredients/modale de
+   *  personnalisation) — jamais validée contre la vraie liste côté serveur, texte libre. */
+  lines: { product_id: number; quantity: number; note?: string | null; menu_choices?: MenuChoice[] }[];
   payments: { payment_method_id: number; value: number }[];
 }
 
