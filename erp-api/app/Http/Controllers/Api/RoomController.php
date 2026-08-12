@@ -41,6 +41,9 @@ class RoomController extends Controller
     {
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            // Facultatif : préfixe utilisé par le label auto-généré des tables (ex. "BAR" ->
+            // BAR-1, BAR-2 — voir FloorPlanEditor::nextTableLabel côté erp-app).
+            'prefix' => ['nullable', 'string', 'max:20'],
             // "self_order" : références génériques pour erp_self_order (chambre d'hôtel, point
             // kiosque...) — des lignes de `tables` sans plan visuel, voir SelfOrderController.
             'type' => ['required', 'string', 'in:restaurant,event,self_order'],

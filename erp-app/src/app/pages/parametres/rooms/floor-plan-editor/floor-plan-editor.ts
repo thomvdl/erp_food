@@ -274,9 +274,20 @@ export class FloorPlanEditor implements AfterViewInit, OnDestroy {
     this.persist(id);
   }
 
+  /** Label = préfixe de la salle (Room.prefix, facultatif) + numéro (ex. "BAR" -> BAR-1, BAR-2).
+   *  Sans préfixe défini sur la salle, retombe sur "T". Le numéro suivant est calculé à partir
+   *  du max existant pour ce préfixe (et non un simple compte des tables) pour rester correct
+   *  après renommage/désactivation de tables. */
   private nextTableLabel(): string {
-    const tableCount = this.tables().filter((t) => t.type === 'table').length;
-    return `T${tableCount + 1}`;
+    const prefix = (this.room()?.prefix?.trim() || 'T').toUpperCase();
+
+    const numbers = this.tables()
+      .filter((t) => t.type === 'table' && t.label?.startsWith(`${prefix}-`))
+      .map((t) => Number(t.label!.slice(prefix.length + 1)))
+      .filter((n) => Number.isFinite(n));
+
+    const next = numbers.length ? Math.max(...numbers) + 1 : 1;
+    return `${prefix}-${next}`;
   }
 
   private snapToGrid(value: number): number {

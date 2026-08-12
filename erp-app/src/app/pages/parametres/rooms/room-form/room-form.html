@@ -9,6 +9,22 @@
   </label>
 
   <label class="field">
+    Préfixe des tables (optionnel)
+    <input
+      class="input"
+      type="text"
+      name="prefix"
+      maxlength="20"
+      [ngModel]="prefix()"
+      (ngModelChange)="prefix.set($event)"
+    />
+  </label>
+  <p class="text-muted text-sm">
+    Utilisé pour générer le label des nouvelles tables du plan, ex. "BAR" -> BAR-1, BAR-2. Laissé
+    vide, le préfixe par défaut "T" est utilisé.
+  </p>
+
+  <label class="field">
     Type
     <select class="select" name="type" [ngModel]="type()" (ngModelChange)="type.set($event)">
       <option value="restaurant">Restaurant</option>

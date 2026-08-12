@@ -19,6 +19,7 @@ export class RoomForm {
   readonly isEdit = signal(false);
 
   readonly name = signal('');
+  readonly prefix = signal('');
   readonly type = signal<RoomType>('restaurant');
   readonly width = signal(1000);
   readonly height = signal(700);
@@ -35,6 +36,7 @@ export class RoomForm {
         this.roomService.get(this.id).subscribe({
           next: (room) => {
             this.name.set(room.name);
+            this.prefix.set(room.prefix ?? '');
             this.type.set(room.type);
             this.width.set(room.width);
             this.height.set(room.height);
@@ -51,6 +53,7 @@ export class RoomForm {
 
     const payload = {
       name: this.name(),
+      prefix: this.prefix().trim() || null,
       type: this.type(),
       width: this.width(),
       height: this.height(),

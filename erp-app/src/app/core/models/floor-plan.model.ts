@@ -23,6 +23,9 @@ export interface Room {
   id: number;
   name: string;
   slug: string;
+  /** Facultatif : préfixe du label auto-généré des tables de la salle (ex. "BAR" -> BAR-1,
+   *  BAR-2 — voir FloorPlanEditor::nextTableLabel). Si vide, l'éditeur retombe sur "T". */
+  prefix: string | null;
   type: RoomType;
   /** Taille de la zone dessinable, même échelle que TableElement.pos_left/width — sert à mettre
    *  le plan à l'échelle sans barre de défilement dans les écrans en lecture seule. */
