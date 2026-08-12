@@ -2,6 +2,8 @@
 
 <h1 class="text-2xl">{{ isEdit() ? "Modifier l'événement" : 'Nouvel événement' }}</h1>
 
+<div class="card">
+<div class="card-body">
 <form class="form" (ngSubmit)="submit()">
   <label class="field">
     Nom
@@ -23,3 +25,5 @@
     <a class="btn btn-outline" routerLink="/evenements">Annuler</a>
   </div>
 </form>
+</div>
+</div>

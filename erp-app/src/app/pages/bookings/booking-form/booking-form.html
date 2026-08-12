@@ -2,6 +2,8 @@
 
 <h1 class="text-2xl">{{ isEdit() ? 'Modifier la réservation' : 'Nouvelle réservation' }}</h1>
 
+<div class="card">
+<div class="card-body">
 <form class="form" (ngSubmit)="submit()">
   <label class="field">Client</label>
   <div class="pos-client">
@@ -118,3 +120,5 @@
     <a class="btn btn-outline" routerLink="/reservations">Annuler</a>
   </div>
 </form>
+</div>
+</div>

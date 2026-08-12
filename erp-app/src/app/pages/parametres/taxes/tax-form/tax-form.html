@@ -2,6 +2,8 @@
 
 <h1 class="text-2xl">{{ isEdit() ? 'Modifier la taxe' : 'Nouvelle taxe' }}</h1>
 
+<div class="card">
+<div class="card-body">
 <form class="form" (ngSubmit)="submit()">
   <label class="field">
     Slug
@@ -36,3 +38,5 @@
     <a class="btn btn-outline" routerLink="/parametres/taxes">Annuler</a>
   </div>
 </form>
+</div>
+</div>
