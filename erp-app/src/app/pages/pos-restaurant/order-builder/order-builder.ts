@@ -3,7 +3,7 @@ import { Component, ElementRef, OnDestroy, ViewChild, computed, inject, signal }
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, forkJoin, switchMap } from 'rxjs';
 import { AuthService } from '../../../core/auth.service';
 import { OrderService } from '../../../core/order.service';
 import { OrderSectionService } from '../../../core/order-section.service';
@@ -17,7 +17,8 @@ import { DiscountService } from '../../../core/discount.service';
 import { ActiveCashierService } from '../../../core/active-cashier.service';
 import { RoomService } from '../../../core/room.service';
 import { Order, OrderLine, OrderSection } from '../../../core/models/order.model';
-import { Product } from '../../../core/models/product.model';
+import { MenuGroup, Product } from '../../../core/models/product.model';
+import { MenuChoice } from '../../../core/models/menu-choice.model';
 import { ProductCategory } from '../../../core/models/catalog.model';
 import { Room, TableElement } from '../../../core/models/floor-plan.model';
 import { Client, PaymentMethod, Ticket } from '../../../core/models/ticket.model';
@@ -108,11 +109,17 @@ export class OrderBuilder implements OnDestroy {
   readonly correctionError = signal<string | null>(null);
 
   /** Quantité nette (déjà éventuellement corrigée) par produit, tous produits confondus dans la
-   *  commande — seuls ceux encore net positif ont un sens à corriger. */
+   *  commande — seuls ceux encore net positif ont un sens à corriger. !line.priced exclu : un
+   *  composant de menu (voir App\Support\MenuResolver côté API) n'a jamais été facturé
+   *  séparément, le serveur refuse déjà sa correction (voir OrderController::correction) — pas
+   *  la peine de le proposer ici pour finir en erreur. */
   readonly correctableLines = computed(() => {
     const byProduct = new Map<number, { product_id: number; name: string; netQuantity: number }>();
     for (const section of this.sections()) {
       for (const line of section.lines) {
+        if (!line.priced) {
+          continue;
+        }
         const delta = line.is_correction ? -line.quantity : line.quantity;
         const existing = byProduct.get(line.product_id);
         if (existing) {
@@ -126,6 +133,23 @@ export class OrderBuilder implements OnDestroy {
   });
 
   readonly hasCorrectionsToSubmit = computed(() => Object.values(this.correctionQuantities()).some((qty) => qty > 0));
+
+  // --- Menu à choix (voir App\Support\MenuResolver côté API) — contrairement à un combo (ajouté
+  // tel quel, éclaté automatiquement côté serveur), un menu exige que le client choisisse un ou
+  // plusieurs produits par groupe AVANT l'ajout : cette modale bloque tant que chaque groupe n'a
+  // pas un nombre de sélections entre min_choices et max_choices. ---
+  readonly showMenuModal = signal<Product | null>(null);
+  readonly menuSelections = signal<Map<number, number[]>>(new Map());
+  /** Nombre d'exemplaires de CETTE configuration (mêmes choix) à ajouter en un coup — voir
+   *  confirmAddMenu(). */
+  readonly menuQuantity = signal(1);
+  readonly addingMenu = signal(false);
+  readonly menuError = signal<string | null>(null);
+
+  readonly canConfirmMenu = computed(() => {
+    const product = this.showMenuModal();
+    return !!product && (product.menu_groups ?? []).every((group) => this.isMenuGroupValid(group));
+  });
 
   // --- Transfert de table ("le client change de place") — même pattern de plan de salle en
   // lecture seule que table-select.ts, mais dans une modale plutôt qu'un écran plein. ---
@@ -211,6 +235,14 @@ export class OrderBuilder implements OnDestroy {
     const last = list[list.length - 1];
     return !last || last.lines.length > 0;
   });
+
+  /** Sections qu'un "Valider toutes les sections" peut réellement traiter — même condition que le
+   *  bouton "Valider" individuel (section.lines.length === 0 le désactive déjà, voir template). */
+  readonly validatableSections = computed(() => this.sections().filter((section) => section.state === 'en_attente' && section.lines.length > 0));
+
+  /** Modale "+ Ajouter une section" — propose des noms de tournée courants (Entrée/Plat/Dessert)
+   *  plutôt que de systématiquement retomber sur "Section N", voir addSection(). */
+  readonly showAddSectionModal = signal(false);
 
   /** Une section "demandée"/"faite" est déjà partie en cuisine — plus modifiable (voir OrderLineController::assertEditable côté backend, source de vérité). */
   readonly activeSectionEditable = computed(() => this.activeSection()?.state === 'en_attente');
@@ -347,24 +379,66 @@ export class OrderBuilder implements OnDestroy {
 
   /** Une ligne de correction (voir OrderController::correction) est stockée avec une quantity
    *  POSITIVE — c'est ici que son effet sur le total est inversé, jamais en base ("mettre le
-   *  produit avec le montant en négatif"). */
+   *  produit avec le montant en négatif"). Une ligne composant d'un menu (priced=false, voir
+   *  App\Support\MenuResolver côté API) ne compte jamais dans le total — déjà porté par la ligne
+   *  "porteuse" du menu — même filtre que OrderController::pay côté serveur, sinon le total
+   *  affiché ici facturerait le menu ET la somme de ses composants (et le paiement échouerait,
+   *  le serveur recalculant le bon total). */
   lineTotal(line: OrderLine): number {
+    if (!line.priced) {
+      return 0;
+    }
     const sign = line.is_correction ? -1 : 1;
     return sign * Number(line.product?.price ?? 0) * line.quantity;
+  }
+
+  /** Ligne issue de l'éclatement d'un menu (voir App\Support\MenuResolver côté API) — soit un
+   *  composant (menu_id renseigné), soit la ligne "porteuse" elle-même (product_id = le menu,
+   *  priced=true). Sa quantité ne doit jamais être modifiée à la volée via le stepper +/- : la
+   *  ligne porteuse et ses composants doivent toujours rester synchronisés (ex. 2× "Menu du jour"
+   *  facturé mais 1 seule "Salade" préparée si on incrémente juste la ligne porteuse à part) — le
+   *  seul moyen sûr de changer une quantité de menu est de le retirer et de le rajouter via la
+   *  modale de choix. */
+  isMenuLine(line: OrderLine): boolean {
+    return line.menu_id !== null || line.product?.is_menu === true;
+  }
+
+  /** La ligne "porteuse" (voir isMenuLine) est la seule des deux à porter une action de retrait
+   *  possible (removeMenu()) — un composant seul (menu_id renseigné) ne peut pas être retiré
+   *  isolément, voir template. */
+  isMenuCarrierLine(line: OrderLine): boolean {
+    return line.product?.is_menu === true;
   }
 
   selectSection(section: OrderSection): void {
     this.activeSectionId.set(section.id);
   }
 
-  addSection(): void {
+  openAddSectionModal(): void {
+    if (!this.canAddSection()) {
+      return;
+    }
+    this.error.set(null);
+    this.showAddSectionModal.set(true);
+  }
+
+  closeAddSectionModal(): void {
+    this.showAddSectionModal.set(false);
+  }
+
+  /** Voir showAddSectionModal — "Entrée"/"Plat"/"Dessert" pré-remplissent le nom (et rejoignent
+   *  ainsi directement la même section qu'utiliserait un menu réparti avec ce label, voir
+   *  App\Http\Controllers\Api\OrderLineController::resolveSectionForGroup côté API) ; "Autre"
+   *  laisse `name` vide, le serveur retombe sur "Section N" auto-numéroté comme avant. */
+  addSection(name?: string): void {
     if (!this.canAddSection()) {
       return;
     }
 
     this.error.set(null);
-    this.orderSectionService.create(this.orderId).subscribe({
+    this.orderSectionService.create(this.orderId, name).subscribe({
       next: (section) => {
+        this.closeAddSectionModal();
         this.refreshOrder(false, section.id);
       },
       error: (err) => this.error.set(err.error?.errors?.name?.[0] ?? "Impossible d'ajouter une section."),
@@ -435,9 +509,106 @@ export class OrderBuilder implements OnDestroy {
       return;
     }
 
+    if (product.is_menu) {
+      this.openMenuModal(product);
+      return;
+    }
+
     this.orderLineService.add(section.id, product.id).subscribe({
       next: () => this.refreshOrder(),
       error: () => this.error.set("Impossible d'ajouter ce produit."),
+    });
+  }
+
+  // --- Menu à choix ---
+
+  openMenuModal(product: Product): void {
+    this.showMenuModal.set(product);
+    this.menuSelections.set(new Map((product.menu_groups ?? []).map((group) => [group.id, []])));
+    this.menuQuantity.set(1);
+    this.menuError.set(null);
+  }
+
+  closeMenuModal(): void {
+    this.showMenuModal.set(null);
+    this.menuSelections.set(new Map());
+    this.menuQuantity.set(1);
+    this.menuError.set(null);
+  }
+
+  setMenuQuantity(value: number): void {
+    this.menuQuantity.set(Math.max(1, Math.floor(value) || 1));
+  }
+
+  menuGroupSelection(groupId: number): number[] {
+    return this.menuSelections().get(groupId) ?? [];
+  }
+
+  isMenuOptionSelected(groupId: number, productId: number): boolean {
+    return this.menuGroupSelection(groupId).includes(productId);
+  }
+
+  /** Groupe à max_choices=1 : sélection exclusive (radio). Sinon : coche/décoche jusqu'à
+   *  max_choices, un choix au-delà du maximum est simplement ignoré plutôt que de remplacer un
+   *  choix existant (le serveur doit explicitement en retirer un d'abord). */
+  toggleMenuOption(group: MenuGroup, productId: number): void {
+    const current = this.menuGroupSelection(group.id);
+    const next = new Map(this.menuSelections());
+
+    if (group.max_choices === 1) {
+      // Re-cliquer l'option déjà sélectionnée d'un groupe obligatoire (min_choices >= 1) ne fait
+      // rien — jamais de désélection accidentelle (double-tap tactile notamment, voir bug
+      // "reçu : 0" côté App\Support\MenuResolver). Un groupe facultatif (min_choices === 0) peut,
+      // lui, repasser à vide.
+      if (!current.includes(productId)) {
+        next.set(group.id, [productId]);
+      } else if (group.min_choices === 0) {
+        next.set(group.id, []);
+      } else {
+        return;
+      }
+    } else if (current.includes(productId)) {
+      next.set(group.id, current.filter((id) => id !== productId));
+    } else if (current.length < group.max_choices) {
+      next.set(group.id, [...current, productId]);
+    } else {
+      return;
+    }
+
+    this.menuSelections.set(next);
+  }
+
+  isMenuGroupValid(group: MenuGroup): boolean {
+    const count = this.menuGroupSelection(group.id).length;
+    return count >= group.min_choices && count <= group.max_choices;
+  }
+
+  confirmAddMenu(): void {
+    const product = this.showMenuModal();
+    const section = this.activeSection();
+    if (!product || !section || !this.canConfirmMenu() || this.addingMenu()) {
+      return;
+    }
+
+    const menuChoices: MenuChoice[] = Array.from(this.menuSelections().entries()).map(([menu_group_id, product_ids]) => ({
+      menu_group_id,
+      product_ids,
+    }));
+
+    this.addingMenu.set(true);
+    this.menuError.set(null);
+
+    this.orderLineService.add(section.id, product.id, menuChoices, this.menuQuantity()).subscribe({
+      next: () => {
+        this.addingMenu.set(false);
+        this.closeMenuModal();
+        this.refreshOrder();
+      },
+      error: (err) => {
+        this.addingMenu.set(false);
+        const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
+        this.menuError.set((messages?.length ? messages.join(' ') : err.error?.message) ?? "Impossible d'ajouter ce menu.");
+      },
     });
   }
 
@@ -464,6 +635,31 @@ export class OrderBuilder implements OnDestroy {
       return;
     }
     this.orderLineService.remove(lineId).subscribe(() => this.refreshOrder());
+  }
+
+  /** Seul moyen de retirer un menu déjà ajouté (voir isMenuLine/isMenuCarrierLine) — supprime la
+   *  ligne porteuse ET tous ses composants, y compris répartis dans d'autres sections (voir
+   *  OrderLineController::destroyMenu). `line` doit être la ligne porteuse. */
+  /** Pas de garde sur activeSectionEditable() ici : la ligne porteuse vit typiquement dans
+   *  "Addition" (voir OrderLineController::resolveCarrierSection), jamais 'en_attente' une fois
+   *  auto-complétée à 'seed' — ce serait donc TOUJOURS désactivé si on réutilisait cette même
+   *  condition (bug vérifié : le bouton restait grisé en permanence). Le serveur reste la seule
+   *  source de vérité (voir destroyMenu()), qui refuse déjà explicitement si une partie du menu
+   *  vit dans une section normale déjà validée. */
+  removeMenu(line: OrderLine): void {
+    if (!this.isMenuCarrierLine(line)) {
+      return;
+    }
+    if (!confirm(`Retirer "${line.product?.name}" de la commande (avec tous ses composants) ?`)) {
+      return;
+    }
+
+    this.error.set(null);
+    this.orderLineService.removeMenu(line.id).subscribe({
+      next: () => this.refreshOrder(),
+      error: (err) =>
+        this.error.set(err.error?.errors?.state?.[0] ?? err.error?.errors?.quantity?.[0] ?? 'Impossible de retirer ce menu.'),
+    });
   }
 
   startEditingNote(line: OrderLine): void {
@@ -508,6 +704,31 @@ export class OrderBuilder implements OnDestroy {
       // validation sous cette clé, pas errors.state (réservée aux erreurs de cycle de section).
       error: (err) =>
         this.error.set(err.error?.errors?.state?.[0] ?? err.error?.errors?.lines?.[0] ?? "Impossible de valider cette section."),
+    });
+  }
+
+  /** Valide en une fois toutes les sections encore "en attente" (voir validatableSections) — même
+   *  action que validerSection() répétée manuellement section par section. Les requêtes partent
+   *  en parallèle (forkJoin) : si l'une échoue (ex. stock insuffisant sur une seule section), les
+   *  autres sections déjà validées côté serveur le restent — refreshOrder() dans les deux cas
+   *  pour refléter cette progression partielle plutôt que de la laisser invisible derrière le
+   *  message d'erreur. */
+  validerToutesLesSections(): void {
+    const sectionsToValidate = this.validatableSections();
+    if (sectionsToValidate.length === 0) {
+      return;
+    }
+    if (!confirm(`Valider ${sectionsToValidate.length} section(s) et les envoyer sur le kitchen display ?`)) {
+      return;
+    }
+
+    this.error.set(null);
+    forkJoin(sectionsToValidate.map((section) => this.orderSectionService.valider(section.id))).subscribe({
+      next: () => this.refreshOrder(),
+      error: (err) => {
+        this.refreshOrder();
+        this.error.set(err.error?.errors?.state?.[0] ?? err.error?.errors?.lines?.[0] ?? "Impossible de valider toutes les sections.");
+      },
     });
   }
 
@@ -684,9 +905,15 @@ export class OrderBuilder implements OnDestroy {
     // ici) : /discounts/validate exige une quantity positive, une ligne de correction n'a donc
     // pas sa place telle quelle — seul le total net importe pour l'aperçu (le paiement réel,
     // lui, recalcule tout côté serveur à partir des vraies lignes, voir OrderController::pay).
+    // !line.priced : une ligne composant d'un menu (voir App\Support\MenuResolver côté API)
+    // n'est jamais facturée séparément — l'inclure ferait apparaître son prix en plus de celui
+    // de la ligne "porteuse" du menu dans cet aperçu, même bug que lineTotal() plus haut.
     const netQuantities = new Map<number, number>();
     for (const section of this.sections()) {
       for (const line of section.lines) {
+        if (!line.priced) {
+          continue;
+        }
         const delta = line.is_correction ? -line.quantity : line.quantity;
         netQuantities.set(line.product_id, (netQuantities.get(line.product_id) ?? 0) + delta);
       }

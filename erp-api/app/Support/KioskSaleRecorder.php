@@ -22,8 +22,10 @@ use Illuminate\Support\Facades\DB;
 class KioskSaleRecorder
 {
     /**
-     * @param  array<int, array{product_id: int, quantity: int, unit_price: float}>  $lines  déjà
-     *         figées (prix résolu au moment du scan/vente, jamais recalculé ici)
+     * @param  array<int, array{product_id: int, quantity: int, unit_price: float, note?: ?string, menu_id?: ?int, priced?: bool, hideFromKitchen?: bool}>  $lines  déjà
+     *         figées (prix résolu au moment du scan/vente, jamais recalculé ici) — voir
+     *         App\Support\MenuResolver::expandLines pour la provenance des clés note/menu_id/
+     *         priced/hideFromKitchen (absentes = ligne normale, un simple produit)
      * @param  array<int, array{payment_method_id: int, value: float}>  $payments
      * @param  int  $pointsEarned  voir App\Support\LoyaltyPoints::earned() — 0 si pas de client
      * @param  int  $pointsRedeemed  voir App\Support\LoyaltyPoints::amountOff() — déjà résolu/figé par l'appelant
@@ -66,6 +68,8 @@ class KioskSaleRecorder
                     'quantity' => $line['quantity'],
                     'unit_price' => $line['unit_price'],
                     'product_id' => $line['product_id'],
+                    'note' => $line['note'] ?? null,
+                    'menu_id' => $line['menu_id'] ?? null,
                 ]);
             }
 
@@ -92,10 +96,20 @@ class KioskSaleRecorder
             $section->forceFill(['stock_consumed' => true])->save();
 
             foreach ($lines as $line) {
-                $section->lines()->create([
+                $orderLine = $section->lines()->create([
                     'product_id' => $line['product_id'],
                     'quantity' => $line['quantity'],
+                    'note' => $line['note'] ?? null,
+                    'menu_id' => $line['menu_id'] ?? null,
+                    'priced' => $line['priced'] ?? true,
                 ]);
+
+                // Ligne "porteuse" d'un menu (voir App\Support\MenuResolver::expandLines) : pas
+                // une tâche de préparation en soi, ses composants éclatés le sont déjà — cachée
+                // du Kitchen Display, même astuce que les lignes de correction.
+                if ($line['hideFromKitchen'] ?? false) {
+                    $orderLine->forceFill(['done' => true, 'sent' => true])->save();
+                }
             }
 
             if ($client) {

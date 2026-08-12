@@ -11,7 +11,14 @@ export interface OrderLine {
    *  voir order-builder.ts::lineTotal. Créée quand un produit a été rentré en trop après l'envoi
    *  d'une section en cuisine (plus modifiable normalement, voir OrderLineController::assertEditable). */
   is_correction: boolean;
+  /** false pour une ligne composant issue de l'éclatement d'un menu (voir
+   *  App\Support\MenuResolver côté API) — son prix est déjà porté par la ligne "porteuse" du menu
+   *  (product_id = le menu lui-même, priced=true) ; à exclure du total (voir order-builder.ts::lineTotal),
+   *  sinon le menu serait facturé en plus de la somme de ses composants. `true` pour toute ligne
+   *  normale ou de combo (comportement inchangé). */
+  priced: boolean;
   product_id: number;
+  menu_id: number | null;
   order_section_id: number;
   product?: Product;
 }

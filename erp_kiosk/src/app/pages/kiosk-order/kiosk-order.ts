@@ -7,12 +7,29 @@ import { AuthService } from '../../core/auth.service';
 import { KioskPaymentEchoService } from '../../core/kiosk-payment-echo.service';
 import { KioskService } from '../../core/kiosk.service';
 import { ProductStockEchoService } from '../../core/product-stock-echo.service';
-import { Client, KioskCheckout, KioskCheckoutState, PaymentMethod, Product, Ticket, ValidateDiscountResponse } from '../../core/models/kiosk.model';
+import {
+  Client,
+  KioskCheckout,
+  KioskCheckoutState,
+  MenuChoice,
+  MenuGroup,
+  PaymentMethod,
+  Product,
+  Ticket,
+  ValidateDiscountResponse,
+} from '../../core/models/kiosk.model';
 import { TicketReceipt } from '../../shared/ticket-receipt/ticket-receipt';
 
 interface CartLine {
+  /** Identifiant purement client — plusieurs lignes peuvent partager le même product.id depuis
+   *  l'introduction des menus (deux ajouts du même menu avec des choix différents restent deux
+   *  lignes distinctes, voir addToCart/confirmAddMenu). */
+  lineId: number;
   product: Product;
   quantity: number;
+  /** Choix du client pour un produit `is_menu` (voir App\Support\MenuResolver côté API) — absent
+   *  pour un produit normal. */
+  menuChoices?: MenuChoice[];
 }
 
 interface CategoryFilter {
@@ -102,7 +119,22 @@ export class KioskOrder implements OnInit, OnDestroy {
   private cashSessionId: number | null = null;
 
   readonly cart = signal<CartLine[]>([]);
+  private nextCartLineId = 1;
   readonly selectedCategoryId = signal<number | null>(null);
+
+  // --- Menu à choix (voir App\Support\MenuResolver côté API) — un menu ne s'ajoute jamais
+  // directement au panier : cette modale bloque tant que chaque groupe n'a pas un nombre de
+  // sélections entre min_choices et max_choices, même pattern que pos-vente.ts côté erp-app. ---
+  readonly showMenuModal = signal<Product | null>(null);
+  readonly menuSelections = signal<Map<number, number[]>>(new Map());
+  /** Nombre d'exemplaires de CETTE configuration (mêmes choix) à ajouter en un coup — voir
+   *  confirmAddMenu(). */
+  readonly menuQuantity = signal(1);
+
+  readonly canConfirmMenu = computed(() => {
+    const product = this.showMenuModal();
+    return !!product && (product.menu_groups ?? []).every((group) => this.isMenuGroupValid(group));
+  });
 
   /** Écran d'accueil (grille de catégories, voir kiosk-order.html) vs écran de navigation dans
    *  une catégorie — purement visuel (aucune donnée métier derrière), nécessaire pour le
@@ -256,8 +288,12 @@ export class KioskOrder implements OnInit, OnDestroy {
     return Number(line.product.price) * line.quantity;
   }
 
+  /** Somme sur TOUTES les lignes de ce produit — un menu peut désormais apparaître dans plusieurs
+   *  lignes distinctes (choix différents, voir CartLine.lineId). */
   quantityInCart(product: Product): number {
-    return this.cart().find((line) => line.product.id === product.id)?.quantity ?? 0;
+    return this.cart()
+      .filter((line) => line.product.id === product.id)
+      .reduce((sum, line) => sum + line.quantity, 0);
   }
 
   /** `null` = stock non suivi, jamais affiché/décompté — voir pos-vente.ts côté erp-app, même
@@ -283,28 +319,141 @@ export class KioskOrder implements OnInit, OnDestroy {
       return;
     }
 
+    if (product.is_menu) {
+      this.openMenuModal(product);
+      return;
+    }
+
     const current = this.cart();
-    const existing = current.find((line) => line.product.id === product.id);
+    const existing = current.find((line) => line.product.id === product.id && !line.menuChoices);
     if (existing) {
-      this.cart.set(current.map((line) => (line.product.id === product.id ? { ...line, quantity: line.quantity + 1 } : line)));
+      this.cart.set(current.map((line) => (line.lineId === existing.lineId ? { ...line, quantity: line.quantity + 1 } : line)));
     } else {
-      this.cart.set([...current, { product, quantity: 1 }]);
+      this.cart.set([...current, { lineId: this.nextCartLineId++, product, quantity: 1 }]);
     }
   }
 
-  decrementCartLine(product: Product): void {
+  incrementCartLine(lineId: number): void {
     const current = this.cart();
-    const existing = current.find((line) => line.product.id === product.id);
+    const existing = current.find((line) => line.lineId === lineId);
+    if (!existing || this.isOutOfStock(existing.product)) return;
+    this.cart.set(current.map((line) => (line.lineId === lineId ? { ...line, quantity: line.quantity + 1 } : line)));
+  }
+
+  decrementCartLine(lineId: number): void {
+    const current = this.cart();
+    const existing = current.find((line) => line.lineId === lineId);
     if (!existing) return;
     this.cart.set(
       existing.quantity <= 1
-        ? current.filter((line) => line.product.id !== product.id)
-        : current.map((line) => (line.product.id === product.id ? { ...line, quantity: line.quantity - 1 } : line)),
+        ? current.filter((line) => line.lineId !== lineId)
+        : current.map((line) => (line.lineId === lineId ? { ...line, quantity: line.quantity - 1 } : line)),
     );
   }
 
-  removeCartLine(product: Product): void {
-    this.cart.set(this.cart().filter((line) => line.product.id !== product.id));
+  removeCartLine(lineId: number): void {
+    this.cart.set(this.cart().filter((line) => line.lineId !== lineId));
+  }
+
+  // --- Menu à choix ---
+
+  openMenuModal(product: Product): void {
+    this.showMenuModal.set(product);
+    this.menuSelections.set(new Map((product.menu_groups ?? []).map((group) => [group.id, []])));
+    this.menuQuantity.set(1);
+  }
+
+  closeMenuModal(): void {
+    this.showMenuModal.set(null);
+    this.menuSelections.set(new Map());
+    this.menuQuantity.set(1);
+  }
+
+  setMenuQuantity(value: number): void {
+    this.menuQuantity.set(Math.max(1, Math.floor(value) || 1));
+  }
+
+  menuGroupSelection(groupId: number): number[] {
+    return this.menuSelections().get(groupId) ?? [];
+  }
+
+  isMenuOptionSelected(groupId: number, productId: number): boolean {
+    return this.menuGroupSelection(groupId).includes(productId);
+  }
+
+  toggleMenuOption(group: MenuGroup, productId: number): void {
+    const current = this.menuGroupSelection(group.id);
+    const next = new Map(this.menuSelections());
+
+    if (group.max_choices === 1) {
+      // Re-cliquer l'option déjà sélectionnée d'un groupe obligatoire (min_choices >= 1) ne fait
+      // rien — jamais de désélection accidentelle (double-tap tactile notamment, voir bug
+      // "reçu : 0" côté App\Support\MenuResolver). Un groupe facultatif (min_choices === 0) peut,
+      // lui, repasser à vide.
+      if (!current.includes(productId)) {
+        next.set(group.id, [productId]);
+      } else if (group.min_choices === 0) {
+        next.set(group.id, []);
+      } else {
+        return;
+      }
+    } else if (current.includes(productId)) {
+      next.set(group.id, current.filter((id) => id !== productId));
+    } else if (current.length < group.max_choices) {
+      next.set(group.id, [...current, productId]);
+    } else {
+      return;
+    }
+
+    this.menuSelections.set(next);
+  }
+
+  isMenuGroupValid(group: MenuGroup): boolean {
+    const count = this.menuGroupSelection(group.id).length;
+    return count >= group.min_choices && count <= group.max_choices;
+  }
+
+  confirmAddMenu(): void {
+    const product = this.showMenuModal();
+    if (!product || !this.canConfirmMenu()) return;
+
+    const menuChoices: MenuChoice[] = Array.from(this.menuSelections().entries()).map(([menu_group_id, product_ids]) => ({
+      menu_group_id,
+      product_ids,
+    }));
+
+    const current = this.cart();
+    const existing = current.find(
+      (line) => line.product.id === product.id && JSON.stringify(line.menuChoices) === JSON.stringify(menuChoices),
+    );
+
+    if (existing) {
+      this.cart.set(
+        current.map((line) => (line.lineId === existing.lineId ? { ...line, quantity: line.quantity + this.menuQuantity() } : line)),
+      );
+    } else {
+      this.cart.set([...current, { lineId: this.nextCartLineId++, product, quantity: this.menuQuantity(), menuChoices }]);
+    }
+
+    this.closeMenuModal();
+  }
+
+  /** Résumé lisible des choix d'une ligne de menu — même contenu que la note générée côté
+   *  serveur (voir MenuResolver::resolve). */
+  menuChoiceSummary(line: CartLine): string {
+    if (!line.menuChoices) return '';
+    const groups = line.product.menu_groups ?? [];
+    return line.menuChoices
+      .map((choice) => {
+        const group = groups.find((g) => g.id === choice.menu_group_id);
+        if (!group) return '';
+        const names = choice.product_ids
+          .map((id) => group.options.find((option) => option.id === id)?.name)
+          .filter((name): name is string => !!name);
+        return names.length ? `${group.label} : ${names.join(', ')}` : '';
+      })
+      .filter(Boolean)
+      .join(' — ');
   }
 
   /** Tuile catégorie de l'accueil tapée (ou "Tout") — voir homeScreen. */
@@ -488,7 +637,7 @@ export class KioskOrder implements OnInit, OnDestroy {
         cash_session_id: this.cashSessionId,
         discount_code: this.appliedDiscount()?.discount.code ?? null,
         points_redeemed: this.pointsToRedeemInput() > 0 ? this.pointsToRedeemInput() : null,
-        lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
+        lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity, menu_choices: line.menuChoices })),
       })
       .subscribe({
         next: (checkout) => {
@@ -568,7 +717,7 @@ export class KioskOrder implements OnInit, OnDestroy {
         cash_session_id: this.cashSessionId,
         discount_code: this.appliedDiscount()?.discount.code ?? null,
         points_redeemed: this.pointsToRedeemInput() > 0 ? this.pointsToRedeemInput() : null,
-        lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity })),
+        lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity, menu_choices: line.menuChoices })),
         payments: [{ payment_method_id: method.id, value: this.payableTotal() }],
       })
       .subscribe({

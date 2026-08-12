@@ -26,6 +26,30 @@ export interface ProductCatalog {
   active_kiosk: boolean;
 }
 
+/** Un produit éligible dans un groupe de choix de menu — juste de quoi l'afficher/l'identifier. */
+export interface MenuOption {
+  id: number;
+  name: string;
+  price: number | string;
+}
+
+/** Groupe de choix d'un menu (voir Product.menu_groups côté API) — le staff/client choisit entre
+ *  min_choices et max_choices produits parmi `options` avant d'ajouter le menu au panier. */
+export interface MenuGroup {
+  id: number;
+  label: string;
+  min_choices: number;
+  max_choices: number;
+  options: MenuOption[];
+}
+
+/** Ce qui a été choisi pour un groupe — envoyé dans CreateKioskOrderPayload.lines[].menu_choices,
+ *  voir App\Support\MenuResolver côté API. */
+export interface MenuChoice {
+  menu_group_id: number;
+  product_ids: number[];
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -44,6 +68,10 @@ export interface Product {
   /** Voir ProductCategory.icon ci-dessus — même principe. Repli : voir productEmoji() dans kiosk-order.ts. */
   icon: string | null;
   image_url: string | null;
+  /** Un menu est un produit normal (même prix fixe, même panier) — is_menu sert uniquement à
+   *  savoir qu'il faut ouvrir le sélecteur de choix avant de l'ajouter au panier. */
+  is_menu?: boolean;
+  menu_groups?: MenuGroup[];
 }
 
 export interface PaymentMethod {
@@ -72,7 +100,9 @@ export interface CreateKioskOrderPayload {
   discount_code?: string | null;
   /** Points fidélité utilisés en réduction (voir App\Support\LoyaltyPoints côté API) — revalidé côté serveur, comme discount_code. */
   points_redeemed?: number | null;
-  lines: { product_id: number; quantity: number }[];
+  /** menu_choices requis uniquement si le produit de la ligne est un menu (is_menu) — voir
+   *  App\Support\MenuResolver côté API. */
+  lines: { product_id: number; quantity: number; menu_choices?: MenuChoice[] }[];
   payments: { payment_method_id: number; value: number }[];
 }
 

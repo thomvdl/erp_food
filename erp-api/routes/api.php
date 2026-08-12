@@ -216,6 +216,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('order-sections/{order_section}/lines', [OrderLineController::class, 'store']);
     Route::put('order-lines/{order_line}', [OrderLineController::class, 'update']);
     Route::delete('order-lines/{order_line}', [OrderLineController::class, 'destroy']);
+    Route::delete('order-lines/{order_line}/menu', [OrderLineController::class, 'destroyMenu']);
 
     // erp_self_order, mode kiosque (voir KioskOrderController) : encaisse immédiatement ET passe
     // en cuisine — ni orders/{order}/pay (bloque tant que non 'seed') ni tickets (jamais vu en

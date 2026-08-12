@@ -8,11 +8,12 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
-    'name', 'slug', 'description', 'price', 'sku', 'active', 'is_combo', 'tax_id', 'station_id',
-    'product_category_id', 'preparation_time', 'icon', 'image_path', 'stock_quantity',
+    'name', 'slug', 'description', 'price', 'sku', 'active', 'is_combo', 'is_menu', 'split_by_section',
+    'tax_id', 'station_id', 'product_category_id', 'preparation_time', 'icon', 'image_path', 'stock_quantity',
 ])]
 class Product extends Model
 {
@@ -27,6 +28,8 @@ class Product extends Model
             'price' => 'decimal:2',
             'active' => 'boolean',
             'is_combo' => 'boolean',
+            'is_menu' => 'boolean',
+            'split_by_section' => 'boolean',
             'preparation_time' => 'integer',
             'stock_quantity' => 'integer',
         ];
@@ -69,5 +72,15 @@ class Product extends Model
     {
         return $this->belongsToMany(Product::class, 'product_components', 'combo_id', 'component_product_id')
             ->withPivot('quantity');
+    }
+
+    /**
+     * Groupes de choix de CE menu (voir menu_groups) — vide pour un produit normal/combo.
+     * Contrairement à `components()`, il ne s'agit pas d'un simple pivot : chaque groupe a son
+     * propre label et son propre min/max, d'où un vrai modèle intermédiaire (MenuGroup).
+     */
+    public function menuGroups(): HasMany
+    {
+        return $this->hasMany(MenuGroup::class)->orderBy('position');
     }
 }

@@ -12,6 +12,7 @@ use App\Models\TicketPayment;
 use App\Models\TicketSection;
 use App\Support\DiscountCalculator;
 use App\Support\LoyaltyPoints;
+use App\Support\MenuResolver;
 use App\Support\StockManager;
 use App\Support\ThermalReceipt;
 use Illuminate\Http\Request;
@@ -60,6 +61,11 @@ class TicketController extends Controller
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
+            // Requis uniquement si le produit est un menu (is_menu) — voir App\Support\MenuResolver.
+            'lines.*.menu_choices' => ['array'],
+            'lines.*.menu_choices.*.menu_group_id' => ['integer'],
+            'lines.*.menu_choices.*.product_ids' => ['array'],
+            'lines.*.menu_choices.*.product_ids.*' => ['integer'],
             'payments' => ['required', 'array', 'min:1'],
             'payments.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'payments.*.value' => ['required', 'numeric', 'min:0.01'],
@@ -83,11 +89,11 @@ class TicketController extends Controller
 
         $products = Product::query()->whereIn('id', collect($data['lines'])->pluck('product_id'))->get()->keyBy('id');
 
-        $lines = collect($data['lines'])->map(fn (array $line) => [
-            'product_id' => $line['product_id'],
-            'quantity' => $line['quantity'],
-            'unit_price' => (float) $products[$line['product_id']]->price,
-        ])->all();
+        // Un menu (is_menu) s'éclate en plusieurs ticket_lines : une par produit choisi
+        // (unit_price=0, note=nom du menu) plus une ligne "porteuse" (product_id = le menu
+        // lui-même, prix réel du menu) qui porte le montant réellement dû — comme un produit
+        // normal, aucun calcul spécial nécessaire pour elle. Voir App\Support\MenuResolver::expandLines.
+        $lines = MenuResolver::expandLines($data['lines'], $products);
 
         $total = array_sum(array_map(fn (array $line) => $line['unit_price'] * $line['quantity'], $lines));
 
@@ -122,7 +128,7 @@ class TicketController extends Controller
             ]);
         }
 
-        $ticket = DB::transaction(function () use ($data, $lines, $products, $cashSession, $discount, $discountAmount, $client, $pointsRedeemed, $pointsRedeemedAmount, $total) {
+        $ticket = DB::transaction(function () use ($data, $lines, $cashSession, $discount, $discountAmount, $client, $pointsRedeemed, $pointsRedeemedAmount, $total) {
             // Voir App\Support\StockManager — rejette (422) si un produit à stock suivi n'a plus
             // assez d'unités, avant toute écriture.
             StockManager::consume($lines);
@@ -147,11 +153,13 @@ class TicketController extends Controller
                 'ticket_id' => $ticket->id,
             ]);
 
-            foreach ($data['lines'] as $line) {
+            foreach ($lines as $line) {
                 $section->lines()->create([
                     'quantity' => $line['quantity'],
-                    'unit_price' => $products[$line['product_id']]->price,
+                    'unit_price' => $line['unit_price'],
                     'product_id' => $line['product_id'],
+                    'note' => $line['note'] ?? null,
+                    'menu_id' => $line['menu_id'] ?? null,
                 ]);
             }
 

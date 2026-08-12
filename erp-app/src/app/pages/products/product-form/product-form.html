@@ -227,6 +227,110 @@
     }
   </section>
 
+  <section class="form-section">
+    <h2 class="form-section-title">Menu</h2>
+
+    <label class="checkbox-field">
+      <input type="checkbox" name="is_menu" [ngModel]="isMenu()" (ngModelChange)="isMenu.set($event)" />
+      Ceci est un menu (le client choisit un ou plusieurs produits par groupe, prix fixe)
+    </label>
+
+    @if (isMenu()) {
+      <label class="checkbox-field">
+        <input
+          type="checkbox"
+          name="split_by_section"
+          [ngModel]="splitBySection()"
+          (ngModelChange)="splitBySection.set($event)"
+        />
+        Répartir les groupes dans des sections différentes (POS Restaurant)
+      </label>
+      <p class="text-muted text-xs" style="margin-top: calc(-1 * var(--space-2)); margin-bottom: var(--space-3)">
+        Chaque groupe (ex. "Entrée") part dans sa propre section de commande au lieu de la section
+        active du serveur, pour pouvoir envoyer l'entrée en cuisine sans attendre le plat.
+      </p>
+
+      <div class="field">
+        Groupes de choix
+
+        @for (group of menuGroups(); track group.tempId) {
+          <div class="combo-picker__selected" style="margin-bottom: var(--space-3)">
+            <div class="combo-picker__line" style="align-items: flex-start">
+              <input
+                class="input"
+                type="text"
+                placeholder="Nom du groupe (ex. Entrée)"
+                [ngModel]="group.label"
+                [ngModelOptions]="{ standalone: true }"
+                (ngModelChange)="updateMenuGroupField(group.tempId, { label: $event })"
+              />
+              <label class="text-sm" style="display: flex; align-items: center; gap: var(--space-1)">
+                Min
+                <input
+                  class="input"
+                  type="number"
+                  min="0"
+                  style="width: 60px"
+                  [ngModel]="group.minChoices"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="updateMenuGroupField(group.tempId, { minChoices: +$event })"
+                />
+              </label>
+              <label class="text-sm" style="display: flex; align-items: center; gap: var(--space-1)">
+                Max
+                <input
+                  class="input"
+                  type="number"
+                  min="0"
+                  style="width: 60px"
+                  [ngModel]="group.maxChoices"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="updateMenuGroupField(group.tempId, { maxChoices: +$event })"
+                />
+              </label>
+              <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeMenuGroup(group.tempId)">✕</button>
+            </div>
+
+            <div class="search-input">
+              <span class="icon">🔍</span>
+              <input
+                class="input"
+                type="text"
+                placeholder="Rechercher un produit à proposer dans ce groupe…"
+                [ngModel]="group.search"
+                [ngModelOptions]="{ standalone: true }"
+                (ngModelChange)="setMenuGroupSearch(group.tempId, $event)"
+              />
+            </div>
+
+            @if (menuGroupSearchResults(group).length > 0) {
+              <div class="combo-picker__results">
+                @for (product of menuGroupSearchResults(group); track product.id) {
+                  <button type="button" class="combo-picker__result" (click)="addMenuGroupProduct(group.tempId, product.id)">
+                    {{ product.name }}
+                  </button>
+                }
+              </div>
+            }
+
+            @for (product of menuGroupProducts(group); track product.id) {
+              <div class="combo-picker__line">
+                <span class="font-medium">{{ product.name }}</span>
+                <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="removeMenuGroupProduct(group.tempId, product.id)">✕</button>
+              </div>
+            } @empty {
+              <span class="text-muted text-sm">Aucun produit proposé dans ce groupe pour le moment.</span>
+            }
+          </div>
+        } @empty {
+          <span class="text-muted text-sm">Aucun groupe de choix pour le moment.</span>
+        }
+
+        <button type="button" class="btn btn-outline btn-sm" (click)="addMenuGroup()">+ Ajouter un groupe</button>
+      </div>
+    }
+  </section>
+
   @if (error()) {
     <p class="error-text">{{ error() }}</p>
   }

@@ -199,12 +199,20 @@ class OrderController extends Controller
             ]);
         }
 
+        // Lignes réellement facturables (product.price * quantity) — exclut les lignes composants
+        // d'un menu (order_lines.priced = false, voir App\Support\MenuResolver) : leur prix est
+        // déjà porté par la ligne "porteuse" du menu (product_id = le menu lui-même, priced=true,
+        // une ligne normale comme les autres). Sans ce filtre, un menu à prix fixe facturerait le
+        // menu ET la somme de ses composants. Les combos, eux, restent inchangés (priced=true par
+        // défaut) : chaque composant garde son propre prix, comme aujourd'hui.
         $lines = [];
         // Sous-ensemble de $lines dont le stock n'a PAS déjà été décrémenté plus tôt — voir
         // order_sections.stock_consumed, posé par OrderSectionController::valider() (POS
         // Restaurant, à la validation) et par SelfOrderController::store() (self-order, à la
         // soumission). Ne reste ici que les tables déjà ouvertes avant l'introduction de cette
         // colonne — filet de sécurité, pas un chemin normal une fois toutes en circulation.
+        // Contrairement à $lines (filtré priced=true), on décrémente le stock de TOUTES les
+        // lignes (composants inclus) : ce sont les vrais produits physiquement servis.
         $stockLines = [];
         foreach ($order->sections as $section) {
             foreach ($section->lines as $line) {
@@ -217,7 +225,10 @@ class OrderController extends Controller
                     'quantity' => $line->is_correction ? -$line->quantity : $line->quantity,
                     'unit_price' => (float) $line->product->price,
                 ];
-                $lines[] = $lineData;
+
+                if ($line->priced) {
+                    $lines[] = $lineData;
+                }
 
                 if (!$section->stock_consumed) {
                     $stockLines[] = $lineData;
@@ -292,8 +303,13 @@ class OrderController extends Controller
                         'quantity' => $orderLine->quantity,
                         'note' => $orderLine->note,
                         'is_correction' => $orderLine->is_correction,
-                        'unit_price' => $orderLine->product->price,
+                        // priced=false (composant d'un menu, voir App\Support\MenuResolver) : son
+                        // prix est déjà porté par la ligne "porteuse" du menu (priced=true) —
+                        // sinon le reçu facturerait le menu ET la somme de ses composants, même
+                        // bug que celui déjà corrigé sur le calcul de $total plus haut.
+                        'unit_price' => $orderLine->priced ? $orderLine->product->price : 0,
                         'product_id' => $orderLine->product_id,
+                        'menu_id' => $orderLine->menu_id,
                     ]);
                 }
             }
@@ -372,7 +388,12 @@ class OrderController extends Controller
                         break;
                     }
 
-                    $net = $section->lines->where('product_id', $requested['product_id'])
+                    // ->where('priced', true) : une ligne composant d'un menu (voir
+                    // App\Support\MenuResolver, priced=false) n'a jamais été facturée
+                    // séparément — la corriger déduirait à tort son prix du total, alors que ce
+                    // produit n'y contribue pas. Seules les vraies lignes facturées (dont la
+                    // ligne "porteuse" du menu lui-même) sont corrigibles.
+                    $net = $section->lines->where('product_id', $requested['product_id'])->where('priced', true)
                         ->sum(fn ($line) => $line->is_correction ? -$line->quantity : $line->quantity);
 
                     if ($net <= 0) {

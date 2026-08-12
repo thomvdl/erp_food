@@ -25,13 +25,7 @@ class OrderSectionController extends Controller
     {
         $data = $request->validate(['name' => ['nullable', 'string', 'max:255']]);
 
-        $lastSection = $order->sections()->latest('id')->first();
-
-        if ($lastSection && $lastSection->lines()->doesntExist()) {
-            throw ValidationException::withMessages([
-                'name' => ['Ajoute au moins un article à la section précédente avant d\'en créer une nouvelle.'],
-            ]);
-        }
+        OrderSection::guardCanCreate($order);
 
         $nextNumber = $order->sections()->count() + 1;
         $section = $order->sections()->create(['name' => $data['name'] ?? "Section {$nextNumber}"]);

@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\ProductCatalog;
 use App\Support\DiscountCalculator;
 use App\Support\LoyaltyPoints;
+use App\Support\MenuResolver;
 use App\Support\Qr;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -41,6 +42,11 @@ class KioskCheckoutController extends Controller
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
+            // Requis uniquement si le produit est un menu (is_menu) — voir App\Support\MenuResolver.
+            'lines.*.menu_choices' => ['array'],
+            'lines.*.menu_choices.*.menu_group_id' => ['integer'],
+            'lines.*.menu_choices.*.product_ids' => ['array'],
+            'lines.*.menu_choices.*.product_ids.*' => ['integer'],
         ]);
 
         $client = isset($data['client_id']) ? Client::find($data['client_id']) : null;
@@ -78,11 +84,10 @@ class KioskCheckoutController extends Controller
             }
         }
 
-        $lines = collect($data['lines'])->map(fn (array $line) => [
-            'product_id' => $line['product_id'],
-            'quantity' => $line['quantity'],
-            'unit_price' => (float) $products[$line['product_id']]->price,
-        ])->all();
+        // Voir App\Support\MenuResolver::expandLines — résolu ici, au moment du scan, et figé tel
+        // quel dans kiosk_checkouts.lines (voir docblock de classe : le webhook Stripe ne
+        // recalcule jamais, il matérialise exactement ce qui a été résolu ici).
+        $lines = MenuResolver::expandLines($data['lines'], $products);
 
         $total = array_sum(array_map(fn (array $line) => $line['unit_price'] * $line['quantity'], $lines));
 

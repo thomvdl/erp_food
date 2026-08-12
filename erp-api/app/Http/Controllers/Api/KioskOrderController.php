@@ -12,6 +12,7 @@ use App\Models\ProductCatalog;
 use App\Support\DiscountCalculator;
 use App\Support\KioskSaleRecorder;
 use App\Support\LoyaltyPoints;
+use App\Support\MenuResolver;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -45,6 +46,11 @@ class KioskOrderController extends Controller
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
+            // Requis uniquement si le produit est un menu (is_menu) — voir App\Support\MenuResolver.
+            'lines.*.menu_choices' => ['array'],
+            'lines.*.menu_choices.*.menu_group_id' => ['integer'],
+            'lines.*.menu_choices.*.product_ids' => ['array'],
+            'lines.*.menu_choices.*.product_ids.*' => ['integer'],
             'payments' => ['required', 'array', 'min:1'],
             'payments.*.payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'payments.*.value' => ['required', 'numeric', 'min:0.01'],
@@ -85,11 +91,11 @@ class KioskOrderController extends Controller
             }
         }
 
-        $lines = collect($data['lines'])->map(fn (array $line) => [
-            'product_id' => $line['product_id'],
-            'quantity' => $line['quantity'],
-            'unit_price' => (float) $products[$line['product_id']]->price,
-        ])->all();
+        // Voir App\Support\MenuResolver::expandLines — éclate tout produit `is_menu` en lignes
+        // composants (unit_price=0, order_lines.priced=false) + une ligne porteuse au prix fixe
+        // du menu, consommées ensuite identiquement par KioskSaleRecorder (ticket_lines +
+        // order_lines).
+        $lines = MenuResolver::expandLines($data['lines'], $products);
 
         $total = array_sum(array_map(fn (array $line) => $line['unit_price'] * $line['quantity'], $lines));
 

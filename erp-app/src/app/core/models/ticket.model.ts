@@ -2,6 +2,7 @@ import { Product } from './product.model';
 import { User } from './user.model';
 import { TableElement } from './floor-plan.model';
 import { Discount } from './discount.model';
+import { MenuChoice } from './menu-choice.model';
 
 export interface Client {
   id: number;
@@ -83,6 +84,8 @@ export interface CreateTicketPayload {
   discount_code?: string | null;
   /** Points fidélité utilisés en réduction (voir App\Support\LoyaltyPoints) — revalidé côté serveur, comme discount_code. */
   points_redeemed?: number | null;
-  lines: { product_id: number; quantity: number }[];
+  /** menu_choices requis uniquement si le produit de la ligne est un menu (is_menu) — voir
+   *  App\Support\MenuResolver côté API. */
+  lines: { product_id: number; quantity: number; menu_choices?: MenuChoice[] }[];
   payments: { payment_method_id: number; value: number }[];
 }

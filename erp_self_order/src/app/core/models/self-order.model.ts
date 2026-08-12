@@ -14,6 +14,31 @@ export interface SelfOrderCategory {
   image_url: string | null;
 }
 
+/** Un produit éligible dans un groupe de choix de menu — juste de quoi l'afficher/l'identifier
+ *  (voir SelfOrderMenuGroup ci-dessous). */
+export interface SelfOrderMenuOption {
+  id: number;
+  name: string;
+  price: number | string;
+}
+
+/** Groupe de choix d'un menu (voir Product.menu_groups côté API) — le client choisit entre
+ *  min_choices et max_choices produits parmi `options` avant d'ajouter le menu au panier. */
+export interface SelfOrderMenuGroup {
+  id: number;
+  label: string;
+  min_choices: number;
+  max_choices: number;
+  options: SelfOrderMenuOption[];
+}
+
+/** Ce que le client a choisi pour un groupe — envoyé dans SelfOrderLinePayload.menu_choices, voir
+ *  App\Support\MenuResolver côté API. */
+export interface SelfOrderMenuChoice {
+  menu_group_id: number;
+  product_ids: number[];
+}
+
 export interface SelfOrderProduct {
   id: number;
   name: string;
@@ -31,6 +56,11 @@ export interface SelfOrderProduct {
    *  serveur à chaque vente (voir App\Support\StockManager) ; le staff qui encaisse reste la
    *  seule source de vérité (voir OrderController::pay), cette valeur n'est qu'indicative ici. */
   stock_quantity: number | null;
+  /** Un menu est un produit normal (même prix fixe, même panier) — is_menu sert uniquement à
+   *  savoir qu'il faut ouvrir le sélecteur de choix avant de l'ajouter au panier (voir
+   *  menu_groups, order.ts::openMenuModal). */
+  is_menu?: boolean;
+  menu_groups?: SelfOrderMenuGroup[];
 }
 
 export interface SelfOrderContext {
@@ -48,6 +78,8 @@ export interface SelfOrderLinePayload {
   product_id: number;
   quantity: number;
   note?: string | null;
+  /** Requis uniquement si le produit est un menu (is_menu) — voir App\Support\MenuResolver côté API. */
+  menu_choices?: SelfOrderMenuChoice[];
 }
 
 export interface SelfOrderPayload {

@@ -10,6 +10,20 @@ import { ProductCatalog, ProductCategory } from '../../../core/models/catalog.mo
 import { Product } from '../../../core/models/product.model';
 import { Station, Tax } from '../../../core/models/reference.model';
 
+/** État d'édition d'un groupe de choix de menu, encore non sauvegardé — `tempId` est un
+ *  identifiant purement client (pas l'id serveur, qui n'existe pas encore pour un nouveau
+ *  groupe, et de toute façon remplacé à chaque sauvegarde — voir ProductController::syncMenuGroups
+ *  côté API, remplacement complet), sert uniquement de clé stable pour @for/track. */
+interface MenuGroupDraft {
+  tempId: number;
+  label: string;
+  minChoices: number;
+  maxChoices: number;
+  productIds: number[];
+  /** Recherche pour ajouter un produit à CE groupe (voir menuGroupSearchResults()). */
+  search: string;
+}
+
 @Component({
   selector: 'app-product-form',
   standalone: true,
@@ -64,6 +78,16 @@ export class ProductForm {
   /** Recherche pour trouver un produit à ajouter au combo — voir componentSearchResults(). */
   readonly componentSearch = signal('');
 
+  /** Menu = produit composé de groupes de choix (voir Product.menu_groups) — contrairement au
+   *  combo, le client choisit un ou plusieurs produits par groupe au moment de la commande
+   *  (voir App\Support\MenuResolver côté API), pas une composition fixe. */
+  readonly isMenu = signal(false);
+  readonly menuGroups = signal<MenuGroupDraft[]>([]);
+  private nextMenuGroupTempId = 1;
+  /** Voir Product.split_by_section — répartit chaque groupe dans sa propre section de commande au
+   *  lieu de la section active du serveur (POS Restaurant uniquement). */
+  readonly splitBySection = signal(false);
+
   /**
    * "Mettre à jour les composants pour n'afficher que les éléments actifs" (voir Readme.md) —
    * mais sans faire disparaître silencieusement la valeur DÉJÀ choisie sur ce produit si elle
@@ -105,6 +129,11 @@ export class ProductForm {
       .filter((item): item is { product: Product; quantity: number } => !!item.product);
   });
 
+  /** Un menu ne peut pas proposer un combo ni un autre menu comme option (même contrainte
+   *  imposée côté serveur, voir ProductController) — évite un menu/combo imbriqué qui casserait
+   *  l'éclatement à un seul niveau du Kitchen Display. */
+  readonly availableMenuOptions = computed(() => this.allProducts().filter((p) => !p.is_combo && !p.is_menu && p.id !== this.id));
+
   constructor() {
     this.categoryService.list().subscribe((categories) => this.categories.set(categories));
     this.catalogService.list().subscribe((catalogs) => this.catalogs.set(catalogs));
@@ -135,6 +164,18 @@ export class ProductForm {
             this.imageUrl.set(product.image_url);
             this.isCombo.set(product.is_combo);
             this.componentQuantities.set(new Map((product.components ?? []).map((c) => [c.id, c.pivot.quantity])));
+            this.isMenu.set(product.is_menu);
+            this.splitBySection.set(product.split_by_section);
+            this.menuGroups.set(
+              (product.menu_groups ?? []).map((group) => ({
+                tempId: this.nextMenuGroupTempId++,
+                label: group.label,
+                minChoices: group.min_choices,
+                maxChoices: group.max_choices,
+                productIds: group.options.map((option) => option.id),
+                search: '',
+              })),
+            );
           },
           error: () => this.error.set('Impossible de charger le produit.'),
         });
@@ -176,6 +217,62 @@ export class ProductForm {
     this.componentQuantities.set(next);
   }
 
+  addMenuGroup(): void {
+    this.menuGroups.set([
+      ...this.menuGroups(),
+      { tempId: this.nextMenuGroupTempId++, label: '', minChoices: 1, maxChoices: 1, productIds: [], search: '' },
+    ]);
+  }
+
+  removeMenuGroup(tempId: number): void {
+    this.menuGroups.set(this.menuGroups().filter((group) => group.tempId !== tempId));
+  }
+
+  updateMenuGroupField(tempId: number, patch: Partial<Pick<MenuGroupDraft, 'label' | 'minChoices' | 'maxChoices'>>): void {
+    this.menuGroups.set(this.menuGroups().map((group) => (group.tempId === tempId ? { ...group, ...patch } : group)));
+  }
+
+  setMenuGroupSearch(tempId: number, search: string): void {
+    this.menuGroups.set(this.menuGroups().map((group) => (group.tempId === tempId ? { ...group, search } : group)));
+  }
+
+  addMenuGroupProduct(tempId: number, productId: number): void {
+    this.menuGroups.set(
+      this.menuGroups().map((group) =>
+        group.tempId === tempId && !group.productIds.includes(productId)
+          ? { ...group, productIds: [...group.productIds, productId], search: '' }
+          : group,
+      ),
+    );
+  }
+
+  removeMenuGroupProduct(tempId: number, productId: number): void {
+    this.menuGroups.set(
+      this.menuGroups().map((group) =>
+        group.tempId === tempId ? { ...group, productIds: group.productIds.filter((id) => id !== productId) } : group,
+      ),
+    );
+  }
+
+  /** Résultats de recherche pour AJOUTER un produit à ce groupe — même logique que
+   *  componentSearchResults, mais appelée directement depuis le template (un seul computed() ne
+   *  suffirait pas, plusieurs groupes coexistent en parallèle sur ce formulaire). */
+  menuGroupSearchResults(group: MenuGroupDraft): Product[] {
+    const term = group.search.trim().toLowerCase();
+    if (!term) {
+      return [];
+    }
+    return this.availableMenuOptions()
+      .filter((product) => !group.productIds.includes(product.id) && product.name.toLowerCase().includes(term))
+      .slice(0, 8);
+  }
+
+  /** Produits déjà ajoutés à ce groupe, résolus depuis allProducts() pour afficher leur nom. */
+  menuGroupProducts(group: MenuGroupDraft): Product[] {
+    const products = new Map(this.allProducts().map((p) => [p.id, p]));
+    return group.productIds.map((id) => products.get(id)).filter((product): product is Product => !!product);
+  }
+
   submit(): void {
     this.error.set(null);
     this.saving.set(true);
@@ -196,6 +293,16 @@ export class ProductForm {
       is_combo: this.isCombo(),
       component_ids: this.isCombo()
         ? Array.from(this.componentQuantities().entries()).map(([product_id, quantity]) => ({ product_id, quantity }))
+        : [],
+      is_menu: this.isMenu(),
+      split_by_section: this.splitBySection(),
+      menu_group_ids: this.isMenu()
+        ? this.menuGroups().map((group) => ({
+            label: group.label,
+            min_choices: group.minChoices,
+            max_choices: group.maxChoices,
+            product_ids: group.productIds,
+          }))
         : [],
     };
 

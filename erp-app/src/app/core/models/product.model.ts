@@ -17,6 +17,27 @@ export interface ProductComponentPayload {
   quantity: number;
 }
 
+/** Un groupe de choix d'un menu (voir Product.menu_groups) — le client choisit entre min_choices
+ *  et max_choices produits parmi `options` au moment de la commande (voir App\Support\MenuResolver
+ *  côté API). Contrairement à un combo, il n'y a pas de quantité fixe par produit. */
+export interface MenuGroup {
+  id: number;
+  label: string;
+  min_choices: number;
+  max_choices: number;
+  position: number;
+  options: ProductComponent[];
+}
+
+/** write-only : payload create/update pour les groupes de choix d'un menu (voir `menu_groups`
+ *  côté Product ci-dessous) — remplacement complet à chaque sauvegarde côté API. */
+export interface MenuGroupPayload {
+  label: string;
+  min_choices: number;
+  max_choices: number;
+  product_ids: number[];
+}
+
 export interface Product {
   id: number;
   name: string;
@@ -38,6 +59,15 @@ export interface Product {
    *  à savoir qu'il faut charger/afficher sa composition, notamment pour l'éclater en plats
    *  individuels au Kitchen Display (voir erp_kitchen_display/kitchen-board.ts). */
   is_combo: boolean;
+  /** Un menu est un Product normal (même panier/ticket/facturation, prix fixe) — is_menu sert
+   *  uniquement à savoir qu'il faut charger/afficher ses groupes de choix. Contrairement à un
+   *  combo (composition fixe), le client choisit un ou plusieurs produits par groupe au moment
+   *  de la commande (voir menu_groups). */
+  is_menu: boolean;
+  /** Réglage propre à un menu (is_menu=true) : répartit chaque groupe dans sa propre section de
+   *  commande (une par label de groupe) au lieu de la section active du serveur — voir
+   *  OrderLineController::addMenu côté API. Sans effet en dehors du POS Restaurant. */
+  split_by_section: boolean;
   tax_id: number | null;
   station_id: number | null;
   product_category_id: number | null;
@@ -59,4 +89,8 @@ export interface Product {
   components?: ProductComponent[];
   /** write-only : envoyé en payload create/update (voir `components`). */
   component_ids?: ProductComponentPayload[];
+  /** Groupes de choix d'un menu (is_menu=true) — vide/absent pour un produit normal/combo. */
+  menu_groups?: MenuGroup[];
+  /** write-only : envoyé en payload create/update (voir `menu_groups`). */
+  menu_group_ids?: MenuGroupPayload[];
 }
