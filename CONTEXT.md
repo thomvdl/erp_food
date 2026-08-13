@@ -1335,3 +1335,27 @@ Vérifié via `curl` authentifié : `GET /event-dates?event_id=...` renvoie bien
 imbriqué (event de test créé avec image, date associée, vérifié, nettoyé). `ng build` (logs
 `erp_v2_validate_event`) sans erreur sur `event-select`/`event-checkin`. Toujours pas de
 navigateur disponible cette session — pas de vérification visuelle réelle du rendu de la miniature.
+
+### Réservations (`erp-app`) : filtre par statut (2026-08-13)
+
+Demandé : *"dans reservation ajoute un filtre sur le statut liste deroulante"*. `booking-list.ts`
+avait déjà un filtre type (`typeFilter`, pilules `.tab-group`) mais rien sur le statut
+(En attente/Validée/Présente, dérivé de `validated_at`/`arrived_at`, pas de colonne dédiée).
+
+- `BookingStatus` = `'pending' | 'validated' | 'present'` (local à `booking-list.ts`), méthode
+  `bookingStatus(booking)` qui centralise la dérivation (reprise aussi dans le `<td>` Statut du
+  tableau, qui dupliquait la même logique en `@if`/`@else if` inline).
+- `statusFilter` (signal, `null` = tous) combiné à `typeFilter` dans `filteredBookings` — filtre
+  100% client (la liste est déjà chargée pour le jour sélectionné), même principe que le filtre
+  type existant.
+- **Liste déroulante** (`<select class="select">`) plutôt qu'un groupe de pilules comme le filtre
+  type — demande explicite de l'utilisateur, et regroupée dans le même conteneur flex que
+  `.tab-group` (2 enfants directs de `.app-topbar`, qui est en `justify-content: space-between` —
+  un 3ᵉ enfant aurait cassé le groupement visuel des deux filtres).
+- **Vérifié en Chromium headless (Playwright)**, connecté en admin : 23 réservations → 9 une fois
+  "En attente" sélectionné, compteur "réservations au total" recalculé correctement, badges
+  cohérents avec le filtre. Aucune erreur console.
+- **Suite immédiate** — *"le filtre dejeuner petit dejeuner diner met le dans un liste
+  deroulante aussi"* : `.tab-group` du filtre type remplacé par un `<select>`, même style que le
+  filtre statut, les deux côte à côte. Revérifié en Chromium headless : les deux filtres se
+  combinent bien (23 → 4 réservations sur "Déjeuner" seul), aucune erreur console.
