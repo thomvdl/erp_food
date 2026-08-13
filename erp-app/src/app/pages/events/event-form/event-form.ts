@@ -21,6 +21,11 @@ export class EventForm {
 
   readonly name = signal('');
 
+  /** Voir category-form.ts — même pattern (upload = endpoint séparé, disponible seulement en édition). */
+  readonly imageUrl = signal<string | null>(null);
+  readonly uploadingImage = signal(false);
+  readonly imageError = signal<string | null>(null);
+
   constructor() {
     this.route.paramMap.subscribe((params) => {
       const idParam = params.get('id');
@@ -29,7 +34,10 @@ export class EventForm {
 
       if (this.id !== null) {
         this.eventService.get(this.id).subscribe({
-          next: (event) => this.name.set(event.name),
+          next: (event) => {
+            this.name.set(event.name);
+            this.imageUrl.set(event.image_url);
+          },
           error: () => this.error.set("Impossible de charger l'événement."),
         });
       }
@@ -55,6 +63,51 @@ export class EventForm {
         this.error.set(
           messages?.length ? messages.join(' ') : err.error?.message ?? "Impossible d'enregistrer l'événement.",
         );
+      },
+    });
+  }
+
+  /** Voir category-form.ts::onImageSelected — même logique. */
+  onImageSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || this.id === null) {
+      return;
+    }
+
+    this.uploadingImage.set(true);
+    this.imageError.set(null);
+
+    this.eventService.uploadImage(this.id, file).subscribe({
+      next: (updated) => {
+        this.uploadingImage.set(false);
+        this.imageUrl.set(updated.image_url);
+        input.value = '';
+      },
+      error: () => {
+        this.uploadingImage.set(false);
+        this.imageError.set("Impossible d'envoyer l'image.");
+        input.value = '';
+      },
+    });
+  }
+
+  removeImage(): void {
+    if (this.id === null) {
+      return;
+    }
+
+    this.uploadingImage.set(true);
+    this.imageError.set(null);
+
+    this.eventService.removeImage(this.id).subscribe({
+      next: (updated) => {
+        this.uploadingImage.set(false);
+        this.imageUrl.set(updated.image_url);
+      },
+      error: () => {
+        this.uploadingImage.set(false);
+        this.imageError.set("Impossible de supprimer l'image.");
       },
     });
   }

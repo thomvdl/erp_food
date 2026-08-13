@@ -29,6 +29,17 @@
   font-size: var(--font-size-2xl);
 }
 
+/* object-fit: contain (pas cover) — même principe que event-select.css, ratio initial préservé. */
+.kiosk-header__image {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  background: var(--surface-page);
+  margin: 0 auto var(--space-2);
+  display: block;
+}
+
 /* Caméra/clavier centrés — le plan de salle n'est plus affiché en permanence à côté (il
    n'apparaît que dans la modal de placement après validation, voir Readme.md). */
 .kiosk-body {

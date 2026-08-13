@@ -2,6 +2,9 @@
   <header class="kiosk-header">
     <a routerLink="/" class="back-link">← Changer d'occurrence</a>
     <div class="kiosk-header__event">
+      @if (eventDate()?.event?.image_url; as imageUrl) {
+        <img class="kiosk-header__image" [src]="imageUrl" alt="" />
+      }
       <h1>{{ eventDate()?.event?.name }}</h1>
       @if (eventDate(); as ed) {
         <p class="text-muted">{{ formatDate(ed) }} à {{ formatHour(ed) }}</p>

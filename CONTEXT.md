@@ -1288,3 +1288,50 @@ multi-catalogue ci-dessus.
 vérifications UI se sont faites par `tsc --noEmit`/`ng build` + tests `curl`/Tinker contre l'API
 réelle, jamais par capture d'écran ou interaction navigateur réelle ; limitation signalée à
 l'utilisateur à chaque étape concernée.
+
+### Champ image sur Event (2026-08-13)
+
+Demandé : *"il faudrait ajouter un champ img sur event"*. Réutilise le mécanisme d'upload déjà en
+place pour Product/ProductCategory (`App\Support\ImageUpload`, disque `public`) plutôt que d'en
+inventer un nouveau.
+
+- **Migration** (`add_image_path_to_events_table`, migration séparée — `events` a des données
+  réelles, contrairement à la convention "éditer en place" qui ne vaut que tant qu'une table est
+  encore vide) : `image_path` nullable après `slug`. Pas d'`icon` — un event n'a jamais eu de
+  fallback emoji comme Product/ProductCategory, pas demandé ici.
+- **`ImageUpload::store`** généralisé : posait `'icon' => null` sans condition, ce qui aurait levé
+  une `MassAssignmentException` sur un modèle sans ce champ. Devient conditionnel à
+  `$model->isFillable('icon')` — Product/ProductCategory inchangés, `Event` (et tout futur modèle
+  avec juste `image_path`) réutilisable tel quel.
+- **`Event`** : `image_path` fillable, `image_url` calculé (`$appends`), même pattern que
+  `Product::imageUrl()`/`ProductCategory::imageUrl()`. `EventController::uploadImage`/`removeImage`
+  + routes `POST/DELETE events/{event}/image` (auth déjà en place globalement sur le groupe
+  `events`, voir Sanctum plus haut dans `routes/api.php`).
+- **Frontend** : `Event.image_url` ajouté au modèle ; `event.service.ts` n'a rien eu à changer
+  (`uploadImage`/`removeImage` déjà génériques sur `ResourceService`, voir
+  `core/resource.service.ts`). `event-form` : bloc image identique à `category-form.ts`
+  (upload disponible seulement en édition, pas de champ icône). `event-list` : miniature
+  `.list-thumb` ajoutée dans la colonne Nom (pas de colonne dédiée, contrairement à
+  `product-list`/`category-list` — table Événements plus étroite, 3 colonnes seulement).
+- **Vérifié** : `docker compose build api` + migration appliquée par l'entrypoint au redémarrage
+  du conteneur (confirmé via Tinker, `Schema::hasColumn`) ; `ng build` (logs `erp_v2_app`) sans
+  erreur. Cycle complet testé via `curl` authentifié (login `admin`/`password` →
+  `POST /events` → `POST .../image` avec un PNG de test → `GET` renvoie `image_url` servant
+  bien l'image en `200 image/png` → `DELETE .../image` renvoie `image_path`/`image_url` à
+  `null`) — nettoyé après coup (event de test supprimé). **Extension Chrome non connectée cette
+  session** (`tabs_context_mcp` a échoué) : le formulaire/la liste n'ont pas été cliqués dans un
+  vrai navigateur, seulement compilés + vérifiés côté API.
+
+**Suite immédiate même session** — *"utilise cette image de l'event dans event validate"* :
+`image_url` ajouté à `Event` dans `erp_validate_event/core/models/event.model.ts` (aucun
+changement backend requis, `EventDateController::index` eager-charge déjà `event` et `image_url`
+est un attribut calculé automatiquement inclus dans la sérialisation). Affichée à deux endroits :
+- `event-select` (choix de l'occurrence à l'entrée) : miniature 120px en tête de chaque
+  `.event-tile` (vue liste), seulement si l'event a une image — pas de fallback visuel, contrairement
+  aux produits qui ont un emoji de secours (un event sans image reste juste sans image ici).
+- `event-checkin` (écran de scan) : petite image 56px centrée au-dessus du nom d'event dans
+  `.kiosk-header__event`.
+Vérifié via `curl` authentifié : `GET /event-dates?event_id=...` renvoie bien `event.image_url`
+imbriqué (event de test créé avec image, date associée, vérifié, nettoyé). `ng build` (logs
+`erp_v2_validate_event`) sans erreur sur `event-select`/`event-checkin`. Toujours pas de
+navigateur disponible cette session — pas de vérification visuelle réelle du rendu de la miniature.

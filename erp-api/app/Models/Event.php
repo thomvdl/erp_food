@@ -4,14 +4,24 @@ namespace App\Models;
 
 use App\Models\Concerns\HasSlug;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name', 'slug'])]
+#[Fillable(['name', 'slug', 'image_path'])]
 class Event extends Model
 {
     use HasSlug;
+
+    protected $appends = ['image_url'];
+
+    /** Voir Product::imageUrl()/ProductCategory::imageUrl() — même principe, pas d'icône ici. */
+    protected function imageUrl(): Attribute
+    {
+        return Attribute::make(get: fn () => $this->image_path ? Storage::disk('public')->url($this->image_path) : null);
+    }
 
     public function dates(): HasMany
     {

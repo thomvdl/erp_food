@@ -14,6 +14,25 @@
     <p class="text-muted text-sm">Tu pourras ajouter une ou plusieurs dates (heure, salle, limite de places) juste après.</p>
   }
 
+  <div class="field">
+    Image
+    @if (!isEdit()) {
+      <p class="text-muted text-sm">Enregistrez d'abord l'événement pour pouvoir ajouter une image.</p>
+    } @else if (imageUrl(); as url) {
+      <div style="display: flex; align-items: center; gap: var(--space-3)">
+        <img [src]="url" alt="" style="width: 64px; height: 64px; object-fit: cover; border-radius: var(--radius-md)" />
+        <button type="button" class="btn btn-outline btn-sm" [disabled]="uploadingImage()" (click)="removeImage()">
+          {{ uploadingImage() ? '...' : "Supprimer l'image" }}
+        </button>
+      </div>
+    } @else {
+      <input type="file" accept="image/*" [disabled]="uploadingImage()" (change)="onImageSelected($event)" />
+    }
+    @if (imageError()) {
+      <p class="error-text text-sm">{{ imageError() }}</p>
+    }
+  </div>
+
   @if (error()) {
     <p class="error-text">{{ error() }}</p>
   }

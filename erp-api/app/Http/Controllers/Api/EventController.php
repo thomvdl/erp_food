@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
+use App\Support\ImageUpload;
 use Illuminate\Http\Request;
 
 class EventController extends Controller
@@ -44,6 +45,22 @@ class EventController extends Controller
         $event->delete();
 
         return response()->noContent();
+    }
+
+    /** Voir ProductCategoryController::uploadImage — même principe, endpoint séparé du store/update JSON. */
+    public function uploadImage(Request $request, Event $event)
+    {
+        $request->validate(['image' => ['required', 'image', 'max:4096']]);
+        ImageUpload::store($event, $request->file('image'), 'events');
+
+        return $event->fresh()->loadCount(self::WITH_COUNT);
+    }
+
+    public function removeImage(Event $event)
+    {
+        ImageUpload::remove($event);
+
+        return $event->fresh()->loadCount(self::WITH_COUNT);
     }
 
     /**

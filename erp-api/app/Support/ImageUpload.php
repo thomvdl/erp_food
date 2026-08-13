@@ -7,22 +7,26 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Upload/suppression d'image pour un Product ou une ProductCategory (voir migrations
- * add_icon_and_image_path_to_*) — première fonctionnalité d'upload de fichier de ce projet.
+ * Upload/suppression d'image pour tout modèle avec un champ `image_path` (Product,
+ * ProductCategory, Event...) — première fonctionnalité d'upload de fichier de ce projet.
  * Toujours sur le disque `public` (le seul servi publiquement, voir config/filesystems.php),
- * jamais `local`. `icon` et `image_path` sont mutuellement exclusifs : uploader une image efface
- * toujours l'icône choisie — pas l'inverse ici, un `icon` choisi via le formulaire normal
- * (JSON, voir ProductController::validated) écrase `image_path` séparément côté contrôleur.
+ * jamais `local`. Sur les modèles qui ont aussi un `icon` (Product, ProductCategory), les deux
+ * champs sont mutuellement exclusifs : uploader une image efface toujours l'icône choisie — pas
+ * l'inverse ici, un `icon` choisi via le formulaire normal (JSON, voir ProductController::validated)
+ * écrase `image_path` séparément côté contrôleur (clearIfIconChosen ci-dessous). `isFillable('icon')`
+ * garde `store()` utilisable tel quel sur un modèle sans ce champ (ex. Event) sans lever de
+ * MassAssignmentException.
  */
 class ImageUpload
 {
     public static function store(Model $model, UploadedFile $file, string $directory): void
     {
         self::deleteFile($model);
-        $model->update([
-            'image_path' => $file->store($directory, 'public'),
-            'icon' => null,
-        ]);
+        $data = ['image_path' => $file->store($directory, 'public')];
+        if ($model->isFillable('icon')) {
+            $data['icon'] = null;
+        }
+        $model->update($data);
     }
 
     public static function remove(Model $model): void

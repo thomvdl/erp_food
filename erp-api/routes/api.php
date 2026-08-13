@@ -177,6 +177,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('reports/export/csv', [AccountingExportController::class, 'csv']);
         Route::get('reports/export/pdf', [AccountingExportController::class, 'pdf']);
         Route::apiResource('events', EventController::class);
+        Route::post('events/{event}/image', [EventController::class, 'uploadImage']);
+        Route::delete('events/{event}/image', [EventController::class, 'removeImage']);
         Route::put('events/{event}/ticket-prices', [EventTicketPriceController::class, 'update']);
         Route::post('events/{event}/dates', [EventDateController::class, 'store']);
         Route::put('event-dates/{event_date}', [EventDateController::class, 'update']);

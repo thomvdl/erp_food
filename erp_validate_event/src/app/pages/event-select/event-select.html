@@ -27,6 +27,9 @@
     <div class="event-tiles">
       @for (eventDate of upcomingDates(); track eventDate.id) {
         <button type="button" class="event-tile" [class.event-tile--today]="isToday(eventDate)" (click)="select(eventDate)">
+          @if (eventDate.event?.image_url; as imageUrl) {
+            <img class="event-tile__image" [src]="imageUrl" alt="" />
+          }
           @if (isToday(eventDate)) {
             <span class="badge badge-success">Aujourd'hui</span>
           }

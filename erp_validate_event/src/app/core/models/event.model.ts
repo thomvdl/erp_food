@@ -35,6 +35,7 @@ export interface Event {
   id: number;
   name: string;
   slug: string;
+  image_url: string | null;
 }
 
 export interface EventDate {

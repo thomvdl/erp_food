@@ -55,6 +55,16 @@
   transition: box-shadow var(--transition-fast), transform var(--transition-fast), border-color var(--transition-fast);
 }
 
+/* object-fit: contain (pas cover) — l'image garde son ratio initial, jamais rognée ; la boîte
+   fixe + un fond servent juste de letterbox pour les images qui ne remplissent pas 100%x160px. */
+.event-tile__image {
+  width: 100%;
+  height: 160px;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  background: var(--surface-page);
+}
+
 .event-tile:hover {
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
