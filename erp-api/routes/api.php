@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\ParamController;
 use App\Http\Controllers\Api\PasseController;
 use App\Http\Controllers\Api\PaymentMethodController;
 use App\Http\Controllers\Api\PrinterController;
+use App\Http\Controllers\Api\PublicBookingController;
 use App\Http\Controllers\Api\ProductCatalogController;
 use App\Http\Controllers\Api\ProductCategoryController;
 use App\Http\Controllers\Api\ProductController;
@@ -65,6 +66,23 @@ Route::get('tables/{table}/qr', [SelfOrderController::class, 'qr']);
 // numéros de ticket déjà remis au client, rien à protéger.
 Route::get('kiosk-orders/status', [KioskOrderController::class, 'status']);
 
+// erp_public_site (site vitrine, voir Readme.md) : coordonnées de l'établissement affichées en
+// pied de page/en-tête — pas sensible (déjà exposé tel quel dans le pied des emails clients),
+// déplacé hors du groupe auth:sanctum ci-dessous spécifiquement pour ce cas d'usage.
+Route::get('company', [CompanyController::class, 'show']);
+
+// Prise de réservation directement par un visiteur anonyme (voir PublicBookingController) —
+// reste "En attente" jusqu'à validation par le staff, contrairement à POST /bookings ci-dessous
+// (staff authentifié, valide immédiatement).
+Route::post('public/bookings', [PublicBookingController::class, 'store']);
+
+// Calendrier public des événements (erp_public_site) : même méthode que la version staff
+// ci-dessous (EventDateController::index), rien de sensible dedans (nom de l'event, date,
+// salle, nombre de places déjà vendues) — c'est littéralement ce qu'une page vitrine doit
+// afficher. Pas d'achat de place en ligne pour l'instant (aucun paiement public câblé), donc
+// pas de route d'écriture ici.
+Route::get('public/event-dates', [EventDateController::class, 'index']);
+
 // Webhook Stripe (paiement kiosque QR/Bancontact, voir KioskCheckoutController et
 // StripeWebhookController) — forcément public (appelé par Stripe, pas par un utilisateur de
 // l'app), authentifié autrement : signature HMAC vérifiée par le middleware Cashier
@@ -74,7 +92,6 @@ Route::post('stripe/webhook', [StripeWebhookController::class, 'handle'])->middl
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('auth/me', [AuthController::class, 'me']);
-    Route::get('company', [CompanyController::class, 'show']);
 
     // Lecture seule (voir RoleController) — les trois rôles sont fixes, plus de create/update.
     Route::apiResource('roles', RoleController::class)->only(['index', 'show']);
