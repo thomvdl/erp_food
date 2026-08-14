@@ -79,7 +79,7 @@
 
 .kitchen-board__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: var(--space-4);
   align-content: start;
 }
@@ -90,13 +90,44 @@
   gap: var(--space-3);
 }
 
-/* Commande kiosque (pas de table) : le numéro est ce que le personnel doit annoncer au comptoir
- *  pour remettre la bonne commande au bon client — doit rester lisible de loin, comme le nom de
- *  table à côté duquel il se substitue. */
-.kitchen-card__kiosk-number {
-  font-size: var(--font-size-xl);
+/* En-tête de carte façon maquette (notion/base/kitchen display.webp) : badge carré coloré avec
+   le repère de la commande (n° de table / icône kiosque) + libellé à côté — lisible d'un coup
+   d'œil de loin, comme sur l'écran TV cuisine. */
+.kitchen-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.kitchen-card__id-badge {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
   font-weight: 800;
-  color: var(--color-accent-600);
+  font-size: var(--font-size-base);
+  line-height: 1;
+}
+
+.kitchen-card__id-badge--table {
+  background: var(--color-primary-fill);
+  color: #ffffff;
+  font-size: var(--font-size-lg);
+}
+
+.kitchen-card__id-badge--kiosk {
+  background: var(--color-accent-500);
+  color: #2a1a02;
+  font-size: var(--font-size-lg);
+}
+
+.kitchen-card__id-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 /* Minuteur de préparation (voir Readme.md : "afficher un timer quand c'est demandé, avec le
@@ -126,11 +157,27 @@
 
 .kitchen-card__section {
   border: 1px solid var(--border-color);
+  border-left: 4px solid var(--border-color-strong);
   border-radius: var(--radius-md);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+
+/* Liseré coloré selon l'état de la section (voir sectionStateLabel côté TS) — repère visuel
+   supplémentaire à distance, en plus de la pastille de statut, sur un écran regardé en coin
+   d'œil pendant que les mains sont occupées. */
+.kitchen-card__section--info {
+  border-left-color: var(--color-info-text);
+}
+
+.kitchen-card__section--warning {
+  border-left-color: var(--color-warning-text);
+}
+
+.kitchen-card__section--success {
+  border-left-color: var(--color-success-text);
 }
 
 .kitchen-card__section-header {
@@ -140,6 +187,11 @@
   gap: var(--space-2);
 }
 
+.kitchen-card__status-badge {
+  font-size: var(--font-size-xs);
+  padding: 0.3rem 0.8rem;
+}
+
 .kitchen-card__lines {
   list-style: none;
   padding: 0;
@@ -147,6 +199,39 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.kitchen-card__lines li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.kitchen-card__line-qty {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.kitchen-card__line-name {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Actions pleine largeur (voir maquette "See Details" / "Pay Bills") : boutons plus grands que
+   le reste de l'ERP, pensés pour être touchés vite en cuisine, pas pour de la précision souris. */
+.kitchen-card__actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.kitchen-card__actions .btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
   font-size: var(--font-size-sm);
 }
 

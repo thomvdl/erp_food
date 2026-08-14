@@ -52,24 +52,34 @@
         <div class="kitchen-board__grid">
           @for (displayOrder of displayOrders(); track displayOrder.order.id) {
             <article class="card card-elevated kitchen-card">
-              <div class="card-header">
-                <div>
-                  @if (displayOrder.order.table) {
+              <div class="card-header kitchen-card__header">
+                @if (displayOrder.order.table) {
+                  <div class="kitchen-card__id-badge kitchen-card__id-badge--table">🍽️</div>
+                  <div class="kitchen-card__id-info">
                     <h2 class="text-lg">Table {{ displayOrder.order.table.label }}</h2>
                     <span class="text-muted text-xs">{{ displayOrder.order.table.room?.name }}</span>
-                  } @else {
-                    <h2 class="kitchen-card__kiosk-number">🖥️ N° {{ displayOrder.order.ticket_id }}</h2>
-                  }
-                </div>
+                  </div>
+                } @else {
+                  <div class="kitchen-card__id-badge kitchen-card__id-badge--kiosk">🖥️</div>
+                  <div class="kitchen-card__id-info">
+                    <h2 class="text-lg">N° {{ displayOrder.order.ticket_id }}</h2>
+                    <span class="text-muted text-xs">Kiosque</span>
+                  </div>
+                }
               </div>
 
               <div class="card-body kitchen-card__sections">
                 @for (displaySection of displayOrder.sections; track displaySection.section.id) {
-                  <div class="kitchen-card__section">
+                  <div
+                    class="kitchen-card__section"
+                    [class.kitchen-card__section--info]="displaySection.section.state === 'send'"
+                    [class.kitchen-card__section--warning]="displaySection.section.state === 'ask'"
+                    [class.kitchen-card__section--success]="displaySection.section.state === 'do'"
+                  >
                     <div class="kitchen-card__section-header">
                       <span class="font-medium">{{ displaySection.section.name }}</span>
                       <span
-                        class="badge"
+                        class="badge kitchen-card__status-badge"
                         [class.badge-neutral]="displaySection.section.state === 'en_attente' || displaySection.section.state === 'seed' || displaySection.section.state === 'done'"
                         [class.badge-info]="displaySection.section.state === 'send'"
                         [class.badge-warning]="displaySection.section.state === 'ask'"
@@ -93,7 +103,8 @@
                       @for (line of displaySection.section.lines; track line.id) {
                         @if (displaySection.lineIds.has(line.id)) {
                           <li [class.kitchen-card__line--done]="line.done && !isPassePerspective()">
-                            {{ line.quantity }}× {{ line.product?.name }}
+                            <span class="kitchen-card__line-qty">{{ line.quantity }}×</span>
+                            <span class="kitchen-card__line-name">{{ line.product?.name }}</span>
                             @if (line.sent) {
                               <span aria-hidden="true">✓✓</span>
                             } @else if (line.done) {
@@ -107,13 +118,17 @@
                       }
                     </ul>
 
-                    @if (canMarkDone(displaySection)) {
-                      <button type="button" class="btn btn-outline btn-sm" (click)="markDone(displaySection)">
-                        👨‍🍳 Marquer prête
-                      </button>
-                    }
-                    @if (canSend(displaySection)) {
-                      <button type="button" class="btn btn-primary btn-sm" (click)="send(displaySection)">✅ Envoyer</button>
+                    @if (canMarkDone(displaySection) || canSend(displaySection)) {
+                      <div class="kitchen-card__actions">
+                        @if (canMarkDone(displaySection)) {
+                          <button type="button" class="btn btn-outline" (click)="markDone(displaySection)">
+                            👨‍🍳 Marquer prête
+                          </button>
+                        }
+                        @if (canSend(displaySection)) {
+                          <button type="button" class="btn btn-accent" (click)="send(displaySection)">✅ Envoyer</button>
+                        }
+                      </div>
                     }
                   </div>
                 }
