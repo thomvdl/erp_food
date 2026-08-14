@@ -12,7 +12,7 @@
 
 ERP maison pour un établissement qui fait à la fois vente directe (snack/comptoir), restaurant
 avec service à table, location de salle pour événements, et commande en libre-service (QR à
-table/chambre ou kiosque façon fast-food). Six applications séparées partageant une seule base de
+table/chambre ou kiosque façon fast-food). Sept applications séparées partageant une seule base de
 données et une seule API.
 
 ## Architecture
@@ -26,12 +26,15 @@ données et une seule API.
 | `erp_kitchen_display` | Kiosque : écran cuisine (postes + passes) | Angular 22 | 19005 |
 | `erp_self_order` | Commande client (QR à table ou en chambre) — 100% public, aucune authentification | Angular 22 | 19006 |
 | `erp_kiosk` | Kiosque de commande self-service façon fast-food (staff authentifié, encaissement immédiat) + écran de suivi | Angular 22 | 19007 |
+| `erp_public_site` | Site vitrine public (présentation, réservation restaurant, à terme billetterie événements) — 100% public, aucune authentification | Angular 22 | 19008 |
 
 `erp_self_order` a délibérément été séparé du mode kiosque dans sa propre app : c'est la seule
 surface exposée à un appareil client non maîtrisé (téléphone personnel scannant un QR), elle ne
 doit donc jamais embarquer le moindre code d'authentification/caisse — celui-ci vit uniquement
 dans `erp_kiosk`, avec l'écran de suivi (les numéros affichés y viennent des tickets kiosque, pas
-du mode QR — voir `docs/README.md`). `erp-app`, `erp_validate_event`, `erp_kitchen_display` et
+du mode QR — voir `docs/README.md`). `erp_public_site` est, comme `erp_self_order`, exposée à un
+visiteur anonyme non maîtrisé — mêmes garde-fous (routes API publiques dédiées, jamais les routes
+staff `auth:sanctum`, voir plus bas). `erp-app`, `erp_validate_event`, `erp_kitchen_display` et
 `erp_kiosk` sont des **kiosques/écrans dédiés** (pas d'authentification multi-rôle fine — voir
 Todo) qui parlent tous à la même `erp-api`. `erp-app`, `erp_kitchen_display` et `erp_kiosk`
 (écran de suivi) s'abonnent en plus au serveur `reverb` via Laravel Echo pour se synchroniser en
@@ -53,6 +56,7 @@ docker compose up -d --build
 - Kitchen display (`erp_kitchen_display`) : http://localhost:19005
 - Self-order (`erp_self_order`) : http://localhost:19006
 - Kiosk (`erp_kiosk`) : http://localhost:19007
+- Site public (`erp_public_site`) : http://localhost:19008
 - Adminer : http://localhost:19080 (serveur `db`, voir `.env` pour les identifiants)
 
 Au premier démarrage, `docker/entrypoint.sh` du conteneur `api` lance automatiquement
@@ -82,6 +86,9 @@ cache config/route/vue), CORS restreint aux vrais domaines, et un reverse-proxy
 
 Cible : **un seul VPS**, un domaine dont les sous-domaines pointent vers son IP (enregistrements
 DNS A) : `api.`, `app.`, `kiosk.`, `self-order.`, `kitchen.`, `validate-event.`, `ws.` (Reverb).
+L'apex du domaine (sans sous-domaine, `mondomaine.tld`) pointe aussi vers la même IP et sert
+`erp_public_site` — c'est l'adresse destinée au grand public, contrairement aux sous-domaines
+ci-dessus qui restent internes (staff/kiosques).
 
 ### Comment ça tient ensemble
 

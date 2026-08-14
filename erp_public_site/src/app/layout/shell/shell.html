@@ -1,0 +1,40 @@
+<div class="site-shell">
+  <nav class="site-nav">
+    <a routerLink="/" class="site-nav__brand">{{ company()?.name ?? 'Le Théâtre-Restaurant' }}</a>
+    <div class="site-nav__links">
+      <a routerLink="/" routerLinkActive="is-active" [routerLinkActiveOptions]="{ exact: true }">Accueil</a>
+      <a routerLink="/evenements" routerLinkActive="is-active">Événements</a>
+      <a routerLink="/reservation" class="btn btn-outline-on-curtain btn-sm">Réserver une table</a>
+    </div>
+  </nav>
+
+  <main class="site-main">
+    <router-outlet />
+  </main>
+
+  <footer class="site-footer">
+    <div class="page-container">
+      <div>
+        <p class="site-footer__brand">{{ company()?.name ?? 'Le Théâtre-Restaurant' }}</p>
+        @if (company(); as c) {
+          @if (c.address) {
+            <p>{{ c.address }}</p>
+          }
+          @if (c.phone) {
+            <p>{{ c.phone }}</p>
+          }
+        }
+      </div>
+      <div>
+        <h3>Liens</h3>
+        <p><a routerLink="/">Accueil</a></p>
+        <p><a routerLink="/evenements">Événements</a></p>
+        <p><a routerLink="/reservation">Réserver une table</a></p>
+      </div>
+      <div>
+        <h3>&nbsp;</h3>
+        <p class="text-sm">&copy; {{ year }} {{ company()?.name ?? 'Le Théâtre-Restaurant' }}</p>
+      </div>
+    </div>
+  </footer>
+</div>
