@@ -14,6 +14,16 @@ const TYPE_LABELS: Record<BookingType, string> = {
   dinner: 'Souper',
 };
 
+/** Voir Booking.validated_at/arrived_at — pas de colonne "status" en base, dérivé ici comme
+ *  dans booking-list.html (badges). "pending" = ni l'un ni l'autre. */
+type BookingStatus = 'pending' | 'validated' | 'present';
+
+const STATUS_LABELS: Record<BookingStatus, string> = {
+  pending: 'En attente',
+  validated: 'Validée',
+  present: 'Présente',
+};
+
 @Component({
   selector: 'app-booking-list',
   standalone: true,
@@ -34,6 +44,11 @@ export class BookingList {
   readonly typeFilter = signal<BookingType | null>(null);
   readonly bookingTypeOptions: BookingType[] = ['breakfast', 'lunch', 'dinner'];
 
+  /** null = tous les statuts confondus. Filtré côté client, même principe que typeFilter
+   *  ci-dessus (voir Readme.md : "filtre sur le statut"). */
+  readonly statusFilter = signal<BookingStatus | null>(null);
+  readonly bookingStatusOptions: BookingStatus[] = ['pending', 'validated', 'present'];
+
   readonly sortField = signal<SortField>('hour');
   readonly sortDir = signal<SortDir>('asc');
 
@@ -48,7 +63,10 @@ export class BookingList {
 
   readonly filteredBookings = computed(() => {
     const type = this.typeFilter();
-    return type ? this.bookings().filter((booking) => booking.type === type) : this.bookings();
+    const status = this.statusFilter();
+    return this.bookings().filter(
+      (booking) => (!type || booking.type === type) && (!status || this.bookingStatus(booking) === status),
+    );
   });
 
   readonly totalGuests = computed(() =>
@@ -67,6 +85,17 @@ export class BookingList {
 
   typeLabel(type: BookingType): string {
     return TYPE_LABELS[type];
+  }
+
+  bookingStatus(booking: Booking): BookingStatus {
+    if (booking.arrived_at) {
+      return 'present';
+    }
+    return booking.validated_at ? 'validated' : 'pending';
+  }
+
+  statusLabel(status: BookingStatus): string {
+    return STATUS_LABELS[status];
   }
 
   formatDate(booking: Booking): string {
@@ -93,6 +122,10 @@ export class BookingList {
 
   setTypeFilter(type: BookingType | null): void {
     this.typeFilter.set(type);
+  }
+
+  setStatusFilter(status: BookingStatus | null): void {
+    this.statusFilter.set(status);
   }
 
   toggleSort(field: SortField): void {

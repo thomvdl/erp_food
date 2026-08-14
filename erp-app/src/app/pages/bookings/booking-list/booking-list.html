@@ -12,13 +12,20 @@
     </button>
   </div>
 
-  <div class="tab-group">
-    <button type="button" class="tab-pill" [class.is-active]="typeFilter() === null" (click)="setTypeFilter(null)">Tous</button>
-    @for (type of bookingTypeOptions; track type) {
-      <button type="button" class="tab-pill" [class.is-active]="typeFilter() === type" (click)="setTypeFilter(type)">
-        {{ typeLabel(type) }}
-      </button>
-    }
+  <div style="display: flex; align-items: center; gap: var(--space-3)">
+    <select class="select" style="max-width: 180px" [ngModel]="typeFilter()" (ngModelChange)="setTypeFilter($event)">
+      <option [ngValue]="null">Tous les types</option>
+      @for (type of bookingTypeOptions; track type) {
+        <option [ngValue]="type">{{ typeLabel(type) }}</option>
+      }
+    </select>
+
+    <select class="select" style="max-width: 180px" [ngModel]="statusFilter()" (ngModelChange)="setStatusFilter($event)">
+      <option [ngValue]="null">Tous les statuts</option>
+      @for (status of bookingStatusOptions; track status) {
+        <option [ngValue]="status">{{ statusLabel(status) }}</option>
+      }
+    </select>
   </div>
 </div>
 
@@ -50,12 +57,16 @@
             <td class="text-muted">{{ formatDate(booking) }} à {{ formatHour(booking) }}</td>
             <td class="text-muted">{{ booking.number_of_guests }}</td>
             <td>
-              @if (booking.arrived_at) {
-                <span class="badge badge-success">Présente</span>
-              } @else if (booking.validated_at) {
-                <span class="badge badge-info">Validée</span>
-              } @else {
-                <span class="badge badge-warning">En attente</span>
+              @switch (bookingStatus(booking)) {
+                @case ('present') {
+                  <span class="badge badge-success">Présente</span>
+                }
+                @case ('validated') {
+                  <span class="badge badge-info">Validée</span>
+                }
+                @default {
+                  <span class="badge badge-warning">En attente</span>
+                }
               }
             </td>
             <td>
