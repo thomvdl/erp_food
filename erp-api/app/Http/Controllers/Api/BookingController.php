@@ -77,13 +77,29 @@ class BookingController extends Controller
     /**
      * "Valider la réservation d'un client" (voir Readme.md) — confirme la réservation (ex. appel
      * de rappel, prise en compte), distinct de l'arrivée physique (voir markPresent ci-dessous) :
-     * "En attente" -> "Validée" -> "Présente".
+     * "En attente" -> "Validée" -> "Présente". C'est maintenant le seul endroit qui envoie
+     * BookingConfirmationMail pour une réservation prise depuis erp_public_site
+     * (PublicBookingController::store la laisse "En attente", contrairement à ::store ci-dessus
+     * qui valide + envoie immédiatement pour une réservation saisie par le staff) — garde
+     * `wasPending` pour ne pas renvoyer l'email si validateBooking est rappelé sur une
+     * réservation déjà validée.
      */
     public function validateBooking(Booking $booking)
     {
-        $booking->forceFill(['validated_at' => now()])->save();
+        $wasPending = $booking->validated_at === null;
 
-        return $booking->load('client');
+        $booking->forceFill(['validated_at' => now()])->save();
+        $booking->load('client');
+
+        if ($wasPending && $booking->client->email) {
+            try {
+                Mail::to($booking->client->email)->send(new BookingConfirmationMail($booking));
+            } catch (Throwable $e) {
+                report($e);
+            }
+        }
+
+        return $booking;
     }
 
     /**

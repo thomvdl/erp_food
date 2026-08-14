@@ -1336,26 +1336,204 @@ imbriqué (event de test créé avec image, date associée, vérifié, nettoyé)
 `erp_v2_validate_event`) sans erreur sur `event-select`/`event-checkin`. Toujours pas de
 navigateur disponible cette session — pas de vérification visuelle réelle du rendu de la miniature.
 
-### Réservations (`erp-app`) : filtre par statut (2026-08-13)
+**Suite : `object-fit: cover` → `contain`** — retour utilisateur immédiat après ajout de l'image
+("ne crop pas l'image, affiche-la avec son ratio initial") sur `.event-tile__image` et
+`.kiosk-header__image`. Boîte de taille fixe conservée (160px / 56px) mais `object-fit: contain`
++ un fond (`--surface-page`) en guise de letterbox plutôt que `cover` qui rognait l'image pour
+remplir le cadre. `ng build` revérifié sans erreur.
 
-Demandé : *"dans reservation ajoute un filtre sur le statut liste deroulante"*. `booking-list.ts`
-avait déjà un filtre type (`typeFilter`, pilules `.tab-group`) mais rien sur le statut
-(En attente/Validée/Présente, dérivé de `validated_at`/`arrived_at`, pas de colonne dédiée).
+### Nouvelle app `erp_public_site` — vitrine + réservation restaurant (2026-08-13)
 
-- `BookingStatus` = `'pending' | 'validated' | 'present'` (local à `booking-list.ts`), méthode
-  `bookingStatus(booking)` qui centralise la dérivation (reprise aussi dans le `<td>` Statut du
-  tableau, qui dupliquait la même logique en `@if`/`@else if` inline).
-- `statusFilter` (signal, `null` = tous) combiné à `typeFilter` dans `filteredBookings` — filtre
-  100% client (la liste est déjà chargée pour le jour sélectionné), même principe que le filtre
-  type existant.
-- **Liste déroulante** (`<select class="select">`) plutôt qu'un groupe de pilules comme le filtre
-  type — demande explicite de l'utilisateur, et regroupée dans le même conteneur flex que
-  `.tab-group` (2 enfants directs de `.app-topbar`, qui est en `justify-content: space-between` —
-  un 3ᵉ enfant aurait cassé le groupement visuel des deux filtres).
-- **Vérifié en Chromium headless (Playwright)**, connecté en admin : 23 réservations → 9 une fois
-  "En attente" sélectionné, compteur "réservations au total" recalculé correctement, badges
-  cohérents avec le filtre. Aucune erreur console.
-- **Suite immédiate** — *"le filtre dejeuner petit dejeuner diner met le dans un liste
-  deroulante aussi"* : `.tab-group` du filtre type remplacé par un `<select>`, même style que le
-  filtre statut, les deux côte à côte. Revérifié en Chromium headless : les deux filtres se
-  combinent bien (23 → 4 réservations sur "Déjeuner" seul), aucune erreur console.
+Demandé : *"un site public pour un théâtre-restaurant [...] une homepage, une page pour réserver
+une table [...] un calendrier des events avec la possibilité d'acheter une place"* — scope
+volontairement découpé en 2 avec l'utilisateur avant de commencer : cette session couvre
+homepage + réservation restaurant ; calendrier événements + billetterie payante (nécessite un
+vrai flux de paiement en ligne, aucun n'existe encore côté public — voir Stripe kiosque plus
+haut, jamais branché à un parcours anonyme) reste à faire dans une session suivante.
+
+- **Septième app**, `erp_public_site` (Angular 22, standalone, zoneless, `ng new` frais) — même
+  famille que `erp_self_order` : 100% public, aucune authentification, jamais les routes staff
+  `auth:sanctum`. Port `19008` (`PUBLIC_SITE_PORT`), service `public_site` dans
+  `docker-compose.yml`/`docker-compose.prod.yml` (bind mount en dev, build nginx multi-stage en
+  prod — copié de `erp_self_order/Dockerfile*`, simplifié : pas de Reverb/websocket, ce site n'a
+  aucun besoin de temps réel). En prod, sert l'**apex du domaine** (`{$DOMAIN}` sans
+  sous-domaine dans le `Caddyfile`) plutôt qu'un sous-domaine comme les autres apps — c'est
+  l'adresse destinée au grand public, contrairement à `app.`/`kiosk.`/etc. qui restent internes.
+- **`styles.css`** : pas une copie complète d'`erp_self_order` (qui inclut du chrome
+  admin/POS — sidebar, tableau, modale — inutile ici). Repris seulement les tokens (palette
+  chaude orange/crème, identique à `erp_self_order`/`erp_kiosk` — cohérence des surfaces
+  client), le reset, boutons/cartes/badges/formulaires. Ajouté par-dessus un vocabulaire propre
+  au site vitrine : `--surface-curtain` (quasi-noir chaud, "rideau de théâtre") pour le hero et
+  le pied de page, `--font-serif` pour les titres (registre "affiche de théâtre", jamais utilisée
+  hors des `h1`/`.section-title`), `.hero`/`.section`/`.feature-grid`/`.site-nav`/`.site-footer`.
+- **Backend, nouveau `PublicBookingController::store`** (`POST /public/bookings`, hors du groupe
+  `auth:sanctum`) — distinct de `BookingController::store` (staff authentifié, réservé à
+  `erp-app`) sur un point clé : une réservation prise ici reste **"En attente"**
+  (`validated_at` null) jusqu'à validation manuelle par le staff, alors que `store` côté staff
+  valide immédiatement (un staff qui la saisit l'a par définition déjà confirmée). Client
+  retrouvé par email (`firstOrCreate`) pour qu'un visiteur qui réserve plusieurs fois ne crée pas
+  un doublon à chaque passage.
+  - **Bug latent corrigé au passage** : `BookingController::validateBooking` ne déclenchait
+    jamais `BookingConfirmationMail` — sans conséquence jusqu'ici car aucune réservation ne
+    passait jamais par l'état "En attente" (le seul canal de création, staff, validait
+    instantanément). Avec `erp_public_site`, l'état "En attente" devient réel : `validateBooking`
+    envoie maintenant ce mail lui-même (guard `wasPending` pour ne pas le renvoyer si un staff
+    reclique "Valider" sur une réservation déjà validée), `BookingController::store` continue de
+    l'envoyer à la création pour son propre cas (validation immédiate).
+  - **`GET /company` déplacée hors de `auth:sanctum`** — coordonnées non sensibles (déjà
+    exposées telles quelles dans le pied des emails clients), nécessaires en en-tête/pied de
+    page du site public.
+  - Pas de rate-limiting explicite ajouté sur la nouvelle route publique — cohérent avec le
+    reste du projet, aucune autre route publique en écriture (`self-order/{qr_token}/lines`,
+    `kiosk-checkouts`...) n'en a non plus à ce jour.
+- **Frontend** : layout `Shell` persistant (nav + pied de page, `CompanyService` pour afficher
+  nom/adresse/téléphone) avec deux routes enfants pour l'instant, `''` (Home, présentation +
+  CTA) et `reservation` (Booking, formulaire → `POST /public/bookings`, écran de confirmation
+  "En attente" plutôt qu'une fausse confirmation immédiate — cohérent avec le comportement
+  réel côté API).
+- **Vérifié en Chromium headless (Playwright, installé à la volée)** : capture de la homepage et
+  du formulaire vide, remplissage complet + soumission → écran "Demande envoyée" affiché, aucune
+  erreur console (à part le 404 attendu sur `env.js` en dev, absent tant que le conteneur nginx
+  de prod ne le génère pas — même comportement que tous les autres apps clientes). Cycle
+  backend revérifié séparément via `curl` authentifié : réservation créée `validated_at: null`,
+  une deuxième réservation avec le même email réutilise bien le même `client_id`,
+  `POST .../validate` la fait passer à validée sans erreur (re-valider ne replante pas), données
+  de test nettoyées après coup (bookings + clients).
+- **Pas encore fait** : page calendrier des événements + achat de place en ligne (paiement réel
+  à intégrer, aucun flux public n'existe — voir plus haut), lien vers cette future page absent
+  de la nav pour l'instant (pas de lien mort). Pas de recherche de disponibilité/complet sur la
+  réservation restaurant — `bookings` n'a toujours pas de notion de capacité/salle (juste
+  client/date/heure/nombre de couverts), cohérent avec le formulaire staff existant qui n'en a
+  pas non plus.
+
+**Suite immédiate même session** — retour utilisateur : *"rend le site plus professionnel là ça
+fait trop IA"*. Le premier jet reprenait trop littéralement les tics visuels génériques (pilules
+oranges pleines partout, cartes à icône-emoji-dans-un-cercle x3, gros rayons de bordure façon app
+mobile) — refonte des tokens et de `home.html`/`shell.html`, pas juste un ajustement de couleur :
+- **Palette** : les tokens `--color-primary-*`/`--color-accent-*` (orange plein, hérités
+  d'`erp_self_order`) remplacés par `--color-brass-*` (laiton), utilisé uniquement en texte/trait
+  fin (liens, filets, survol) — jamais en aplat sur une grande surface. `--surface-curtain`
+  (déjà là) devient aussi la couleur de remplissage de `.btn-primary` en thème clair (cohérence
+  avec le hero/pied de page), avec bascule sur un remplissage laiton en thème sombre — sans quoi
+  le bouton disparaissait quasiment sur `--surface-page` sombre (les deux surfaces sont proches),
+  repéré et corrigé après une capture Playwright en `colorScheme: 'dark'`.
+- **Boutons** : `--radius-pill` → 2px (rectangulaires), petites majuscules espacées
+  (`text-transform: uppercase; letter-spacing: 0.08em`) — lit "plaque gravée"/carton de menu
+  plutôt que bouton d'app. Échelle de rayons globale resserrée aussi pour les cartes/champs
+  (`--radius-lg` 24px → 8px, etc.) — l'arrondi prononcé était un autre tic "app mobile".
+- **Plus aucun emoji** (🎭/🍽️/🏛️ en tête de nav, pied de page, cartes "features") — remplacés
+  par un vocabulaire typographique : `.eyebrow` (petites majuscules laiton façon surtitre de
+  programme de théâtre), `.rule` (filet fin), chiffres romains serif (`.feature-card__index`,
+  I/II/III) à la place des icônes-dans-un-cercle pour la section "L'expérience". Bloc de features
+  aussi débarrassé de son look "carte SaaS" (fond blanc + ombre + icône ronde) au profit d'un
+  simple filet supérieur, plus proche d'une mise en page éditoriale/menu imprimé.
+- **Nav simplifiée** : le lien texte "Réserver une table" en double du bouton "Réserver" (répétait
+  la même action deux fois, un tic de générateur de landing page) supprimé — un seul CTA.
+- Hero : un unique bouton CTA au lieu de deux (primary + outline "En savoir plus") ; léger
+  dégradé radial ajouté sur le fond du hero (`radial-gradient` très subtil) pour éviter l'aplat
+  de couleur totalement plat.
+- **Vérifié en Chromium headless (Playwright)**, thème clair et sombre : rendu conforme, aucune
+  erreur console (à part le 404 `env.js` déjà connu en dev).
+
+**Suite immédiate même session** — retour utilisateur sur le formulaire de réservation : *"niveau
+date fait un date picker plus ui friendly, niveau heure juste une liste 18:00 ou 21:00 et service
+met automatiquement et uniquement diner"*.
+- **Date** : `input[type=date]` natif remplacé par un popover calendrier maison
+  (`.date-picker`/`.date-popover*` dans `styles.css`, logique dans `booking.ts` — mois
+  précédent/suivant, jours passés désactivés, jour sélectionné en surbrillance encre). Même
+  principe que le calendrier déjà construit dans `erp_validate_event/event-select.ts`
+  (prevMonth/nextMonth/calendarCells), réécrit ici en plus compact (popover à une seule date
+  sélectionnable, pas une grille pleine page avec plusieurs événements par jour). Fermeture au
+  clic extérieur via un overlay transparent — même technique que `.modal-overlay` ailleurs dans
+  le design system.
+- **Heure** : `input[type=time]` libre remplacé par un `<select>` à deux créneaux fixes,
+  `HOUR_OPTIONS = ['18:00', '21:00']` — correspond aux deux services réels du restaurant.
+- **Service** : champ `type` retiré du formulaire, toujours envoyé `'dinner'` en dur dans le
+  payload (`booking.ts::submit`) — un seul service proposé au public pour l'instant, cohérent
+  avec les deux seuls créneaux horaires ci-dessus.
+- **Vérifié en Chromium headless (Playwright)** : ouverture du popover, sélection d'un jour (le
+  déclencheur affiche bien "samedi 29 août" par ex.), sélection du créneau 21:00, soumission
+  complète → réservation créée en base avec `type: "dinner"`/`hour: "21:00:00"` confirmés via
+  `curl` authentifié, donnée de test nettoyée après coup. Aucune erreur console.
+
+**Suite immédiate même session** — *"tu sais coller le footer au bottom"* : sur une page courte
+(Réservation), `.site-footer` flottait juste sous le contenu au lieu de tenir le bas du viewport.
+`shell.html` enveloppe maintenant nav/`<router-outlet>`/footer dans `.site-shell`
+(`min-height:100vh; display:flex; flex-direction:column`), le contenu de page passe dans un
+`<main class="site-main">` avec `flex:1 0 auto` qui absorbe l'espace restant — le footer est
+poussé en bas du viewport sur une page courte, reste en flux normal après le contenu sur une
+page plus longue que l'écran (pas de `position:fixed`, jamais de recouvrement). Vérifié en
+Chromium headless : `footer.getBoundingClientRect().bottom` == hauteur du viewport sur
+`/reservation` (contenu court) ; == hauteur totale du document sur `/` (contenu long, pas
+d'espace vide sous le footer).
+
+### Page `/evenements` — calendrier public des événements (2026-08-13)
+
+Deuxième moitié du scope original ("un calendrier des events avec la possibilité d'acheter une
+place", découpé en deux dès le départ — voir plus haut). Cette session couvre le calendrier et
+la liste ; l'achat de place en ligne reste hors scope (aucun paiement public câblé) — chaque
+occurrence affiche à la place "Réservation par téléphone au {phone}" (voir `CompanyService`,
+déjà utilisé pour le footer).
+
+- **Backend** : nouvelle route publique `GET /public/event-dates` (hors `auth:sanctum`) — réutilise
+  **directement** `EventDateController::index` (même contrôleur que la version staff), rien de
+  sensible dans la réponse (nom d'event, date, salle, nombre de places déjà vendues) pour
+  justifier un contrôleur dédié comme `PublicBookingController`.
+- **Frontend** (`pages/events/events.ts`) : calendrier mensuel pleine page (prev/next mois, jours
+  avec occurrence marqués d'un point laiton, seuls ces jours sont cliquables) — logique
+  quasi-identique à `erp_validate_event/event-select.ts` (déjà existant, même calcul de
+  `calendarCells`), adaptée en lecture seule sans onglet liste/calendrier séparé : le clic sur un
+  jour ouvre un panneau juste en dessous avec le(s) événement(s) de ce jour, et une liste
+  chronologique complète ("Prochains événements") reste toujours visible plus bas — évite de
+  forcer une navigation mois par mois pour voir tout ce qui est à venir.
+- **`placesRemaining()`** : `number_place_limit - tickets_count`, `null` si pas de limite (pas de
+  "0 places restantes" trompeur sur une occurrence à places illimitées).
+- **Bug de spécificité CSS corrigé** (repéré en vérifiant le style calculé du jour sélectionné,
+  pas juste visuellement) : `.events-calendar__cell.has-events:hover` (3 sélecteurs de classe)
+  était **plus spécifique** que `.events-calendar__cell.is-selected` (2 sélecteurs) et gagnait
+  dès que le curseur survolait la case — ce qui est systématiquement le cas juste après un clic
+  (le curseur reste positionné dessus). Le remplissage encre de la sélection disparaissait sous
+  le fond neutre du survol. Fixé en ajoutant `:not(.is-selected)` aux deux règles `:hover`
+  concernées (`.events-calendar__cell` ici et `.date-popover__day` dans le sélecteur de date de
+  `booking.ts`, même piège présent aux deux endroits). Repéré via
+  `getComputedStyle(el).backgroundColor` en Playwright plutôt qu'à l'œil — une capture d'écran
+  seule aurait pu manquer un survol qui ne se déclenche qu'après clic.
+- **Nav/homepage câblées** : lien "Événements" ajouté à `site-nav`/pied de page, deuxième bouton
+  hero "Voir la programmation", lien "Voir le calendrier" sur la carte "Spectacle vivant".
+- **`badge-info` (bleu/indigo) remplacé par un nouveau `.badge-brass`** pour "places restantes" —
+  l'indigo hérité du design system générique jurait avec la palette ivoire/encre/laiton du site,
+  repéré à l'œil sur la première capture d'écran.
+- **Vérifié en Chromium headless (Playwright)** : navigation `/evenements`, clic sur un jour à
+  point laiton → panneau du jour affiché avec le bon événement, `getComputedStyle` confirmé sur
+  les deux calendriers après le fix de spécificité, aucune erreur console (à part le 404 `env.js`
+  déjà connu en dev). Testé contre les vraies données de démo existantes (plusieurs `EventDate`
+  avec image déjà en place).
+
+**Suite immédiate même session** — *"c'est bien d'afficher le nombre de place restante mais
+affiche que a partir des 10 dernière et affiche quand c'est complet"* :
+`placesRemaining()` remplacé par `availabilityLabel()` (`events.ts`) : `null` (rien affiché) tant
+que `remaining > LOW_STOCK_THRESHOLD` (10) ou si l'occurrence n'a pas de limite ; sinon
+`{ text: "N places restantes", full: false }`, ou `{ text: "Complet", full: true }` à 0. Nouveau
+`.badge-danger` (tokens `--color-danger-*`, déjà existants) pour "Complet", à côté du
+`.badge-brass` déjà là pour le compte à rebours.
+- **Bug latent découvert en testant** : l'ancien code affichait `@if (placesRemaining(...); as
+  remaining)` — `0` est falsy en JS, donc une occurrence **complète** n'affichait jusqu'ici
+  **aucun badge du tout** (silencieusement traité comme "pas de limite"). `availabilityLabel()`
+  renvoie un objet (`{text, full}`, toujours truthy si non-null) plutôt qu'un nombre brut,
+  précisément pour éviter ce piège — même pattern que `computeDelta()` dans `erp-app/reports`
+  (voir plus haut dans ce fichier, même solution déjà trouvée une fois sur ce projet).
+- **Vérifié avec de vraies données** : occurrence créée à la volée (limite 2, 2 places vendues)
+  → "Complet" affiché correctement ; en testant, repéré que "Concert de Jazz" (23 août, données
+  de démo) est réellement à 60/60 en base (résidu d'une session de travail antérieure le même
+  jour, sans rapport avec ce changement) — sert malgré tout de bon cas réel pour "Complet" une
+  fois les données de test nettoyées. Les occurrences à stock confortable (30/55/74 restantes)
+  n'affichent plus rien, comme demandé.
+
+**Suite immédiate même session** — *"le point dans le calendrier c'est pas très visible affiche
+des badge avec le nom de l'événement"* : cellule du calendrier repensée en colonne (`min-height`
+au lieu de `aspect-ratio:1`, comme `.calendar-cell`/`.calendar-event` déjà utilisés ailleurs dans
+le projet pour le même besoin) — jour en haut, puis jusqu'à 2 étiquettes laiton avec le nom de
+l'event (`text-overflow: ellipsis` si trop long), `+N` si plus de 2 occurrences le même jour.
+Sélection (`.is-selected`) bascule les étiquettes sur un laiton plus soutenu plutôt que le point
+disparu. `min-height`/taille de police des étiquettes réduites sous 640px. Vérifié en Chromium
+headless : noms d'événements bien lisibles dans la grille, aucune erreur console.

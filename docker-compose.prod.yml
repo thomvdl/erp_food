@@ -159,6 +159,17 @@ services:
     depends_on:
       - api
 
+  public_site:
+    build:
+      context: ./erp_public_site
+      dockerfile: Dockerfile.prod
+    container_name: erp_v2_prod_public_site
+    restart: unless-stopped
+    environment:
+      API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
+    depends_on:
+      - api
+
   caddy:
     image: caddy:2-alpine
     container_name: erp_v2_prod_caddy
