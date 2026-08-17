@@ -18,10 +18,6 @@ self-order.{$DOMAIN} {
 	reverse_proxy self_order:80
 }
 
-{$DOMAIN} {
-	reverse_proxy public_site:80
-}
-
 kitchen.{$DOMAIN} {
 	reverse_proxy kitchen_display:80
 }
