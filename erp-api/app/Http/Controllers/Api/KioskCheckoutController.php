@@ -39,6 +39,9 @@ class KioskCheckoutController extends Controller
             'cash_session_id' => ['required', 'integer', 'exists:cash_sessions,id'],
             'discount_code' => ['nullable', 'string'],
             'points_redeemed' => ['nullable', 'integer', 'min:1'],
+            // Voir KioskOrderController::store — même repère libre, figé ici (comme lines/total)
+            // en attendant la confirmation du webhook Stripe (voir StripeWebhookController).
+            'table_number' => ['nullable', 'string', 'max:20'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
@@ -159,6 +162,7 @@ class KioskCheckoutController extends Controller
             'points_redeemed_amount' => $pointsRedeemed > 0 ? round($pointsRedeemedAmount, 2) : null,
             'lines' => $lines,
             'total' => $total,
+            'table_number' => $data['table_number'] ?? null,
         ]);
 
         return response()->json([

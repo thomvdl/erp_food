@@ -58,6 +58,11 @@ export interface Order {
   /** Cycle global de la commande (voir Readme.md) : send -> ask -> do -> seed -> done. */
   state: 'send' | 'ask' | 'do' | 'seed' | 'done';
   table_id: number | null;
+  /** Repère "sur place" saisi au clavier numérique du kiosque (voir KioskOrderController côté
+   *  API, réglage Paramètres > Réglages "kiosk_table_available") — jamais lié au plan de salle
+   *  (`table`/`table_id` ci-dessus, réservé au POS Restaurant/QR à table). Null si "à emporter"
+   *  ou réglage désactivé. */
+  table_number: string | null;
   /** Uniquement pour les commandes kiosque (voir KioskOrderController côté API) — le numéro du
    *  Ticket déjà encaissé/imprimé côté client, à annoncer au comptoir pour remettre la bonne
    *  commande au bon client. Toujours null pour une commande de table classique. */

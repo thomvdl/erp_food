@@ -29,6 +29,10 @@ class KioskSaleRecorder
      * @param  array<int, array{payment_method_id: int, value: float}>  $payments
      * @param  int  $pointsEarned  voir App\Support\LoyaltyPoints::earned() — 0 si pas de client
      * @param  int  $pointsRedeemed  voir App\Support\LoyaltyPoints::amountOff() — déjà résolu/figé par l'appelant
+     * @param  ?string  $tableNumber  repère libre saisi au clavier numérique du kiosque (écran "sur
+     *         place", voir kiosk-order.ts/Param "kiosk_table_available") — null si "à emporter" ou
+     *         réglage désactivé. Volontairement PAS lié à `tables` (TableElement/plan de salle) —
+     *         voir migration add_table_number_to_kiosk_tables.
      * @return array{0: Ticket, 1: Order}
      */
     public static function record(
@@ -41,8 +45,9 @@ class KioskSaleRecorder
         int $pointsEarned = 0,
         int $pointsRedeemed = 0,
         float $pointsRedeemedAmount = 0.0,
+        ?string $tableNumber = null,
     ): array {
-        return DB::transaction(function () use ($lines, $cashSession, $discount, $discountAmount, $client, $payments, $pointsEarned, $pointsRedeemed, $pointsRedeemedAmount) {
+        return DB::transaction(function () use ($lines, $cashSession, $discount, $discountAmount, $client, $payments, $pointsEarned, $pointsRedeemed, $pointsRedeemedAmount, $tableNumber) {
             // Voir App\Support\StockManager — couvre les deux variants de paiement kiosque
             // (Terminal et QR, ce dernier via StripeWebhookController qui appelle ce même record()).
             StockManager::consume($lines);
@@ -51,6 +56,7 @@ class KioskSaleRecorder
                 'paid_at' => now(),
                 'client_id' => $client?->id,
                 'source' => 'kiosk',
+                'table_number' => $tableNumber,
                 'discount_id' => $discount?->id,
                 'discount_amount' => $discount ? round($discountAmount, 2) : null,
                 'points_earned' => $client ? $pointsEarned : null,
@@ -86,7 +92,7 @@ class KioskSaleRecorder
             // ticket_id : voir migration add_ticket_id_to_orders_table — permet au kitchen display
             // d'afficher le même numéro que celui montré/imprimé au client (son Ticket), pas
             // l'id de cette Order (purement interne, sans lien visible pour le client).
-            $order = Order::query()->create(['state' => 'ask', 'ticket_id' => $ticket->id, 'source' => 'kiosk']);
+            $order = Order::query()->create(['state' => 'ask', 'ticket_id' => $ticket->id, 'source' => 'kiosk', 'table_number' => $tableNumber]);
             $section = $order->sections()->create(['name' => 'Kiosque', 'state' => 'ask', 'asked_at' => now()]);
             // Voir order_sections.stock_consumed — déjà décrémenté juste au-dessus
             // (StockManager::consume($lines)), purement pour cohérence de la donnée (cette Order

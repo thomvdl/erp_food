@@ -9,6 +9,7 @@ import {
   CreateKioskOrderPayload,
   KioskCheckout,
   KioskCheckoutState,
+  KioskConfig,
   OpenCashSessionPayload,
   PaymentMethod,
   Printer,
@@ -29,6 +30,11 @@ import {
 @Injectable({ providedIn: 'root' })
 export class KioskService {
   private readonly http = inject(HttpClient);
+
+  /** Voir KioskConfig — pilote l'écran "sur place / à emporter" affiché avant la commande. */
+  getConfig(): Observable<KioskConfig> {
+    return this.http.get<KioskConfig>(`${API_URL}/kiosk-config`);
+  }
 
   listProducts(): Observable<Product[]> {
     return this.http.get<Product[]>(`${API_URL}/products`);

@@ -115,6 +115,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // (voir ActivePrinterService) — pas réservé à admin comme le reste de Paramètres ci-dessous,
     // même logique que product-categories/stations/taxes/payment-methods ci-dessus.
     Route::get('printers', [PrinterController::class, 'index']);
+    // Réglage "kiosk_table_available" exposé sous forme calculée (voir
+    // KioskOrderController::config) — jamais les réglages bruts de /params, réservé à admin.
+    Route::get('kiosk-config', [KioskOrderController::class, 'config']);
     Route::get('clients', [ClientController::class, 'index']);
     Route::post('clients', [ClientController::class, 'store']);
     // Doit être déclarée AVANT clients/{client} (sinon "lookup" serait interprété comme un id

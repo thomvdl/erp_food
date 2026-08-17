@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'stripe_checkout_session_id', 'status', 'cash_session_id', 'client_id',
     'discount_id', 'discount_amount', 'points_earned', 'points_redeemed', 'points_redeemed_amount',
-    'lines', 'total', 'ticket_id',
+    'lines', 'total', 'ticket_id', 'table_number',
 ])]
 class KioskCheckout extends Model
 {

@@ -137,6 +137,10 @@ export interface CreateKioskOrderPayload {
   discount_code?: string | null;
   /** Points fidélité utilisés en réduction (voir App\Support\LoyaltyPoints côté API) — revalidé côté serveur, comme discount_code. */
   points_redeemed?: number | null;
+  /** Repère libre saisi au clavier numérique (écran "sur place", voir KioskConfig ci-dessous) —
+   *  absent/null si "à emporter" ou réglage désactivé. Jamais validé contre un vrai plan de
+   *  salle côté serveur (voir App\Support\KioskSaleRecorder). */
+  table_number?: string | null;
   /** menu_choices requis uniquement si le produit de la ligne est un menu (is_menu) — voir
    *  App\Support\MenuResolver côté API. */
   /** note : résumé des ingrédients retirés (ex. "Sans oignon", voir Product.ingredients/modale de
@@ -183,6 +187,13 @@ export interface ValidateDiscountResponse {
   amount_off: number;
 }
 
+/** Réponse de GET /kiosk-config (voir KioskOrderController::config côté API) — dérivée du réglage
+ *  Paramètres > Réglages "kiosk_table_available", jamais exposé brut (route /params réservée à
+ *  admin). Détermine si kiosk-order.ts affiche l'écran "sur place / à emporter" avant la commande. */
+export interface KioskConfig {
+  table_number_enabled: boolean;
+}
+
 export interface Client {
   id: number;
   firstname: string;
@@ -220,9 +231,13 @@ export interface Ticket {
   paid_at: string;
   client_id: number | null;
   client?: Client | null;
-  /** Toujours absent pour un ticket kiosque (pas de table, voir KioskOrderController) — le
-   *  composant de reçu partagé (ticket-receipt) gère déjà son absence. */
+  /** Toujours absent pour un ticket kiosque (pas de plan de salle, voir KioskOrderController) — le
+   *  composant de reçu partagé (ticket-receipt) gère déjà son absence. Voir table_number
+   *  ci-dessous pour le repère "sur place" saisi au clavier numérique, qui lui peut être renseigné. */
   table?: null;
+  /** Repère "sur place" (voir CreateKioskOrderPayload.table_number) — null pour "à emporter"/
+   *  réglage désactivé. */
+  table_number?: string | null;
   sections: TicketSection[];
   payments: TicketPayment[];
   /** Réduction appliquée à ce ticket (voir DiscountCalculator) — null si aucune. */

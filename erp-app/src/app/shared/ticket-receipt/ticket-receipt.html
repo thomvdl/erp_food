@@ -19,6 +19,8 @@
 </p>
 @if (ticket.table) {
   <p class="ticket-receipt__center text-xs">Table {{ ticket.table.label }}</p>
+} @else if (ticket.table_number) {
+  <p class="ticket-receipt__center text-xs">Table {{ ticket.table_number }}</p>
 }
 <p class="ticket-receipt__center text-xs">
   @if (ticket.client) {

@@ -63,7 +63,12 @@
                   <div class="kitchen-card__id-badge kitchen-card__id-badge--kiosk">🖥️</div>
                   <div class="kitchen-card__id-info">
                     <h2 class="text-lg">N° {{ displayOrder.order.ticket_id }}</h2>
-                    <span class="text-muted text-xs">Kiosque</span>
+                    <span class="text-muted text-xs">
+                      Kiosque
+                      @if (displayOrder.order.table_number) {
+                        — Table {{ displayOrder.order.table_number }}
+                      }
+                    </span>
                   </div>
                 }
               </div>

@@ -61,6 +61,10 @@ export interface Ticket {
   paid_at: string;
   client_id: number | null;
   table_id?: number | null;
+  /** Repère "sur place" saisi au clavier numérique du kiosque (voir KioskOrderController côté
+   *  API, réglage Paramètres > Réglages "kiosk_table_available") — jamais lié à `table`/`table_id`
+   *  ci-dessus (plan de salle, POS Restaurant/QR à table). Null hors kiosque ou "à emporter". */
+  table_number?: string | null;
   source: TicketSource | null;
   client?: Client | null;
   table?: TableElement | null;

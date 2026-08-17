@@ -52,8 +52,14 @@ interface CategoryFilter {
 }
 
 type PaymentVariant = 'qr' | 'terminal';
+type DiningMode = 'dine_in' | 'takeaway';
 
 const PRODUCT_EMOJIS = ['🍽️', '🥗', '🍔', '🍰', '🥤', '🍕', '🍜', '🥐', '🍦', '🥙'];
+
+/** Un numéro de table tient largement là-dedans ("12", "A3"…) — la colonne côté API autorise
+ *  jusqu'à 20 caractères (voir migration add_table_number_to_kiosk_tables), la limite ici n'est
+ *  que pour garder la saisie tactile confortable. */
+const MAX_TABLE_NUMBER_LENGTH = 6;
 
 /** En dessous de ce nombre restant, le stock affiché passe en couleur d'alerte — purement
  *  visuel, n'affecte ni la commande ni le calcul. */
@@ -157,6 +163,25 @@ export class KioskOrder implements OnInit, OnDestroy {
   readonly showIngredientsModal = signal<Product | null>(null);
   readonly excludedIngredientIds = signal<Set<number>>(new Set());
   readonly ingredientsQuantity = signal(1);
+
+  /** Réglage Paramètres > Réglages "kiosk_table_available" (voir KioskConfig/kiosk-config côté
+   *  API) — active l'écran "sur place / à emporter" ci-dessous avant que le client puisse
+   *  commencer sa commande. `false` par défaut (avant que la config ait répondu) : jamais
+   *  d'écran superflu si le réglage est désactivé/absent. */
+  readonly tableNumberEnabled = signal(false);
+  /** `null` tant que le client n'a pas choisi — voir orderContextReady()/kiosk-order.html. */
+  readonly diningMode = signal<DiningMode | null>(null);
+  readonly tableNumberInput = signal('');
+  /** Distinct de `!!tableNumberInput()` : une fois "Valider" pressé, l'écran clavier laisse place
+   *  à l'accueil — voir confirmTableNumber(). */
+  readonly tableNumberConfirmed = signal(false);
+
+  /** Le client peut commencer à composer sa commande (voir kiosk-order.html) — soit le réglage
+   *  est désactivé, soit "à emporter" a été choisi, soit "sur place" ET un numéro de table
+   *  confirmé. */
+  readonly orderContextReady = computed(
+    () => !this.tableNumberEnabled() || this.diningMode() === 'takeaway' || (this.diningMode() === 'dine_in' && this.tableNumberConfirmed()),
+  );
 
   /** Écran d'accueil (grille de catégories, voir kiosk-order.html) vs écran de navigation dans
    *  une catégorie — purement visuel (aucune donnée métier derrière), nécessaire pour le
@@ -276,8 +301,9 @@ export class KioskOrder implements OnInit, OnDestroy {
       catalogs: this.kioskService.listCatalogs(),
       paymentMethods: this.kioskService.listPaymentMethods(),
       session: this.kioskService.activeCashSession(userId),
+      config: this.kioskService.getConfig(),
     }).subscribe({
-      next: ({ products, catalogs, paymentMethods, session }) => {
+      next: ({ products, catalogs, paymentMethods, session, config }) => {
         if (!session) {
           this.router.navigateByUrl('/setup');
           return;
@@ -286,6 +312,7 @@ export class KioskOrder implements OnInit, OnDestroy {
         this.allProducts.set(products);
         this.paymentMethods.set(paymentMethods);
         this.activeCatalogIds.set(catalogs.filter((catalog) => catalog.active_kiosk).map((catalog) => catalog.id));
+        this.tableNumberEnabled.set(config.table_number_enabled);
         this.loading.set(false);
         if (this.activeCatalogIds().length === 0) {
           this.loadError.set('Aucun catalogue disponible pour le moment — contactez le personnel.');
@@ -637,6 +664,39 @@ export class KioskOrder implements OnInit, OnDestroy {
       .join(' — ');
   }
 
+  // --- Écran "sur place / à emporter" + clavier numérique (voir orderContextReady/
+  // kiosk-order.html) — affiché avant l'accueil quand kiosk_table_available est activé. ---
+
+  chooseDiningMode(mode: DiningMode): void {
+    this.diningMode.set(mode);
+  }
+
+  /** "← Retour" depuis le clavier numérique — repart du choix sur place/à emporter, pas de
+   *  numéro à moitié saisi conservé en mémoire. */
+  backToDiningChoice(): void {
+    this.diningMode.set(null);
+    this.tableNumberInput.set('');
+    this.tableNumberConfirmed.set(false);
+  }
+
+  pressTableDigit(digit: string): void {
+    if (this.tableNumberInput().length >= MAX_TABLE_NUMBER_LENGTH) return;
+    this.tableNumberInput.set(this.tableNumberInput() + digit);
+  }
+
+  backspaceTableNumber(): void {
+    this.tableNumberInput.set(this.tableNumberInput().slice(0, -1));
+  }
+
+  clearTableNumber(): void {
+    this.tableNumberInput.set('');
+  }
+
+  confirmTableNumber(): void {
+    if (!this.tableNumberInput()) return;
+    this.tableNumberConfirmed.set(true);
+  }
+
   /** Tuile catégorie de l'accueil tapée — categoryId est null pour le bucket "Autres" (produits
    *  sans catégorie), voir `categories` computed. Voir homeScreen. */
   openCategory(categoryId: number | null): void {
@@ -819,6 +879,7 @@ export class KioskOrder implements OnInit, OnDestroy {
         cash_session_id: this.cashSessionId,
         discount_code: this.appliedDiscount()?.discount.code ?? null,
         points_redeemed: this.pointsToRedeemInput() > 0 ? this.pointsToRedeemInput() : null,
+        table_number: this.diningMode() === 'dine_in' ? this.tableNumberInput() : null,
         lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity, note: line.note, menu_choices: line.menuChoices })),
       })
       .subscribe({
@@ -899,6 +960,7 @@ export class KioskOrder implements OnInit, OnDestroy {
         cash_session_id: this.cashSessionId,
         discount_code: this.appliedDiscount()?.discount.code ?? null,
         points_redeemed: this.pointsToRedeemInput() > 0 ? this.pointsToRedeemInput() : null,
+        table_number: this.diningMode() === 'dine_in' ? this.tableNumberInput() : null,
         lines: this.cart().map((line) => ({ product_id: line.product.id, quantity: line.quantity, note: line.note, menu_choices: line.menuChoices })),
         payments: [{ payment_method_id: method.id, value: this.payableTotal() }],
       })
@@ -960,6 +1022,9 @@ export class KioskOrder implements OnInit, OnDestroy {
     this.homeScreen.set(true);
     this.selectedCategoryId.set(null);
     this.cartDrawerOpen.set(false);
+    this.diningMode.set(null);
+    this.tableNumberInput.set('');
+    this.tableNumberConfirmed.set(false);
   }
 
   goToSetup(): void {

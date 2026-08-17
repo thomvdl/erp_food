@@ -80,6 +80,7 @@ class StripeWebhookController extends Controller
             (int) ($kioskCheckout->points_earned ?? 0),
             (int) ($kioskCheckout->points_redeemed ?? 0),
             (float) ($kioskCheckout->points_redeemed_amount ?? 0),
+            $kioskCheckout->table_number,
         );
 
         $kioskCheckout->update(['status' => 'paid', 'ticket_id' => $ticket->id]);

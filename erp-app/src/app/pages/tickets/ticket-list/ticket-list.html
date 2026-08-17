@@ -72,7 +72,7 @@
                   {{ ticketSourceLabel(ticket) }}
                 </span>
               </td>
-              <td data-label="Table" class="text-muted">{{ ticket.table?.label ?? '—' }}</td>
+              <td data-label="Table" class="text-muted">{{ ticket.table?.label ?? ticket.table_number ?? '—' }}</td>
               <td data-label="Client">{{ clientLabel(ticket) }}</td>
               <td data-label="Paiement" class="text-muted">{{ paymentSummary(ticket) }}</td>
               <td data-label="Total" class="font-semibold">{{ formatMoney(ticketTotal(ticket)) }}</td>

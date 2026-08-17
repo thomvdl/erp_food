@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CashSession;
 use App\Models\Client;
 use App\Models\Order;
+use App\Models\Param;
 use App\Models\Product;
 use App\Models\ProductCatalog;
 use App\Support\DiscountCalculator;
@@ -36,6 +37,21 @@ class KioskOrderController extends Controller
     /** Réutilisé par KioskCheckoutController/StripeWebhookController pour renvoyer un Ticket kiosque sous la même forme, quel que soit le variant de paiement. */
     public const TICKET_WITH = ['client', 'sections.lines.product.tax', 'payments.paymentMethod', 'discount'];
 
+    /**
+     * Réglage Paramètres > Réglages "kiosk_table_available" (voir Param) : ouvre l'écran "sur
+     * place / à emporter" côté kiosk-order.ts avant de composer la commande. Route dédiée plutôt
+     * que d'ouvrir GET /params (réservé à admin, voir routes/api.php) à tous les rôles — même
+     * principe que OpeningHours::isOpen(), qui ne renvoie jamais non plus les réglages bruts.
+     */
+    public function config()
+    {
+        $value = Param::query()->where('name', 'kiosk_table_available')->value('value');
+
+        return response()->json([
+            'table_number_enabled' => in_array(strtolower(trim((string) $value)), ['1', 'true'], true),
+        ]);
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -43,6 +59,10 @@ class KioskOrderController extends Controller
             'cash_session_id' => ['required', 'integer', 'exists:cash_sessions,id'],
             'discount_code' => ['nullable', 'string'],
             'points_redeemed' => ['nullable', 'integer', 'min:1'],
+            // Voir config() ci-dessus/kiosk-order.ts — renseigné uniquement si le client a choisi
+            // "sur place" avec le réglage actif, jamais revalidé contre un vrai plan de salle
+            // (voir migration add_table_number_to_kiosk_tables, volontairement un simple repère).
+            'table_number' => ['nullable', 'string', 'max:20'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'lines.*.quantity' => ['required', 'integer', 'min:1'],
@@ -144,6 +164,7 @@ class KioskOrderController extends Controller
             $client ? LoyaltyPoints::earned($total) : 0,
             $pointsRedeemed,
             $pointsRedeemedAmount,
+            $data['table_number'] ?? null,
         );
 
         event(new OrderKitchenUpdated($order->id));

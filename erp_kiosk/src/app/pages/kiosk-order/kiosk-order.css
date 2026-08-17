@@ -669,6 +669,92 @@
   font-size: 2.5rem;
 }
 
+/* Écran "sur place / à emporter" (voir kiosk-order.html) — contrairement à .kiosk-home (grille
+ *  scrollable calée en haut), tout est centré au milieu de la page : un choix binaire tient
+ *  entièrement à l'écran, pas la peine de scroller. */
+.kiosk-dining-choice {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  overflow-y: auto;
+}
+
+.kiosk-dining-choice__options {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+/* Mêmes tuiles que les moyens de paiement, mais carrées et de taille fixe (plus petites que la
+ *  pleine largeur d'une colonne de grille) — un choix binaire n'a pas besoin de tuiles géantes. */
+.kiosk-payment-method--square {
+  flex: 0 0 auto;
+  width: 160px;
+  aspect-ratio: 1;
+  justify-content: center;
+}
+
+/* ---------- Écran "sur place" : clavier numérique du numéro de table (voir
+   orderContextReady()/kiosk-order.ts) — même ossature .kiosk-home que le choix sur place/à
+   emporter juste au-dessus, dont il hérite le padding/scroll. ---------- */
+
+.kiosk-table-number__display {
+  margin: 0 0 var(--space-5);
+  padding: var(--space-4);
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+  font-size: var(--font-size-3xl);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  min-height: 1.2em;
+}
+
+.kiosk-table-number__keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.kiosk-table-number__key {
+  padding: var(--space-5) 0;
+  background: var(--surface-card);
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-primary-800);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: var(--font-size-xl);
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.kiosk-table-number__key:hover {
+  background: var(--color-primary-50);
+}
+
+.kiosk-table-number__key:active {
+  transform: scale(0.95);
+}
+
+.kiosk-table-number__key--muted {
+  color: var(--text-secondary);
+  font-size: var(--font-size-lg);
+}
+
+.kiosk-table-number__confirm {
+  width: 100%;
+}
+
 /* Écran du "terminal" simulé — occupe le reste de la page (flex:1, centré) maintenant que ce
  *  n'est plus le contenu d'une modale mais une page à part entière. Fond sombre volontairement
  *  fixe (pas dépendant du thème clair/sombre de l'app), comme un vrai afficheur de terminal. */

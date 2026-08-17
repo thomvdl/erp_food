@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'paid_at', 'client_id', 'table_id', 'source', 'discount_id', 'discount_amount',
+    'paid_at', 'client_id', 'table_id', 'table_number', 'source', 'discount_id', 'discount_amount',
     'points_earned', 'points_redeemed', 'points_redeemed_amount',
 ])]
 class Ticket extends Model
