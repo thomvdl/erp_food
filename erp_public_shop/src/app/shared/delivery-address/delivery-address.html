@@ -1,0 +1,43 @@
+<div class="delivery-address">
+  <button
+    type="button"
+    class="delivery-address__toggle"
+    [class.is-ok]="deliveryAddress.result()?.within_radius === true"
+    [class.is-out]="deliveryAddress.result()?.within_radius === false"
+    (click)="toggle()"
+  >
+    📍 {{ label() }}
+  </button>
+
+  @if (open()) {
+    <div class="delivery-address__scrim" (click)="close()"></div>
+    <div class="delivery-address__panel">
+      <label class="text-sm font-semibold">Où livrer ?</label>
+      <input
+        class="input"
+        type="text"
+        placeholder="Adresse complète (rue, ville)"
+        [ngModel]="draft()"
+        (ngModelChange)="draft.set($event)"
+        (keydown.enter)="submit()"
+      />
+      <button type="button" class="btn btn-primary btn-sm" [disabled]="deliveryAddress.checking() || !draft().trim()" (click)="submit()">
+        {{ deliveryAddress.checking() ? 'Vérification…' : 'Vérifier' }}
+      </button>
+
+      @if (deliveryAddress.error()) {
+        <p class="error-text text-xs">{{ deliveryAddress.error() }}</p>
+      }
+
+      @if (deliveryAddress.result(); as result) {
+        <p class="text-xs" [class.delivery-address__result--ok]="result.within_radius" [class.delivery-address__result--out]="!result.within_radius">
+          {{ result.within_radius ? '✓ Livrable' : '✗ Hors zone de livraison' }} — {{ result.distance_km }} km
+        </p>
+      }
+
+      @if (radiusKm(); as radius) {
+        <p class="text-xs text-muted">Livraison disponible dans un rayon de {{ radius }} km.</p>
+      }
+    </div>
+  }
+</div>

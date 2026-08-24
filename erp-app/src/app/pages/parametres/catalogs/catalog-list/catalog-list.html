@@ -6,7 +6,7 @@
 </div>
 
 <p class="text-muted">
-  Plusieurs catalogues peuvent être actifs en même temps pour le POS Restaurant, indépendamment pour le POS Vente directe, le Kiosque et la Commande QR.
+  Plusieurs catalogues peuvent être actifs en même temps pour le POS Restaurant, indépendamment pour le POS Vente directe, le Kiosque, la Commande QR et la Boutique en ligne.
 </p>
 
 <div style="display: flex; gap: var(--space-4); flex-wrap: wrap">
@@ -48,6 +48,7 @@
           <th>POS Vente directe</th>
           <th>Kiosque</th>
           <th>Commande QR</th>
+          <th>Boutique en ligne</th>
           <th></th>
         </tr>
       </thead>
@@ -95,6 +96,14 @@
               />
             </td>
             <td>
+              <input
+                type="checkbox"
+                [checked]="catalog.active_public_shop"
+                [disabled]="togglingId() === catalog.id"
+                (change)="togglePublicShop(catalog, $any($event.target).checked)"
+              />
+            </td>
+            <td>
               <div class="td-actions">
                 <a class="btn btn-outline btn-sm" [routerLink]="[catalog.id]">Modifier</a>
               </div>
@@ -102,7 +111,7 @@
           </tr>
         } @empty {
           <tr>
-            <td colspan="7" class="text-muted">Aucun catalogue pour le moment.</td>
+            <td colspan="8" class="text-muted">Aucun catalogue pour le moment.</td>
           </tr>
         }
       </tbody>

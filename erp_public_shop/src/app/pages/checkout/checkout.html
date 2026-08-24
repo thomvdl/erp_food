@@ -1,0 +1,113 @@
+<div class="shop-checkout-page">
+  <header class="shop-header">
+    <div class="shop-header__brand">
+      <span class="shop-header__logo">🛍️</span>
+      <span class="shop-header__name">Boutique</span>
+    </div>
+    <span class="shop-header__spacer"></span>
+    <app-customer-login />
+    <app-delivery-address />
+    <button type="button" class="btn btn-ghost btn-sm" (click)="back()">‹ Retour au panier</button>
+  </header>
+
+  <div class="shop-checkout">
+    <div class="card card-elevated">
+      <div class="card-header">
+        <h2 class="text-lg">Mode de retrait</h2>
+      </div>
+      <div class="card-body">
+        <div class="tab-group">
+          <button type="button" class="tab-pill" [class.is-active]="fulfillmentType() === 'pickup'" (click)="fulfillmentType.set('pickup')">
+            🏬 À emporter
+          </button>
+          <button type="button" class="tab-pill" [class.is-active]="fulfillmentType() === 'delivery'" (click)="fulfillmentType.set('delivery')">
+            🚚 Livraison
+          </button>
+        </div>
+
+        @if (fulfillmentType() === 'pickup') {
+          <p class="text-muted text-sm" style="margin-top: var(--space-3)">
+            Votre commande sera prête dès que possible — vous serez prévenu par email.
+          </p>
+        } @else if (deliveryAddress.result()?.within_radius) {
+          <p class="text-sm" style="margin-top: var(--space-3)">
+            📍 Livraison à : <strong>{{ deliveryAddress.result()?.formatted_address }}</strong>
+            @if (deliveryFee() > 0) {
+              <br /><span class="text-muted">Frais de livraison : {{ formatMoney(deliveryFee()) }}.</span>
+            }
+          </p>
+        } @else {
+          <p class="error-text text-sm" style="margin-top: var(--space-3)">
+            Renseignez une adresse de livraison valide dans la barre du haut avant de continuer.
+          </p>
+        }
+
+        @if (!customerSession.customer()) {
+          <div class="field" style="margin-top: var(--space-4)">
+            <label>Email <span class="error-text">*</span> — pour recevoir votre confirmation</label>
+            <input
+              class="input"
+              type="email"
+              required
+              placeholder="vous@exemple.com"
+              [ngModel]="customerEmail()"
+              (ngModelChange)="customerEmail.set($event)"
+            />
+            <span class="text-muted text-xs">Connectez-vous (voir topbar) pour ne plus avoir à le saisir.</span>
+          </div>
+        }
+
+        <div class="field" style="margin-top: var(--space-4)">
+          <label>Code de réduction (optionnel)</label>
+          <input class="input" type="text" placeholder="Ex : BIENVENUE10" [ngModel]="discountCode()" (ngModelChange)="discountCode.set($event)" />
+          <span class="text-muted text-xs">Vérifié et appliqué au montant total lors du paiement.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-elevated">
+      <div class="card-header">
+        <h2 class="text-lg">Votre commande</h2>
+      </div>
+      <div class="card-body shop-checkout__lines">
+        @for (line of cart.lines(); track line.lineId) {
+          <div class="shop-checkout__line">
+            <span class="qty-stepper__btn" style="pointer-events: none">{{ line.quantity }}×</span>
+            <span class="shop-checkout__line-name">{{ line.product.name }}</span>
+            <span class="shop-checkout__line-total">{{ formatMoney(lineTotal(line)) }}</span>
+          </div>
+        }
+      </div>
+      <div class="card-footer">
+        <div class="shop-checkout__total-row">
+          <span>Sous-total</span>
+          <span>{{ formatMoney(cart.total()) }}</span>
+        </div>
+        @if (fulfillmentType() === 'delivery' && deliveryFee() > 0) {
+          <div class="shop-checkout__total-row">
+            <span>Livraison</span>
+            <span>{{ formatMoney(deliveryFee()) }}</span>
+          </div>
+        }
+        <div class="shop-checkout__total-row shop-checkout__total-row--grand">
+          <span>Total</span>
+          <span>{{ formatMoney(total()) }}</span>
+        </div>
+
+        @if (submitError()) {
+          <p class="error-text text-sm">{{ submitError() }}</p>
+        }
+
+        <button type="button" class="btn btn-primary btn-lg shop-checkout__submit" [disabled]="submitting() || !canSubmit()" (click)="submit()">
+          {{ submitting() ? 'Préparation du paiement…' : 'Payer ' + formatMoney(total()) }}
+        </button>
+
+        @if (isDevMode) {
+          <button type="button" class="btn btn-outline btn-sm shop-checkout__simulate" [disabled]="submitting() || !canSubmit()" (click)="simulate()">
+            🧪 Simuler le paiement (test)
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+</div>

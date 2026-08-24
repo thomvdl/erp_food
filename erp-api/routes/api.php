@@ -30,6 +30,10 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\SelfOrderController;
+use App\Http\Controllers\Api\ShopCatalogController;
+use App\Http\Controllers\Api\ShopCheckoutController;
+use App\Http\Controllers\Api\ShopCustomerController;
+use App\Http\Controllers\Api\ShopDeliveryZoneController;
 use App\Http\Controllers\Api\StationController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\TableElementController;
@@ -83,10 +87,32 @@ Route::post('public/bookings', [PublicBookingController::class, 'store']);
 // pas de route d'écriture ici.
 Route::get('public/event-dates', [EventDateController::class, 'index']);
 
-// Webhook Stripe (paiement kiosque QR/Bancontact, voir KioskCheckoutController et
-// StripeWebhookController) — forcément public (appelé par Stripe, pas par un utilisateur de
-// l'app), authentifié autrement : signature HMAC vérifiée par le middleware Cashier
-// (STRIPE_WEBHOOK_SECRET), pas de Bearer token.
+// erp_public_shop (boutique en ligne, voir Readme.md) : catalogue parcouru librement par un
+// client anonyme + paiement Stripe Checkout hébergé (voir ShopCheckoutController) — même famille
+// que le variant QR du kiosque, sans CashSession ni QR (voir docblocks des contrôleurs). Le
+// polling de statut (show) est public pour la même raison que kiosk-checkouts/{id} ne l'est pas :
+// ici c'est le client anonyme lui-même qui interroge son propre achat au retour de Stripe, pas un
+// appareil authentifié.
+Route::get('shop/catalog', [ShopCatalogController::class, 'index']);
+// Vérification d'adresse depuis la topbar (voir ShopDeliveryZoneController) — avant même la
+// composition du panier, revérifiée de toute façon au paiement (ShopCheckoutController::store).
+Route::post('shop/delivery-check', [ShopDeliveryZoneController::class, 'check']);
+// Compte client optionnel (identification par téléphone, voir ShopCustomerController) — jamais
+// obligatoire pour commander.
+Route::post('shop/customer/request-code', [ShopCustomerController::class, 'requestCode']);
+Route::post('shop/customer/verify-code', [ShopCustomerController::class, 'verifyCode']);
+Route::post('shop/customer/login', [ShopCustomerController::class, 'login']);
+Route::post('shop/customer/orders', [ShopCustomerController::class, 'orders']);
+Route::post('shop/checkout', [ShopCheckoutController::class, 'store']);
+Route::get('shop/checkouts/{shop_checkout}', [ShopCheckoutController::class, 'show']);
+// Bouton "Simuler le paiement" (pages/checkout, dev/test uniquement) — voir
+// ShopCheckoutController::simulate, qui renvoie 404 si APP_ENV=production.
+Route::post('shop/checkouts/{shop_checkout}/simulate', [ShopCheckoutController::class, 'simulate']);
+
+// Webhook Stripe (paiement kiosque QR/Bancontact ET boutique en ligne, voir
+// KioskCheckoutController/ShopCheckoutController et StripeWebhookController) — forcément public
+// (appelé par Stripe, pas par un utilisateur de l'app), authentifié autrement : signature HMAC
+// vérifiée par le middleware Cashier (STRIPE_WEBHOOK_SECRET), pas de Bearer token.
 Route::post('stripe/webhook', [StripeWebhookController::class, 'handle'])->middleware(VerifyWebhookSignature::class);
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -146,6 +172,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('product-catalogs/{product_catalog}/active-direct-sale', [ProductCatalogController::class, 'setActiveForDirectSale']);
         Route::put('product-catalogs/{product_catalog}/active-self-order', [ProductCatalogController::class, 'setActiveForSelfOrder']);
         Route::put('product-catalogs/{product_catalog}/active-kiosk', [ProductCatalogController::class, 'setActiveForKiosk']);
+        Route::put('product-catalogs/{product_catalog}/active-public-shop', [ProductCatalogController::class, 'setActiveForPublicShop']);
         Route::apiResource('users', UserController::class)->except(['destroy']);
         Route::post('users/{user}/qr-code', [UserController::class, 'generateQrCode']);
         Route::get('users/{user}/qr', [UserController::class, 'qr']);
@@ -179,7 +206,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('products/{product}', [ProductController::class, 'destroy']);
         Route::post('products/{product}/image', [ProductController::class, 'uploadImage']);
         Route::delete('products/{product}/image', [ProductController::class, 'removeImage']);
-        // Réglages génériques clé/valeur (ex. open_at/close_at) — voir ParamController.
+        // Réglages génériques clé/valeur (ex. self_order_open_at/self_order_close_at) — voir ParamController.
         Route::apiResource('params', ParamController::class);
     });
 
@@ -255,6 +282,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('orders/{order}', [OrderController::class, 'destroy']);
     Route::post('orders/{order}/pay', [OrderController::class, 'pay']);
     Route::post('orders/{order}/transfer', [OrderController::class, 'transfer']);
+    // Gestion > Livraison (erp-app, voir OrderController::updateDeliveryStatus) — cycle de vie
+    // dédié aux commandes boutique en ligne "à livrer", en dehors du Kitchen Display.
+    Route::put('orders/{order}/delivery-status', [OrderController::class, 'updateDeliveryStatus']);
     Route::post('orders/{order}/sections', [OrderSectionController::class, 'store']);
     Route::delete('order-sections/{order_section}', [OrderSectionController::class, 'destroy']);
     Route::post('order-sections/{order_section}/valider', [OrderSectionController::class, 'valider']);

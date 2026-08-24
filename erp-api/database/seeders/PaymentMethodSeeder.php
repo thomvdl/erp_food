@@ -18,7 +18,10 @@ class PaymentMethodSeeder extends Seeder
         // reconnaître/réconcilier séparément les deux variants de paiement kiosque, même si les
         // deux passent par Bancontact au sens du réseau bancaire (voir docblock de KioskOrder,
         // erp_kiosk).
-        $methods = ['Espèces', 'Bancontact', 'Chèque-repas', 'QR Code'];
+        // "Boutique en ligne" : paiement Stripe de erp_public_shop (voir
+        // StripeWebhookController::markShopCheckoutPaid) — distinct de "QR Code" (kiosque) pour
+        // pouvoir reconnaître/réconcilier séparément les deux canaux en ligne dans les rapports.
+        $methods = ['Espèces', 'Bancontact', 'QR Code', 'Boutique en ligne'];
 
         foreach ($methods as $name) {
             PaymentMethod::query()->firstOrCreate(['slug' => Str::slug($name)], ['name' => $name]);

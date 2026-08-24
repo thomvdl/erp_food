@@ -45,9 +45,10 @@ class SelfOrderController extends Controller
     {
         $table = TableElement::query()->where('qr_token', $qrToken)->where('active', true)->firstOrFail();
 
-        // Voir App\Support\OpeningHours — tant que open_at/close_at (Paramètres > Réglages) ne
-        // sont pas tous les deux configurés, aucune restriction. Fermé : pas la peine de charger
-        // le catalogue, le client ne peut de toute façon rien commander (voir store() ci-dessous).
+        // Voir App\Support\OpeningHours — tant que self_order_open_at/self_order_close_at
+        // (Paramètres > Réglages) ne sont pas tous les deux configurés, aucune restriction.
+        // Fermé : pas la peine de charger le catalogue, le client ne peut de toute façon rien
+        // commander (voir store() ci-dessous).
         if (!OpeningHours::isOpen()) {
             return response()->json([
                 'closed' => true,

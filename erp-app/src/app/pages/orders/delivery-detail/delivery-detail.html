@@ -1,0 +1,105 @@
+<div class="app-topbar">
+  <div>
+    <a routerLink="/gestion/livraison" class="text-muted text-sm">← Retour aux livraisons</a>
+    <h1 class="text-2xl">Livraison @if (order(); as order) {N° {{ order.ticket_id }}}</h1>
+  </div>
+  @if (order(); as order) {
+    <div style="display: flex; gap: var(--space-3)">
+      <button type="button" class="btn btn-outline" (click)="printAddress()">🖨️ Imprimer l'adresse de livraison</button>
+      <button type="button" class="btn btn-primary" (click)="advanceStatus(order)">{{ nextActionLabel(order) }}</button>
+    </div>
+  }
+</div>
+
+@if (error()) {
+  <p class="error-text">{{ error() }}</p>
+} @else if (loading()) {
+  <p class="text-muted">Chargement…</p>
+} @else if (order(); as order) {
+  <div class="card">
+    <div class="card-body" style="display: flex; gap: var(--space-6); flex-wrap: wrap">
+      <div style="flex: 1 1 200px">
+        <p class="text-muted text-xs">Statut</p>
+        <p class="font-medium">
+          <span class="badge" [class.badge-warning]="order.delivery_status === 'pending'" [class.badge-info]="order.delivery_status === 'out_for_delivery'">
+            {{ statusLabel(order) }}
+          </span>
+        </p>
+      </div>
+      <div style="flex: 1 1 200px">
+        <p class="text-muted text-xs">Client</p>
+        <p class="font-medium">{{ order.customer_name ?? '—' }}</p>
+      </div>
+      <div style="flex: 1 1 200px">
+        <p class="text-muted text-xs">Téléphone</p>
+        <p class="font-medium">
+          @if (order.customer_phone) {
+            <a [href]="'tel:' + order.customer_phone">📞 {{ order.customer_phone }}</a>
+          } @else {
+            —
+          }
+        </p>
+      </div>
+      <div style="flex: 1 1 200px">
+        <p class="text-muted text-xs">Total</p>
+        <p class="font-semibold">{{ formatMoney(orderTotal(order)) }}</p>
+      </div>
+      <div style="flex: 1 1 100%">
+        <p class="text-muted text-xs">Adresse de livraison</p>
+        <p class="font-medium">📍 {{ order.delivery_address ?? '—' }}</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <h2 class="text-lg">Contenu de la commande</h2>
+    </div>
+    <div class="card-body">
+      <table class="table">
+        <tbody>
+          @for (section of order.sections; track section.id) {
+            @for (line of section.lines; track line.id) {
+              @if (line.priced) {
+                <tr>
+                  <td>
+                    {{ line.quantity }}× {{ line.product?.name }}
+                    @if (line.note) {
+                      <div class="text-muted text-xs">{{ line.note }}</div>
+                    }
+                  </td>
+                  <td style="text-align: right" class="font-semibold">{{ formatMoney(lineTotal(line)) }}</td>
+                </tr>
+              }
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Voir @media print (styles.css) : masque tout le reste de la page à l'impression, seul ce
+       bloc reste visible — pensé pour être glissé dans le sac/remis au livreur, pas pour le
+       client (pas de prix, la commande est déjà payée en ligne). -->
+  <div class="card card-body ticket-print" style="max-width: 380px; margin-top: var(--space-4)">
+    <p class="ticket-receipt__brand">🚚 Livraison N° {{ order.ticket_id }}</p>
+    <p class="ticket-receipt__center text-muted text-sm">Commande déjà payée en ligne</p>
+    <hr class="divider" />
+    <p class="font-semibold text-lg">{{ order.customer_name ?? 'Client' }}</p>
+    @if (order.customer_phone) {
+      <p>📞 {{ order.customer_phone }}</p>
+    }
+    <p style="margin-top: var(--space-2)">📍 {{ order.delivery_address ?? '—' }}</p>
+    <hr class="divider" />
+    <p class="font-medium text-sm">Contenu :</p>
+    <ul style="margin: 0; padding-left: 1.1rem">
+      @for (section of order.sections; track section.id) {
+        @for (line of section.lines; track line.id) {
+          @if (line.priced) {
+            <li>{{ line.quantity }}× {{ line.product?.name }}</li>
+          }
+        }
+      }
+    </ul>
+  </div>
+}

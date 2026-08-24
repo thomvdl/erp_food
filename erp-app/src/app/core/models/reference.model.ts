@@ -37,7 +37,7 @@ export interface Ingredient {
   active: boolean;
 }
 
-/** Réglage générique clé/valeur (ex. name: "open_at", value: "09:00"). */
+/** Réglage générique clé/valeur (ex. name: "self_order_open_at", value: "09:00"). */
 export interface Param {
   id: number;
   name: string;

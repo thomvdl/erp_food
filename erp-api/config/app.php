@@ -57,6 +57,9 @@ return [
     // Base publique d'erp_self_order — voir SelfOrderController::qr.
     'self_order_url' => env('SELF_ORDER_URL', 'http://localhost'),
 
+    // Base publique d'erp_public_shop — voir ShopCheckoutController::store (success_url/cancel_url).
+    'shop_url' => env('SHOP_URL', 'http://localhost:19009'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

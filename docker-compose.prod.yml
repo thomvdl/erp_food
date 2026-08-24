@@ -14,7 +14,7 @@
 #
 # Sous-domaines attendus (DNS A vers l'IP du VPS), tous dérivés de DOMAIN (voir .env) :
 # api.$DOMAIN, app.$DOMAIN, kiosk.$DOMAIN, self-order.$DOMAIN, kitchen.$DOMAIN,
-# validate-event.$DOMAIN, ws.$DOMAIN (Reverb).
+# validate-event.$DOMAIN, shop.$DOMAIN, ws.$DOMAIN (Reverb).
 
 name: erp_v2_prod
 
@@ -63,7 +63,8 @@ services:
       FILESYSTEM_DISK: local
       APP_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env (voir Readme.md)}
       SELF_ORDER_URL: https://self-order.${DOMAIN:?DOMAIN doit être défini dans .env}
-      CORS_ALLOWED_ORIGINS: https://app.${DOMAIN:?DOMAIN doit être défini dans .env},https://kiosk.${DOMAIN:?DOMAIN doit être défini dans .env},https://self-order.${DOMAIN:?DOMAIN doit être défini dans .env},https://kitchen.${DOMAIN:?DOMAIN doit être défini dans .env},https://validate-event.${DOMAIN:?DOMAIN doit être défini dans .env}
+      SHOP_URL: https://shop.${DOMAIN:?DOMAIN doit être défini dans .env}
+      CORS_ALLOWED_ORIGINS: https://app.${DOMAIN:?DOMAIN doit être défini dans .env},https://kiosk.${DOMAIN:?DOMAIN doit être défini dans .env},https://self-order.${DOMAIN:?DOMAIN doit être défini dans .env},https://kitchen.${DOMAIN:?DOMAIN doit être défini dans .env},https://validate-event.${DOMAIN:?DOMAIN doit être défini dans .env},https://shop.${DOMAIN:?DOMAIN doit être défini dans .env}
     # Images produits/catégories uploadées (voir App\Support\ImageUpload) — même raisonnement que
     # le compose dev : un volume nommé survit à un redéploiement (`up -d --build`), contrairement
     # au contenu de storage/ cuit dans l'image.
@@ -158,7 +159,22 @@ services:
       REVERB_APP_KEY: ${REVERB_APP_KEY}
     depends_on:
       - api
-      
+
+  public_shop:
+    build:
+      context: ./erp_public_shop
+      dockerfile: Dockerfile.prod
+    container_name: erp_v2_prod_public_shop
+    restart: unless-stopped
+    environment:
+      API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
+      REVERB_HOST: ws.${DOMAIN:?DOMAIN doit être défini dans .env}
+      REVERB_PORT: 443
+      REVERB_APP_KEY: ${REVERB_APP_KEY}
+    depends_on:
+      - api
+      - reverb
+
   caddy:
     image: caddy:2-alpine
     container_name: erp_v2_prod_caddy
@@ -183,6 +199,7 @@ services:
       - self_order
       - kitchen_display
       - validate_event
+      - public_shop
       - reverb
 
   # Adminer volontairement exclu (pas de client MySQL web exposé publiquement en prod) — voir

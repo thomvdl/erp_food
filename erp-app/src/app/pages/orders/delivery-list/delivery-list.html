@@ -1,0 +1,96 @@
+<a routerLink="/gestion" class="back-link">← Gestion</a>
+
+<div class="app-topbar">
+  <div>
+    <h1 class="text-2xl">Livraison</h1>
+    <p class="text-muted text-sm">Commandes de la boutique en ligne à livrer, mis à jour en direct.</p>
+  </div>
+</div>
+
+@if (error()) {
+  <p class="error-text">{{ error() }}</p>
+}
+
+<div class="tab-group" style="margin-bottom: var(--space-4)">
+  <button type="button" class="tab-pill" [class.is-active]="statusFilter() === 'all'" (click)="statusFilter.set('all')">
+    Toutes
+    <span class="tab-pill__count">{{ allCount() }}</span>
+  </button>
+  <button type="button" class="tab-pill" [class.is-active]="statusFilter() === 'pending'" (click)="statusFilter.set('pending')">
+    À préparer
+    <span class="tab-pill__count">{{ pendingCount() }}</span>
+  </button>
+  <button type="button" class="tab-pill" [class.is-active]="statusFilter() === 'out_for_delivery'" (click)="statusFilter.set('out_for_delivery')">
+    En livraison
+    <span class="tab-pill__count">{{ outForDeliveryCount() }}</span>
+  </button>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    @if (loading()) {
+      <p class="text-muted">Chargement…</p>
+    } @else {
+      <table class="table">
+        <thead>
+          <tr>
+            <th>N°</th>
+            <th>Client</th>
+            <th>Adresse</th>
+            <th>Contenu</th>
+            <th>Total</th>
+            <th>Statut</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (order of deliveries(); track order.id) {
+            <tr>
+              <td class="font-semibold">🚚 N° {{ order.ticket_id }}</td>
+              <td class="text-muted">
+                {{ order.customer_name ?? '—' }}
+                @if (order.customer_phone) {
+                  <br />
+                  <a [href]="'tel:' + order.customer_phone" class="text-sm">📞 {{ order.customer_phone }}</a>
+                }
+              </td>
+              <td class="text-muted">📍 {{ order.delivery_address ?? '—' }}</td>
+              <td class="text-muted text-sm">
+                @for (section of order.sections; track section.id) {
+                  @for (line of section.lines; track line.id) {
+                    @if (line.priced) {
+                      <div>
+                        {{ line.quantity }}× {{ line.product?.name }}
+                        @if (line.note) {
+                          <span> — {{ line.note }}</span>
+                        }
+                      </div>
+                    }
+                  }
+                }
+              </td>
+              <td class="font-semibold">{{ formatMoney(orderTotal(order)) }}</td>
+              <td>
+                <span class="badge" [class.badge-warning]="order.delivery_status === 'pending'" [class.badge-info]="order.delivery_status === 'out_for_delivery'">
+                  {{ statusLabel(order) }}
+                </span>
+              </td>
+              <td>
+                <div class="td-actions">
+                  <a class="btn btn-ghost btn-sm" [routerLink]="[order.id]">Voir</a>
+                  <button type="button" class="btn btn-primary btn-sm" (click)="advanceStatus(order)">
+                    {{ nextActionLabel(order) }}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7" class="text-muted">Aucune livraison en attente pour le moment.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>

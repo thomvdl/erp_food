@@ -1,0 +1,88 @@
+<div class="shop-state">
+  @if (error()) {
+    <div class="card card-elevated shop-confirm">
+      <div class="card-body">
+        <p class="shop-confirm__icon">⚠️</p>
+        <h1>Une erreur est survenue</h1>
+        <p class="text-muted">{{ error() }}</p>
+      </div>
+      <div class="card-footer">
+        <button type="button" class="btn btn-primary" (click)="backToShop()">Retour à la boutique</button>
+      </div>
+    </div>
+  } @else if (cancelled()) {
+    <div class="card card-elevated shop-confirm">
+      <div class="card-body">
+        <p class="shop-confirm__icon">🛒</p>
+        <h1>Paiement annulé</h1>
+        <p class="text-muted">Votre panier a été conservé — vous pouvez réessayer quand vous le souhaitez.</p>
+      </div>
+      <div class="card-footer">
+        <button type="button" class="btn btn-primary" (click)="backToShop()">Retour à la boutique</button>
+      </div>
+    </div>
+  } @else if (!status() || status()?.status === 'pending') {
+    <div class="card card-elevated shop-confirm">
+      <div class="card-body">
+        <p class="shop-confirm__icon">⏳</p>
+        <h1>Confirmation du paiement…</h1>
+        <p class="text-muted">Merci de patienter, ça ne prend que quelques secondes.</p>
+      </div>
+    </div>
+  } @else if (status()?.status === 'paid') {
+    <div class="card card-elevated shop-confirm">
+      <div class="card-body">
+        <span class="shop-confirm__seal">✓</span>
+        <h1>Commande confirmée !</h1>
+        <p class="text-muted">
+          @if (status()?.fulfillment_type === 'delivery') {
+            Votre commande sera livrée dès que possible.
+          } @else {
+            Votre commande sera prête à emporter dès que possible.
+          }
+        </p>
+
+        <div class="shop-confirm__recap">
+          @for (line of status()?.lines ?? []; track $index) {
+            @if (line.priced) {
+              <div class="shop-confirm__recap-line">
+                <span>{{ line.quantity }}× {{ line.product_name ?? 'Produit' }}</span>
+                <span>{{ formatMoney(line.unit_price * line.quantity) }}</span>
+              </div>
+            }
+          }
+          @if (status()?.delivery_address) {
+            <p class="text-muted text-sm" style="margin-top: var(--space-3)">📍 {{ status()?.delivery_address }}</p>
+          }
+          @if (status()?.discount_amount) {
+            <p class="text-muted text-sm">🏷️ Réduction : -{{ formatMoney(status()?.discount_amount ?? 0) }}</p>
+          }
+          @if (status()?.points_redeemed_amount) {
+            <p class="text-muted text-sm">⭐ Points utilisés : -{{ formatMoney(status()?.points_redeemed_amount ?? 0) }}</p>
+          }
+          @if (status()?.points_earned) {
+            <p class="text-muted text-sm">⭐ Points gagnés : +{{ status()?.points_earned }}</p>
+          }
+          <div class="shop-confirm__recap-total">
+            <span>Total</span>
+            <span>{{ formatMoney(status()?.total ?? 0) }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer">
+        <button type="button" class="btn btn-primary" (click)="backToShop()">Retour à la boutique</button>
+      </div>
+    </div>
+  } @else {
+    <div class="card card-elevated shop-confirm">
+      <div class="card-body">
+        <p class="shop-confirm__icon">✕</p>
+        <h1>Le paiement n'a pas abouti</h1>
+        <p class="text-muted">Votre panier a été conservé — vous pouvez réessayer.</p>
+      </div>
+      <div class="card-footer">
+        <button type="button" class="btn btn-primary" (click)="backToShop()">Retour à la boutique</button>
+      </div>
+    </div>
+  }
+</div>

@@ -223,6 +223,19 @@ export const routes: Routes = [
             loadComponent: () => import('./pages/orders/order-list/order-list').then((m) => m.OrderList),
           },
           {
+            path: 'livraison',
+            children: [
+              {
+                path: '',
+                loadComponent: () => import('./pages/orders/delivery-list/delivery-list').then((m) => m.DeliveryList),
+              },
+              {
+                path: ':id',
+                loadComponent: () => import('./pages/orders/delivery-detail/delivery-detail').then((m) => m.DeliveryDetail),
+              },
+            ],
+          },
+          {
             path: 'produits',
             canActivate: [roleGuard('superviseur')],
             children: [

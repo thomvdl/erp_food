@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             ProductCategorySeeder::class,
             ProductCatalogSeeder::class,
             PaymentMethodSeeder::class,
+            ParamSeeder::class,
         ]);
 
         // À true (DEMO=true dans .env) pour peupler l'app de données fictives (plan de salle,

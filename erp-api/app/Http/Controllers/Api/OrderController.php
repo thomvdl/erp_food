@@ -425,4 +425,37 @@ class OrderController extends Controller
 
         return response()->json(collect($createdLines)->map->load('product'), 201);
     }
+
+    /**
+     * Cycle de vie dédié aux commandes boutique en ligne "à livrer" (voir migration
+     * add_delivery_status_to_orders_table) — consommé par erp-app > Gestion > Livraison. Ces
+     * commandes ne passent jamais par le Kitchen Display (voir erp_kitchen_display >
+     * kitchen-board.ts, qui les exclut sur delivery_address), donc rien d'autre ne fait jamais
+     * progresser/nettoyer cette Order : pending -> out_for_delivery -> delivered, ce dernier
+     * palier supprimant l'Order (déjà payée via son Ticket, même principe que
+     * OrderSectionController::envoyer pour une commande kiosque entièrement servie).
+     */
+    public function updateDeliveryStatus(Request $request, Order $order)
+    {
+        abort_unless($order->fulfillment_type === 'delivery', 422, "Cette commande n'est pas une livraison.");
+
+        $data = $request->validate([
+            'status' => ['required', 'string', 'in:pending,out_for_delivery,delivered'],
+        ]);
+
+        if ($data['status'] === 'delivered') {
+            $orderId = $order->id;
+            $order->delete();
+
+            event(new OrderKitchenUpdated($orderId));
+
+            return response()->json(['deleted' => true]);
+        }
+
+        $order->update(['delivery_status' => $data['status']]);
+
+        event(new OrderKitchenUpdated($order->id));
+
+        return $order->load(self::WITH);
+    }
 }

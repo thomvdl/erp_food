@@ -4,7 +4,6 @@ import { RouterLink } from '@angular/router';
 import { TicketService } from '../../../core/ticket.service';
 import { Ticket } from '../../../core/models/ticket.model';
 import { DatePicker } from '../../../shared/date-picker/date-picker';
-import { TicketReceipt } from '../../../shared/ticket-receipt/ticket-receipt';
 import { formatMoney, formatTicketDate, ticketNetTotal, ticketSourceLabel } from '../../../core/ticket-print.util';
 
 /** Combien de tickets rapatrier — pas de pagination côté backend (voir TicketController::index), une grosse limite suffit pour une liste tenue en mémoire côté client (même approche que les autres pages de liste de ce projet). */
@@ -14,13 +13,13 @@ const TICKETS_FETCH_LIMIT = 1000;
  * "Ajouter une section -> Gestion des tickets, historique des tickets -> possibilité de
  * réimpression de ticket (pas de modification et de suppression)" (voir Readme.md) — un ticket
  * payé est une pièce comptable figée, volontairement en lecture seule ici : ni édition, ni
- * suppression, uniquement consultation (lien "Voir" vers ticket-detail.ts) et réimpression du
- * reçu directement depuis la liste.
+ * suppression, uniquement consultation (lien "Voir" vers ticket-detail.ts, qui porte lui-même le
+ * bouton de réimpression — pas dupliqué ici).
  */
 @Component({
   selector: 'app-ticket-list',
   standalone: true,
-  imports: [FormsModule, RouterLink, DatePicker, TicketReceipt],
+  imports: [FormsModule, RouterLink, DatePicker],
   templateUrl: './ticket-list.html',
 })
 export class TicketList {
@@ -32,8 +31,6 @@ export class TicketList {
 
   readonly dayFilter = signal<string | null>(null);
   readonly clientFilter = signal('');
-
-  readonly printingTicket = signal<Ticket | null>(null);
 
   readonly formatMoney = formatMoney;
   readonly formatTicketDate = formatTicketDate;
@@ -67,12 +64,6 @@ export class TicketList {
 
   paymentSummary(ticket: Ticket): string {
     return ticket.payments.map((payment) => payment.payment_method?.name).filter(Boolean).join(', ');
-  }
-
-  print(ticket: Ticket): void {
-    this.printingTicket.set(ticket);
-    // Laisse Angular peindre le bloc .ticket-print avant d'ouvrir la boîte de dialogue d'impression.
-    setTimeout(() => window.print(), 50);
   }
 
   private refresh(): void {

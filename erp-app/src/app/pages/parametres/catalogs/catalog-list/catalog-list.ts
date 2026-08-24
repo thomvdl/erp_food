@@ -85,6 +85,17 @@ export class CatalogList {
     });
   }
 
+  togglePublicShop(catalog: ProductCatalog, active: boolean): void {
+    this.togglingId.set(catalog.id);
+    this.catalogService.setActiveForPublicShop(catalog.id, active).subscribe({
+      next: () => {
+        this.togglingId.set(null);
+        this.refresh();
+      },
+      error: () => this.togglingId.set(null),
+    });
+  }
+
   private refresh(): void {
     this.catalogService.list().subscribe((catalogs) => this.catalogs.set(catalogs));
   }

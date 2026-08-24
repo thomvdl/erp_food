@@ -1,0 +1,20 @@
+<footer class="shop-footer">
+  <div class="shop-footer__brand">
+    <span class="shop-footer__logo">🛍️ {{ company()?.name ?? 'Boutique en ligne' }}</span>
+    @if (company(); as c) {
+      @if (c.address) {
+        <p>{{ c.address }}</p>
+      }
+      @if (c.phone) {
+        <p><a [href]="'tel:' + c.phone">{{ c.phone }}</a></p>
+      }
+    }
+  </div>
+
+  <div class="shop-footer__trust">
+    <p>🔒 Paiement sécurisé par carte via Stripe</p>
+    <p>🏬 Retrait sur place ou 🚚 livraison à domicile</p>
+  </div>
+
+  <p class="shop-footer__copyright">&copy; {{ year }} {{ company()?.name ?? 'Boutique en ligne' }}</p>
+</footer>

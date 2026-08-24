@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { OrderService } from '../../../core/order.service';
 import { Order } from '../../../core/models/order.model';
 import { KitchenEchoService } from '../../../core/kitchen-echo.service';
-import { formatMoney } from '../../../core/ticket-print.util';
+import { formatMoney, sourceLabel } from '../../../core/ticket-print.util';
 
 /**
  * "Gestion des commandes" : toutes les tables actuellement ouvertes (POS - Restaurant), en liste
@@ -29,6 +29,7 @@ export class OrderList {
   readonly error = signal<string | null>(null);
 
   readonly formatMoney = formatMoney;
+  readonly sourceLabel = sourceLabel;
 
   constructor() {
     this.refresh();
@@ -60,6 +61,13 @@ export class OrderList {
 
   allSectionsSent(order: Order): boolean {
     return order.sections.length > 0 && order.sections.every((section) => section.state === 'seed');
+  }
+
+  /** Boutique en ligne uniquement (voir Order.fulfillment_type) — absent pour toutes les autres sources. */
+  fulfillmentLabel(order: Order): string | null {
+    if (order.fulfillment_type === 'delivery') return '🚚 Livraison';
+    if (order.fulfillment_type === 'pickup') return '🏬 À emporter';
+    return null;
   }
 
   private refresh(): void {

@@ -118,6 +118,12 @@ class KioskSaleRecorder
                 }
             }
 
+            // Voir App\Support\KitchenlessSectionCompleter : une commande sans aucun produit à
+            // station (ex. une simple boisson) ne passera jamais par le kitchen display, donc
+            // jamais par OrderSectionController::envoyer — sans quoi elle resterait bloquée à
+            // 'ask' pour toujours.
+            KitchenlessSectionCompleter::maybeAutoComplete($section);
+
             if ($client) {
                 LoyaltyPoints::apply($client, $pointsEarned, $pointsRedeemed, $ticket->id);
             }

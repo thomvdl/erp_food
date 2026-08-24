@@ -67,6 +67,13 @@ export interface Order {
    *  Ticket déjà encaissé/imprimé côté client, à annoncer au comptoir pour remettre la bonne
    *  commande au bon client. Toujours null pour une commande de table classique. */
   ticket_id: number | null;
+  /** D'où vient la commande — voir Readme.md (kitchen-board.ts::orderSourceLabel/orderSourceIcon
+   *  pour le libellé/l'icône affichés à la place du plan de salle quand `table` est absent).
+   *  Nullable : les commandes créées avant cette colonne n'ont pas de valeur fiable à afficher. */
+  source: string | null;
+  /** Boutique en ligne uniquement (voir kitchen-board.ts::orderFulfillmentLabel) — 'pickup' ou
+   *  'delivery' ; null pour toutes les autres sources (kiosque, POS Restaurant). */
+  fulfillment_type?: 'pickup' | 'delivery' | null;
   number_of_guests: number | null;
   table?: TableElement | null;
   sections: OrderSection[];

@@ -1,0 +1,342 @@
+@if (loading()) {
+  <div class="shop-state">
+    <p class="text-muted">Chargement du catalogue…</p>
+  </div>
+} @else if (loadError()) {
+  <div class="shop-state">
+    <p class="error-text">{{ loadError() }}</p>
+  </div>
+} @else if (catalog()?.products?.length === 0) {
+  <div class="shop-state">
+    <p class="error-text">Aucun produit disponible pour le moment — revenez plus tard.</p>
+  </div>
+} @else {
+  <div class="shop-page">
+    <header class="shop-header">
+      <div class="shop-header__brand">
+        <span class="shop-header__logo">🛍️</span>
+        <span class="shop-header__name">Boutique</span>
+      </div>
+
+      <span class="shop-header__spacer"></span>
+
+      <div class="shop-header__search">
+        <span class="shop-header__search-icon">🔍</span>
+        <input
+          class="input shop-header__search-input"
+          type="search"
+          placeholder="Rechercher un produit…"
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+        />
+      </div>
+
+      <app-customer-login />
+      <app-delivery-address />
+
+      <button type="button" class="shop-header__cart" (click)="showCart.set(true)">
+        <span class="shop-header__cart-icon">
+          🛒
+          @if (cart.count() > 0) {
+            <span class="shop-header__cart-badge">{{ cart.count() }}</span>
+          }
+        </span>
+        <span class="shop-header__cart-total">{{ formatMoney(cart.total()) }}</span>
+      </button>
+    </header>
+
+    <section class="shop-hero">
+      <div class="shop-hero__text">
+        <p class="shop-hero__eyebrow">Commande en ligne</p>
+        <h1 class="shop-hero__title">Vos produits préférés, à emporter ou livrés chez vous</h1>
+        <p class="shop-hero__subtitle">Composez votre commande, payez en ligne en toute sécurité.</p>
+      </div>
+      <span class="shop-hero__emoji" aria-hidden="true">🥗</span>
+    </section>
+
+    <nav class="shop-categories">
+      <button type="button" class="shop-category-chip" [class.is-active]="selectedCategoryId() === 'all'" (click)="selectCategory('all')">
+        <span class="shop-category-chip__icon">🧺</span>
+        <span>Tous</span>
+      </button>
+      @for (category of categories(); track category.id) {
+        <button
+          type="button"
+          class="shop-category-chip"
+          [class.is-active]="selectedCategoryId() === category.id"
+          (click)="selectCategory(category.id)"
+        >
+          <span class="shop-category-chip__icon">
+            @if (category.image_url) {
+              <img [src]="category.image_url" alt="" />
+            } @else {
+              {{ category.icon ?? categoryEmoji(category.id) }}
+            }
+          </span>
+          <span>{{ category.name }}</span>
+        </button>
+      }
+    </nav>
+
+    <section class="shop-grid">
+      @for (product of filteredProducts(); track product.id) {
+        <article class="shop-product-card" [class.is-disabled]="isOutOfStock(product)">
+          <button type="button" class="shop-product-card__media" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
+            @if (isOutOfStock(product)) {
+              <span class="shop-product-card__ribbon">Rupture de stock</span>
+            } @else if (quantityInCart(product) > 0) {
+              <span class="shop-product-card__badge">{{ quantityInCart(product) }}</span>
+            }
+            @if (product.image_url) {
+              <img [src]="product.image_url" alt="" />
+            } @else {
+              <span class="shop-product-card__emoji">{{ product.icon ?? productEmoji(product) }}</span>
+            }
+          </button>
+
+          <div class="shop-product-card__body">
+            @if (product.category) {
+              <span class="shop-product-card__category">{{ product.category.name }}</span>
+            }
+            <span class="shop-product-card__name">{{ product.name }}</span>
+            @if (remainingStock(product); as remaining) {
+              @if (remaining > 0) {
+                <span class="shop-product-card__stock" [class.shop-product-card__stock--low]="isLowStock(product)">
+                  {{ remaining }} en stock
+                </span>
+              }
+            }
+          </div>
+
+          <div class="shop-product-card__footer">
+            <span class="shop-product-card__price">{{ formatMoney(product.price) }}</span>
+            <button type="button" class="btn btn-primary btn-sm" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
+              Ajouter
+            </button>
+          </div>
+        </article>
+      } @empty {
+        <p class="text-muted shop-grid__empty">Aucun produit ne correspond à votre recherche.</p>
+      }
+    </section>
+  </div>
+
+  <div class="shop-drawer-scrim" [class.is-visible]="showCart()" (click)="showCart.set(false)"></div>
+  <aside class="shop-drawer" [class.is-open]="showCart()">
+    <div class="shop-drawer__header">
+      <h2>Mon panier</h2>
+      <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="showCart.set(false)">✕</button>
+    </div>
+    <div class="shop-drawer__lines">
+      @for (line of cart.lines(); track line.lineId) {
+        <div class="shop-drawer-line">
+          <span class="shop-drawer-line__thumb">
+            @if (line.product.image_url) {
+              <img [src]="line.product.image_url" alt="" />
+            } @else {
+              {{ line.product.icon ?? productEmoji(line.product) }}
+            }
+          </span>
+          <div class="shop-drawer-line__row">
+            <div class="shop-drawer-line__info">
+              <span class="font-semibold">{{ line.product.name }}</span>
+              @if (line.menuChoices) {
+                <span class="text-muted text-xs">{{ menuChoiceSummary(line) }}</span>
+              } @else {
+                <span class="text-muted text-xs">{{ formatMoney(line.product.price) }} / unité</span>
+              }
+            </div>
+            <div class="qty-stepper">
+              <button type="button" class="qty-stepper__btn" (click)="decrementLine(line.lineId)">−</button>
+              <span>{{ line.quantity }}</span>
+              <button type="button" class="qty-stepper__btn" [disabled]="isOutOfStock(line.product)" (click)="incrementLine(line.lineId)">+</button>
+            </div>
+            <span class="shop-drawer-line__total">{{ formatMoney(lineTotal(line)) }}</span>
+          </div>
+          @if (!line.menuChoices) {
+            <input
+              class="input shop-drawer-line__note"
+              type="text"
+              placeholder="Ajouter une note (ex : sans oignon)"
+              [ngModel]="line.note"
+              (ngModelChange)="updateNote(line.lineId, $event)"
+            />
+          }
+        </div>
+      } @empty {
+        <div class="shop-cart__empty">
+          <span>🛒</span>
+          <p class="text-muted text-sm">Votre panier est vide — ajoutez un produit pour commencer.</p>
+        </div>
+      }
+    </div>
+    <div class="shop-drawer__footer">
+      <div class="shop-drawer__total-row">
+        <span>Total</span>
+        <span>{{ formatMoney(cart.total()) }}</span>
+      </div>
+      <button type="button" class="btn btn-primary btn-lg shop-drawer__submit" [disabled]="cart.lines().length === 0" (click)="goToCheckout()">
+        Passer commande
+      </button>
+    </div>
+  </aside>
+}
+
+@if (showMenuModal(); as menu) {
+  <div class="modal-overlay" (click)="closeMenuModal()">
+    <div class="modal-panel" (click)="$event.stopPropagation()">
+      <div class="card-header">
+        <h2 class="text-lg">{{ menu.name }}</h2>
+        <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="closeMenuModal()">✕</button>
+      </div>
+
+      <div class="card-body">
+        @for (group of menu.menu_groups ?? []; track group.id) {
+          <div style="margin-bottom: var(--space-4)">
+            <p class="font-medium">
+              {{ group.label }}
+              <span class="text-muted text-xs">
+                ({{ group.min_choices === group.max_choices ? (group.min_choices + ' au choix') : (group.min_choices + '–' + group.max_choices + ' au choix') }})
+              </span>
+            </p>
+
+            <div class="tab-group">
+              @for (option of group.options; track option.id) {
+                <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px">
+                  <button
+                    type="button"
+                    class="tab-pill"
+                    [class.is-active]="isMenuOptionSelected(group.id, option.id)"
+                    (click)="toggleMenuOption(group, option.id)"
+                  >
+                    {{ option.name }}
+                  </button>
+                  @if (isMenuOptionSelected(group.id, option.id) && optionHasRemovableIngredients(option)) {
+                    <button type="button" class="btn btn-ghost btn-sm" (click)="openMenuOptionIngredientsModal(group, option)">
+                      {{ menuOptionNoteFor(group.id, option.id) || 'Personnaliser' }}
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+
+            @if (!isMenuGroupValid(group)) {
+              <p class="text-muted text-xs">Choisissez {{ group.min_choices === group.max_choices ? group.min_choices : group.min_choices + ' à ' + group.max_choices }} produit(s).</p>
+            }
+          </div>
+        }
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-3)">
+          <span class="font-medium">Quantité</span>
+          <div class="qty-stepper">
+            <button type="button" class="qty-stepper__btn" [disabled]="menuQuantity() <= 1" (click)="setMenuQuantity(menuQuantity() - 1)">−</button>
+            <span>{{ menuQuantity() }}</span>
+            <button type="button" class="qty-stepper__btn" (click)="setMenuQuantity(menuQuantity() + 1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-footer form-actions">
+        <button type="button" class="btn btn-primary btn-lg" style="flex: 1" [disabled]="!canConfirmMenu()" (click)="confirmAddMenu()">
+          Ajouter {{ menuQuantity() }} au panier
+        </button>
+        <button type="button" class="btn btn-outline" (click)="closeMenuModal()">Annuler</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showMenuOptionIngredientsModal(); as option) {
+  <div class="modal-overlay" (click)="closeMenuOptionIngredientsModal()">
+    <div class="modal-panel" (click)="$event.stopPropagation()">
+      <div class="card-header">
+        <h2 class="text-lg">{{ option.product.name }}</h2>
+        <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="closeMenuOptionIngredientsModal()">✕</button>
+      </div>
+
+      <div class="card-body">
+        <p class="text-muted text-sm">Décoche ce que tu ne veux pas.</p>
+
+        <div class="ingredient-picker">
+          @for (ingredient of option.product.ingredients ?? []; track ingredient.id) {
+            <label class="ingredient-picker__item">
+              <input
+                type="checkbox"
+                [ngModel]="!isMenuOptionIngredientExcluded(ingredient.id)"
+                [ngModelOptions]="{ standalone: true }"
+                [disabled]="!ingredient.pivot.removable"
+                (ngModelChange)="toggleMenuOptionExcludedIngredient(ingredient.id)"
+              />
+              {{ ingredient.name }}
+              @if (!ingredient.pivot.removable) {
+                <span class="text-muted text-xs">(non retirable)</span>
+              }
+            </label>
+          }
+        </div>
+
+        @if (menuOptionNotePreview()) {
+          <p class="text-sm">{{ menuOptionNotePreview() }}</p>
+        }
+      </div>
+
+      <div class="card-footer form-actions">
+        <button type="button" class="btn btn-primary btn-lg" style="flex: 1" (click)="confirmMenuOptionIngredients()">Valider</button>
+        <button type="button" class="btn btn-outline" (click)="closeMenuOptionIngredientsModal()">Annuler</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showIngredientsModal(); as product) {
+  <div class="modal-overlay" (click)="closeIngredientsModal()">
+    <div class="modal-panel" (click)="$event.stopPropagation()">
+      <div class="card-header">
+        <h2 class="text-lg">{{ product.name }}</h2>
+        <button type="button" class="btn btn-ghost btn-sm btn-icon" (click)="closeIngredientsModal()">✕</button>
+      </div>
+
+      <div class="card-body">
+        <p class="text-muted text-sm">Décoche ce que tu ne veux pas.</p>
+
+        <div class="ingredient-picker">
+          @for (ingredient of product.ingredients ?? []; track ingredient.id) {
+            <label class="ingredient-picker__item">
+              <input
+                type="checkbox"
+                [ngModel]="!isIngredientExcluded(ingredient.id)"
+                [ngModelOptions]="{ standalone: true }"
+                [disabled]="!ingredient.pivot.removable"
+                (ngModelChange)="toggleExcludedIngredient(ingredient.id)"
+              />
+              {{ ingredient.name }}
+              @if (!ingredient.pivot.removable) {
+                <span class="text-muted text-xs">(non retirable)</span>
+              }
+            </label>
+          }
+        </div>
+
+        @if (ingredientsNotePreview()) {
+          <p class="text-sm">{{ ingredientsNotePreview() }}</p>
+        }
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-3)">
+          <span class="font-medium">Quantité</span>
+          <div class="qty-stepper">
+            <button type="button" class="qty-stepper__btn" [disabled]="ingredientsQuantity() <= 1" (click)="setIngredientsQuantity(ingredientsQuantity() - 1)">−</button>
+            <span>{{ ingredientsQuantity() }}</span>
+            <button type="button" class="qty-stepper__btn" (click)="setIngredientsQuantity(ingredientsQuantity() + 1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-footer form-actions">
+        <button type="button" class="btn btn-primary btn-lg" style="flex: 1" (click)="confirmAddIngredients()">
+          Ajouter {{ ingredientsQuantity() }} au panier
+        </button>
+        <button type="button" class="btn btn-outline" (click)="closeIngredientsModal()">Annuler</button>
+      </div>
+    </div>
+  </div>
+}

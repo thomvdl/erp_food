@@ -22,4 +22,5 @@ export interface ProductCatalog {
   active_direct_sale: boolean;
   active_self_order: boolean;
   active_kiosk: boolean;
+  active_public_shop: boolean;
 }

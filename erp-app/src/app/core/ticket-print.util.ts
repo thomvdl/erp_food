@@ -65,8 +65,12 @@ export function formatTicketDate(paidAt: string): string {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} - ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function ticketSourceLabel(ticket: Ticket): string {
-  switch (ticket.source) {
+/** Libellé lisible d'une source de vente — voir Readme.md. Prend directement la valeur brute
+ *  (`Order.source`/`Ticket.source`, même vocabulaire côté API) plutôt qu'un Ticket complet, pour
+ *  rester réutilisable par order-list.ts (Order n'a pas de payments/sections à la forme d'un
+ *  Ticket, seulement ce champ en commun). */
+export function sourceLabel(source: string | null | undefined): string {
+  switch (source) {
     case 'pos_restaurant':
       return 'POS Restaurant';
     case 'self_order':
@@ -77,7 +81,13 @@ export function ticketSourceLabel(ticket: Ticket): string {
       return 'Vente directe';
     case 'event':
       return 'Vente de places';
+    case 'public_shop':
+      return 'Boutique en ligne';
     default:
       return '—';
   }
+}
+
+export function ticketSourceLabel(ticket: Ticket): string {
+  return sourceLabel(ticket.source);
 }

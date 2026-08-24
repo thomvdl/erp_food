@@ -35,4 +35,11 @@ export class OrderService {
   correction(id: number, payload: CorrectOrderPayload): Observable<OrderLine[]> {
     return this.http.post<OrderLine[]>(`${API_URL}/orders/${id}/corrections`, payload);
   }
+
+  /** Gestion > Livraison uniquement — voir OrderController::updateDeliveryStatus. `delivered`
+   *  supprime la commande côté backend (déjà payée via son Ticket, comme `pay` ci-dessus), donc
+   *  cette réponse n'est alors pas un Order valide — voir delivery-list.ts::advanceStatus. */
+  updateDeliveryStatus(id: number, status: 'pending' | 'out_for_delivery' | 'delivered'): Observable<Order | { deleted: true }> {
+    return this.http.put<Order | { deleted: true }>(`${API_URL}/orders/${id}/delivery-status`, { status });
+  }
 }

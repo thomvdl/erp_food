@@ -39,4 +39,12 @@ export class ProductCatalogService extends CachedResourceService<ProductCatalog>
       .put<ProductCatalog>(`${API_URL}/product-catalogs/${id}/active-self-order`, { active })
       .pipe(tap(() => this.invalidate()));
   }
+
+  /** Même principe pour erp_public_shop (voir ProductCatalogController@setActiveForPublicShop),
+   *  indépendant des autres canaux de vente. */
+  setActiveForPublicShop(id: number, active: boolean): Observable<ProductCatalog> {
+    return this.http
+      .put<ProductCatalog>(`${API_URL}/product-catalogs/${id}/active-public-shop`, { active })
+      .pipe(tap(() => this.invalidate()));
+  }
 }

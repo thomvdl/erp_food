@@ -88,4 +88,17 @@ class ProductCatalogController extends Controller
 
         return $productCatalog->refresh();
     }
+
+    /**
+     * Même principe, pour erp_public_shop (boutique en ligne) — voir ShopCatalogController/
+     * ShopCheckoutController, qui exposent l'union des produits de tous les catalogues actifs
+     * pour ce contexte (indépendant des autres canaux de vente).
+     */
+    public function setActiveForPublicShop(Request $request, ProductCatalog $productCatalog)
+    {
+        $data = $request->validate(['active' => ['required', 'boolean']]);
+        $productCatalog->forceFill(['active_public_shop' => $data['active']])->save();
+
+        return $productCatalog->refresh();
+    }
 }

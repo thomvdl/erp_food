@@ -176,11 +176,15 @@ export class KitchenBoard implements OnDestroy {
           // file — c'est maintenant le passe qui en a la charge (vue "Passes" ou "Tout").
           .filter((section) => !(stationPerspective && section.state === 'do'))
           .map((section) => {
+            // Un produit sans station (voir Product.station_id) n'a aucun poste de préparation à
+            // qui l'assigner — il ne passe donc jamais par le kitchen display, quelle que soit la
+            // vue (y compris "Tout"), pas seulement quand un poste précis est filtré.
+            const kitchenLines = section.lines.filter((l) => l.product?.station_id != null);
             const lineIds =
               stationIds === null
-                ? new Set(section.lines.map((l) => l.id))
-                : new Set(section.lines.filter((l) => stationIds.has(l.product?.station_id ?? -1)).map((l) => l.id));
-            const determiningStationId = section.lines[0]?.product?.station_id ?? null;
+                ? new Set(kitchenLines.map((l) => l.id))
+                : new Set(kitchenLines.filter((l) => stationIds.has(l.product!.station_id!)).map((l) => l.id));
+            const determiningStationId = kitchenLines[0]?.product?.station_id ?? null;
             const determiningPasseId = determiningStationId !== null ? (stationsById.get(determiningStationId)?.passe_id ?? null) : null;
             const passe = determiningPasseId !== null ? (passesById.get(determiningPasseId) ?? null) : null;
             return { section, lineIds, passe };
@@ -280,6 +284,30 @@ export class KitchenBoard implements OnDestroy {
 
   sectionStateLabel(state: OrderSection['state']): string {
     return { en_attente: 'En attente', send: 'Validée', ask: 'Demandée', do: 'Prête', seed: 'Envoyée', done: 'Servie' }[state];
+  }
+
+  /** Badge affiché à la place du plan de salle pour une commande sans table (voir
+   *  kitchen-board.html) — toute commande sans table n'est pas forcément un kiosque (ex.
+   *  boutique en ligne, voir Order.source), contrairement à l'ancienne logique qui l'assumait. */
+  orderSourceLabel(source: string | null): string {
+    switch (source) {
+      case 'public_shop':
+        return 'Boutique en ligne';
+      case 'kiosk':
+      default:
+        return 'Kiosque';
+    }
+  }
+
+  orderSourceIcon(source: string | null): string {
+    return source === 'public_shop' ? '🛍️' : '🖥️';
+  }
+
+  /** Uniquement pertinent pour la boutique en ligne (voir Order.fulfillment_type) — le kiosque et
+   *  le POS Restaurant n'ont pas cette notion, jamais affiché pour eux. */
+  orderFulfillmentLabel(order: DisplayOrder['order']): string | null {
+    if (order.source !== 'public_shop') return null;
+    return order.fulfillment_type === 'delivery' ? '🚚 Livraison' : '🏬 À emporter';
   }
 
   /**

@@ -24,6 +24,7 @@ export class GestionHome {
   private readonly allSections: SectionLink[] = [
     { icon: '🎫', title: 'Événements', description: 'Créer et gérer les événements et leurs dates', path: '/gestion/evenements', requiredRole: 'superviseur' },
     { icon: '📋', title: 'Commandes', description: 'Suivi des commandes en cours et passées', path: '/gestion/commandes' },
+    { icon: '🚚', title: 'Livraison', description: 'Commandes de la boutique en ligne à livrer', path: '/gestion/livraison' },
     { icon: '🧾', title: 'Tickets', description: 'Historique des tickets encaissés', path: '/gestion/tickets', requiredRole: 'superviseur' },
     { icon: '🍔', title: 'Produits', description: 'Catalogue produits, prix, composition', path: '/gestion/produits', requiredRole: 'superviseur' },
     { icon: '👤', title: 'Clients', description: 'Fiches clients et historique', path: '/gestion/clients', requiredRole: 'superviseur' },

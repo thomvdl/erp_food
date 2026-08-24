@@ -159,6 +159,20 @@ services:
     depends_on:
       - api
 
+  public_shop:
+    build:
+      context: ./erp_public_shop
+    container_name: erp_v2_public_shop
+    restart: unless-stopped
+    ports:
+      - "${PUBLIC_SHOP_PORT:-19009}:4200"
+    volumes:
+      - ./erp_public_shop:/app
+      - public_shop_node_modules:/app/node_modules
+    depends_on:
+      - api
+      - reverb
+
 volumes:
   db_data:
   api_storage:
@@ -167,3 +181,4 @@ volumes:
   kitchen_display_node_modules:
   self_order_node_modules:
   kiosk_node_modules:
+  public_shop_node_modules:

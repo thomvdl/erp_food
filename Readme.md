@@ -27,18 +27,20 @@ données et une seule API.
 | `erp_self_order` | Commande client (QR à table ou en chambre) — 100% public, aucune authentification | Angular 22 | 19006 |
 | `erp_kiosk` | Kiosque de commande self-service façon fast-food (staff authentifié, encaissement immédiat) + écran de suivi | Angular 22 | 19007 |
 | `erp_public_site` | Site vitrine public (présentation, réservation restaurant, à terme billetterie événements) — 100% public, aucune authentification | Angular 22 | 19008 |
+| `erp_public_shop` | Boutique en ligne (retrait ou livraison, paiement Stripe Checkout) — 100% public, aucune authentification | Angular 22 | 19009 |
 
 `erp_self_order` a délibérément été séparé du mode kiosque dans sa propre app : c'est la seule
 surface exposée à un appareil client non maîtrisé (téléphone personnel scannant un QR), elle ne
 doit donc jamais embarquer le moindre code d'authentification/caisse — celui-ci vit uniquement
 dans `erp_kiosk`, avec l'écran de suivi (les numéros affichés y viennent des tickets kiosque, pas
-du mode QR — voir `docs/README.md`). `erp_public_site` est, comme `erp_self_order`, exposée à un
-visiteur anonyme non maîtrisé — mêmes garde-fous (routes API publiques dédiées, jamais les routes
-staff `auth:sanctum`, voir plus bas). `erp-app`, `erp_validate_event`, `erp_kitchen_display` et
+du mode QR — voir `docs/README.md`). `erp_public_site` et `erp_public_shop` sont, comme
+`erp_self_order`, exposées à un visiteur anonyme non maîtrisé — mêmes garde-fous (routes API
+publiques dédiées, jamais les routes staff `auth:sanctum`, voir plus bas). `erp-app`,
+`erp_validate_event`, `erp_kitchen_display` et
 `erp_kiosk` sont des **kiosques/écrans dédiés** (pas d'authentification multi-rôle fine — voir
-Todo) qui parlent tous à la même `erp-api`. `erp-app`, `erp_kitchen_display` et `erp_kiosk`
-(écran de suivi) s'abonnent en plus au serveur `reverb` via Laravel Echo pour se synchroniser en
-temps réel entre eux (voir plus bas).
+Todo) qui parlent tous à la même `erp-api`. `erp-app`, `erp_kitchen_display`, `erp_kiosk`
+(écran de suivi) et `erp_public_shop` (confirmation de paiement) s'abonnent en plus au serveur
+`reverb` via Laravel Echo pour se synchroniser en temps réel entre eux (voir plus bas).
 
 Adminer (client web MySQL) est aussi lancé par `docker-compose.yml`, sur le port 19080 —
 pratique pour inspecter la base pendant le développement.
@@ -57,6 +59,7 @@ docker compose up -d --build
 - Self-order (`erp_self_order`) : http://localhost:19006
 - Kiosk (`erp_kiosk`) : http://localhost:19007
 - Site public (`erp_public_site`) : http://localhost:19008
+- Boutique en ligne (`erp_public_shop`) : http://localhost:19009
 - Adminer : http://localhost:19080 (serveur `db`, voir `.env` pour les identifiants)
 
 Au premier démarrage, `docker/entrypoint.sh` du conteneur `api` lance automatiquement
@@ -85,7 +88,7 @@ cache config/route/vue), CORS restreint aux vrais domaines, et un reverse-proxy
 [Caddy](https://caddyserver.com/) devant tout qui gère le HTTPS automatiquement (Let's Encrypt).
 
 Cible : **un seul VPS**, un domaine dont les sous-domaines pointent vers son IP (enregistrements
-DNS A) : `api.`, `app.`, `kiosk.`, `self-order.`, `kitchen.`, `validate-event.`, `ws.` (Reverb).
+DNS A) : `api.`, `app.`, `kiosk.`, `self-order.`, `kitchen.`, `validate-event.`, `shop.`, `ws.` (Reverb).
 L'apex du domaine (sans sous-domaine, `mondomaine.tld`) pointe aussi vers la même IP et sert
 `erp_public_site` — c'est l'adresse destinée au grand public, contrairement aux sous-domaines
 ci-dessus qui restent internes (staff/kiosques).

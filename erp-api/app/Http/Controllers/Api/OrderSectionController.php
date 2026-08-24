@@ -174,7 +174,12 @@ class OrderSectionController extends Controller
             $line->forceFill(['done' => true])->save();
         }
 
-        $sectionFullyDone = $orderSection->lines()->where('done', false)->doesntExist();
+        // Un produit sans station (voir Product.station_id, erp_kitchen_display > kitchen-board.ts)
+        // n'apparaît jamais côté cuisine — le front n'envoie donc jamais ses lignes dans
+        // `line_ids`, elles resteraient sinon `done = false` indéfiniment et bloqueraient la
+        // section pour toujours. Ignorées ici pour ne considérer que ce que la cuisine gère
+        // réellement.
+        $sectionFullyDone = $orderSection->lines()->where('done', false)->whereHas('product', fn ($query) => $query->whereNotNull('station_id'))->doesntExist();
         if ($sectionFullyDone) {
             $orderSection->update(['state' => 'do']);
         }
@@ -224,7 +229,9 @@ class OrderSectionController extends Controller
             $line->forceFill(['sent' => true])->save();
         }
 
-        $sectionFullySent = $orderSection->lines()->where('sent', false)->doesntExist();
+        // Voir le même garde-fou dans marquerFait() ci-dessus — un produit sans station n'est
+        // jamais envoyé par la cuisine, donc jamais compté ici.
+        $sectionFullySent = $orderSection->lines()->where('sent', false)->whereHas('product', fn ($query) => $query->whereNotNull('station_id'))->doesntExist();
         if ($sectionFullySent) {
             $orderSection->update(['state' => 'seed']);
         }
@@ -238,8 +245,12 @@ class OrderSectionController extends Controller
             // Ticket créé à part au moment de la commande) : une fois entièrement préparée et
             // servie, cette Order n'a plus lieu d'exister, contrairement à une table qui reste
             // ouverte jusqu'à l'encaissement (voir OrderController::pay, qui la supprime lui-même
-            // à ce moment-là). On la supprime donc ici à sa place.
-            if ($order->table_id === null) {
+            // à ce moment-là). On la supprime donc ici à sa place. Exception : une commande
+            // boutique en ligne À LIVRER (voir Order.fulfillment_type) reste vivante après avoir
+            // été préparée — sa suppression est le rôle exclusif de
+            // OrderController::updateDeliveryStatus (statut 'delivered'), pas de la cuisine, pour
+            // qu'elle continue d'apparaître dans Gestion > Livraison le temps du trajet.
+            if ($order->table_id === null && $order->fulfillment_type !== 'delivery') {
                 $orderId = $order->id;
                 $order->delete();
 

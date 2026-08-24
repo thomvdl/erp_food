@@ -20,7 +20,7 @@
         <thead>
           <tr>
             <th>Table</th>
-            <th>Salle</th>
+            <th>Salle / Source</th>
             <th>Couverts</th>
             <th>Client</th>
             <th>Sections</th>
@@ -36,7 +36,22 @@
                 <td class="text-muted">{{ order.table.room?.name ?? '—' }}</td>
               } @else if (order.ticket_id) {
                 <td class="font-semibold">🖥️ N° {{ order.ticket_id }}</td>
-                <td class="text-muted">Kiosque</td>
+                <td>
+                  <span
+                    class="badge"
+                    [class.badge-neutral]="order.source === 'pos_vente_directe'"
+                    [class.badge-info]="order.source === 'pos_restaurant'"
+                    [class.badge-warning]="order.source === 'self_order'"
+                    [class.badge-success]="order.source === 'kiosk'"
+                    [class.badge-danger]="order.source === 'event'"
+                    [class.badge-purple]="order.source === 'public_shop'"
+                  >
+                    {{ sourceLabel(order.source) }}
+                  </span>
+                  @if (fulfillmentLabel(order); as label) {
+                    <div class="text-muted text-xs" [title]="order.delivery_address ?? ''" style="margin-top: 2px">{{ label }}</div>
+                  }
+                </td>
               } @else {
                 <td class="font-semibold">—</td>
                 <td class="text-muted">—</td>

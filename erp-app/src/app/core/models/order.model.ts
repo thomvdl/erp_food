@@ -40,6 +40,22 @@ export interface Order {
   /** Uniquement pour les commandes kiosque (voir KioskOrderController côté API) — le numéro du
    *  Ticket déjà encaissé, affiché à la place de la table dans Gestion des commandes. */
   ticket_id: number | null;
+  /** D'où vient la commande — voir Readme.md et ticket-print.util.ts::sourceLabel (même
+   *  vocabulaire que Ticket.source). Nullable : les commandes créées avant cette colonne n'ont
+   *  pas de valeur fiable à afficher. */
+  source: string | null;
+  /** Boutique en ligne uniquement (erp_public_shop, voir App\Support\ShopSaleRecorder côté API)
+   *  — absent/null pour toutes les autres sources. */
+  fulfillment_type?: 'pickup' | 'delivery' | null;
+  delivery_address?: string | null;
+  /** Coordonnées client collectées par Stripe Checkout — boutique en ligne uniquement, comme
+   *  fulfillment_type/delivery_address ci-dessus. */
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  /** Cycle de vie dédié aux commandes à livrer (voir OrderController::updateDeliveryStatus côté
+   *  API) — ces commandes ne passent jamais par le Kitchen Display, ce statut remplace le suivi
+   *  poste/passe habituel (order_sections.state). Null pour toute autre commande. */
+  delivery_status?: 'pending' | 'out_for_delivery' | 'delivered' | null;
   number_of_guests: number | null;
   client?: Client | null;
   table?: (TableElement & { room?: Room }) | null;

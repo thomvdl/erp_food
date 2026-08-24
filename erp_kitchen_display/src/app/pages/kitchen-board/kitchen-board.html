@@ -60,13 +60,16 @@
                     <span class="text-muted text-xs">{{ displayOrder.order.table.room?.name }}</span>
                   </div>
                 } @else {
-                  <div class="kitchen-card__id-badge kitchen-card__id-badge--kiosk">🖥️</div>
+                  <div class="kitchen-card__id-badge kitchen-card__id-badge--kiosk">{{ orderSourceIcon(displayOrder.order.source) }}</div>
                   <div class="kitchen-card__id-info">
                     <h2 class="text-lg">N° {{ displayOrder.order.ticket_id }}</h2>
                     <span class="text-muted text-xs">
-                      Kiosque
+                      {{ orderSourceLabel(displayOrder.order.source) }}
                       @if (displayOrder.order.table_number) {
                         — Table {{ displayOrder.order.table_number }}
+                      }
+                      @if (orderFulfillmentLabel(displayOrder.order); as fulfillmentLabel) {
+                        — {{ fulfillmentLabel }}
                       }
                     </span>
                   </div>

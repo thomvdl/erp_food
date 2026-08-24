@@ -26,6 +26,10 @@ validate-event.{$DOMAIN} {
 	reverse_proxy validate_event:80
 }
 
+shop.{$DOMAIN} {
+	reverse_proxy public_shop:80
+}
+
 ws.{$DOMAIN} {
 	reverse_proxy reverb:8080
 }

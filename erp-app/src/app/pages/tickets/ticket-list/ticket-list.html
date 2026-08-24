@@ -68,6 +68,7 @@
                   [class.badge-warning]="ticket.source === 'self_order'"
                   [class.badge-success]="ticket.source === 'kiosk'"
                   [class.badge-danger]="ticket.source === 'event'"
+                  [class.badge-purple]="ticket.source === 'public_shop'"
                 >
                   {{ ticketSourceLabel(ticket) }}
                 </span>
@@ -77,10 +78,7 @@
               <td data-label="Paiement" class="text-muted">{{ paymentSummary(ticket) }}</td>
               <td data-label="Total" class="font-semibold">{{ formatMoney(ticketTotal(ticket)) }}</td>
               <td>
-                <div class="td-actions">
-                  <a class="btn btn-ghost btn-sm" [routerLink]="[ticket.id]">Voir</a>
-                  <button type="button" class="btn btn-outline btn-sm" (click)="print(ticket)">🖨️ Réimprimer</button>
-                </div>
+                <a class="btn btn-ghost btn-sm" [routerLink]="[ticket.id]">Voir</a>
               </td>
             </tr>
           } @empty {
@@ -93,7 +91,3 @@
     }
   </div>
 </div>
-
-@if (printingTicket(); as ticket) {
-  <app-ticket-receipt class="ticket-print ticket-receipt" style="max-width: 380px; margin: 0 auto; display: block" [ticket]="ticket" />
-}
