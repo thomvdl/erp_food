@@ -2,6 +2,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CartService } from '../../core/cart.service';
+import { ClientAddressService } from '../../core/client-address.service';
 import { ShopService } from '../../core/shop.service';
 import { DeliveryAddressService } from '../../core/delivery-address.service';
 import { IS_DEV_MODE } from '../../core/dev-mode';
@@ -17,10 +18,13 @@ import { CustomerSessionService } from '../../core/customer-session.service';
  * DeliveryAddressService, partagé avec pages/catalog) — cette page se contente d'en exiger une
  * validée (dans le rayon de livraison, voir App\Support\DeliveryZone côté API) avant d'autoriser
  * le paiement quand "Livraison" est choisi. Si un compte client est connecté (voir
- * CustomerSessionService, partagé avec la topbar), pré-remplit l'email. La dépense de points de
- * fidélité n'est volontairement plus proposée ici côté front pour le moment (voir demande produit)
- * — le backend (ShopCheckoutController::store) l'accepte toujours si `points_redeemed` est envoyé,
- * gardé tel quel pour une réactivation ultérieure sans migration.
+ * CustomerSessionService, partagé avec la topbar), pré-remplit l'email, et si aucune adresse n'est
+ * déjà saisie/validée cette session, pré-remplit + revalide automatiquement son adresse par défaut
+ * (voir pages/dashboard, ClientAddressService) — n'écrase jamais une adresse déjà en cours de
+ * saisie dans la topbar. La dépense de points de fidélité n'est volontairement plus proposée ici
+ * côté front pour le moment (voir demande produit) — le backend (ShopCheckoutController::store)
+ * l'accepte toujours si `points_redeemed` est envoyé, gardé tel quel pour une réactivation
+ * ultérieure sans migration.
  */
 @Component({
   selector: 'app-checkout',
@@ -31,6 +35,7 @@ import { CustomerSessionService } from '../../core/customer-session.service';
 export class Checkout {
   private readonly router = inject(Router);
   private readonly shopService = inject(ShopService);
+  private readonly clientAddressService = inject(ClientAddressService);
   readonly cart = inject(CartService);
   readonly deliveryAddress = inject(DeliveryAddressService);
   readonly customerSession = inject(CustomerSessionService);
@@ -77,6 +82,21 @@ export class Checkout {
       next: (catalog) => this.deliveryFee.set(catalog.delivery_fee),
       error: () => undefined,
     });
+
+    const customer = this.customerSession.customer();
+    if (customer && !this.deliveryAddress.result()) {
+      this.clientAddressService.list(customer.phone, customer.email).subscribe({
+        next: (addresses) => {
+          const defaultAddress = addresses.find((a) => a.is_default);
+          // Re-vérifie qu'aucune adresse n'a été saisie entre-temps dans la topbar pendant que
+          // cet appel était en vol — ne jamais écraser une saisie en cours.
+          if (defaultAddress && !this.deliveryAddress.result()) {
+            this.deliveryAddress.check(defaultAddress.address);
+          }
+        },
+        error: () => undefined,
+      });
+    }
   }
 
   formatMoney(value: number | string): string {

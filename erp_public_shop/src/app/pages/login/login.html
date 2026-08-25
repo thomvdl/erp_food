@@ -1,0 +1,125 @@
+<div class="shop-state">
+  <div class="card card-elevated shop-login">
+    <div class="card-body">
+      <p class="shop-login__icon">🛍️</p>
+      <h1>Connexion</h1>
+      <p class="text-muted text-sm">Un compte est nécessaire pour commander.</p>
+
+      <div class="shop-login__form">
+        <button type="button" class="btn btn-outline shop-login__google" (click)="continueWithGoogle()">
+          <span aria-hidden="true">🔵</span> Continuer avec Google
+        </button>
+
+        <div class="shop-login__divider"><span>ou</span></div>
+
+        @if (authMethod() === 'password') {
+          @if (mode() === 'register') {
+            <label class="text-sm font-semibold">Prénom</label>
+            <input class="input" type="text" placeholder="Prénom" [ngModel]="firstnameDraft()" (ngModelChange)="firstnameDraft.set($event)" />
+            <input class="input" type="text" placeholder="Nom" [ngModel]="lastnameDraft()" (ngModelChange)="lastnameDraft.set($event)" />
+            <label class="text-sm font-semibold">Téléphone <span class="text-muted">(optionnel)</span></label>
+            <input class="input" type="tel" placeholder="Votre numéro de téléphone" [ngModel]="phoneDraft()" (ngModelChange)="phoneDraft.set($event)" />
+          }
+
+          <label class="text-sm font-semibold">Email</label>
+          <input
+            class="input"
+            type="email"
+            placeholder="Votre email"
+            [ngModel]="emailDraft()"
+            (ngModelChange)="emailDraft.set($event)"
+          />
+
+          <label class="text-sm font-semibold">Mot de passe</label>
+          <input
+            class="input"
+            type="password"
+            placeholder="Mot de passe (8 caractères minimum)"
+            [ngModel]="passwordDraft()"
+            (ngModelChange)="passwordDraft.set($event)"
+            (keydown.enter)="mode() === 'login' && submit()"
+          />
+
+          @if (mode() === 'register') {
+            <input
+              class="input"
+              type="password"
+              placeholder="Confirmer le mot de passe"
+              [ngModel]="passwordConfirmDraft()"
+              (ngModelChange)="passwordConfirmDraft.set($event)"
+              (keydown.enter)="submit()"
+            />
+            @if (passwordsMismatch()) {
+              <p class="error-text text-xs">Les mots de passe ne correspondent pas.</p>
+            }
+          }
+
+          <button type="button" class="btn btn-primary" [disabled]="!canSubmit()" (click)="submit()">
+            @if (session.loading()) {
+              {{ mode() === 'register' ? 'Création…' : 'Connexion…' }}
+            } @else {
+              {{ mode() === 'register' ? 'Créer un compte' : 'Se connecter' }}
+            }
+          </button>
+
+          @if (mode() === 'login') {
+            <button type="button" class="btn btn-ghost btn-sm" (click)="toggleMode()">Pas encore de compte ? Créer un compte</button>
+          } @else {
+            <button type="button" class="btn btn-ghost btn-sm" (click)="toggleMode()">Déjà un compte ? Se connecter</button>
+          }
+
+          <button type="button" class="btn btn-ghost btn-sm" (click)="switchAuthMethod('otp')">Recevoir un code par email à la place</button>
+        } @else {
+          @if (session.pendingOtp()) {
+            <label class="text-sm font-semibold">Code reçu par email</label>
+            <input
+              class="input"
+              type="text"
+              inputmode="numeric"
+              placeholder="123456"
+              [ngModel]="otpCodeDraft()"
+              (ngModelChange)="otpCodeDraft.set($event)"
+              (keydown.enter)="verifyOtp()"
+            />
+            <button type="button" class="btn btn-primary" [disabled]="session.loading() || !otpCodeDraft().trim()" (click)="verifyOtp()">
+              {{ session.loading() ? 'Vérification…' : 'Valider le code' }}
+            </button>
+            <button type="button" class="btn btn-ghost btn-sm" (click)="backToOtpForm()">‹ Retour</button>
+          } @else if (session.needsOtpSignup()) {
+            <label class="text-sm font-semibold">Nouveau client — votre nom ?</label>
+            <input class="input" type="text" placeholder="Prénom" [ngModel]="firstnameDraft()" (ngModelChange)="firstnameDraft.set($event)" />
+            <input class="input" type="text" placeholder="Nom" [ngModel]="lastnameDraft()" (ngModelChange)="lastnameDraft.set($event)" />
+            <button
+              type="button"
+              class="btn btn-primary"
+              [disabled]="session.loading() || !firstnameDraft().trim() || !lastnameDraft().trim()"
+              (click)="requestOtp()"
+            >
+              {{ session.loading() ? 'Envoi…' : 'Recevoir un code' }}
+            </button>
+          } @else {
+            <label class="text-sm font-semibold">Email</label>
+            <input
+              class="input"
+              type="email"
+              placeholder="Votre email"
+              [ngModel]="emailDraft()"
+              (ngModelChange)="emailDraft.set($event)"
+              (keydown.enter)="requestOtp()"
+            />
+            <button type="button" class="btn btn-primary" [disabled]="session.loading() || !emailDraft().trim()" (click)="requestOtp()">
+              {{ session.loading() ? 'Envoi…' : 'Recevoir un code' }}
+            </button>
+            <p class="text-muted text-xs">Nouveau client ? Un compte est créé automatiquement.</p>
+          }
+
+          <button type="button" class="btn btn-ghost btn-sm" (click)="switchAuthMethod('password')">‹ Se connecter avec un mot de passe</button>
+        }
+
+        @if (session.error()) {
+          <p class="error-text text-xs">{{ session.error() }}</p>
+        }
+      </div>
+    </div>
+  </div>
+</div>

@@ -82,6 +82,30 @@
   filter: drop-shadow(0 12px 24px rgb(0 0 0 / 20%));
 }
 
+/* ---------- Recherche ---------- */
+
+.shop-search {
+  position: relative;
+  padding: 0 var(--space-5) var(--space-4);
+}
+
+.shop-search__icon {
+  position: absolute;
+  left: calc(var(--space-5) + 0.875rem);
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--font-size-sm);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.shop-search__input {
+  width: 100%;
+  max-width: 480px;
+  padding-left: 2.5rem;
+  border-radius: var(--radius-pill);
+}
+
 /* ---------- Filtres catégorie ---------- */
 
 .shop-categories {
@@ -431,12 +455,6 @@
 @media (max-width: 720px) {
   .shop-header {
     flex-wrap: wrap;
-  }
-
-  .shop-header__search {
-    order: 3;
-    max-width: none;
-    flex-basis: 100%;
   }
 
   .shop-hero {

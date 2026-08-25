@@ -1,76 +1,20 @@
 <div class="customer-login">
-  <button type="button" class="customer-login__toggle" [class.is-connected]="session.customer()" (click)="toggle()">
-    👤 {{ label() }}
-  </button>
+  @if (session.customer(); as customer) {
+    <button type="button" class="customer-login__toggle is-connected" (click)="toggle()">
+      👤 {{ customer.firstname }} · {{ customer.points_balance }} pts
+    </button>
 
-  @if (open()) {
-    <div class="customer-login__scrim" (click)="close()"></div>
-    <div class="customer-login__panel">
-      @if (session.customer(); as customer) {
+    @if (open()) {
+      <div class="customer-login__scrim" (click)="close()"></div>
+      <div class="customer-login__panel">
         <p class="font-semibold">{{ customer.firstname }} {{ customer.lastname }}</p>
         <p class="text-muted text-sm">{{ customer.email }}</p>
         <p class="text-muted text-sm">{{ customer.points_balance }} points de fidélité</p>
-        <a class="btn btn-outline btn-sm" routerLink="/mes-commandes" (click)="close()">Mes commandes</a>
+        <a class="btn btn-outline btn-sm" routerLink="/mon-compte" (click)="close()">Mon compte</a>
         <button type="button" class="btn btn-ghost btn-sm" (click)="logout()">Se déconnecter</button>
-      } @else if (session.pendingCode()) {
-        <label class="text-sm font-semibold">Code reçu par email</label>
-        <input
-          class="input"
-          type="text"
-          inputmode="numeric"
-          placeholder="123456"
-          [ngModel]="codeDraft()"
-          (ngModelChange)="codeDraft.set($event)"
-          (keydown.enter)="verifyCode()"
-        />
-        <button type="button" class="btn btn-primary btn-sm" [disabled]="session.loading() || !codeDraft().trim()" (click)="verifyCode()">
-          {{ session.loading() ? 'Vérification…' : 'Valider le code' }}
-        </button>
-        <button type="button" class="btn btn-ghost btn-sm" (click)="backToForm()">‹ Retour</button>
-      } @else if (session.needsSignup()) {
-        <label class="text-sm font-semibold">Nouveau client — votre nom ?</label>
-        <input class="input" type="text" placeholder="Prénom" [ngModel]="firstnameDraft()" (ngModelChange)="firstnameDraft.set($event)" />
-        <input class="input" type="text" placeholder="Nom" [ngModel]="lastnameDraft()" (ngModelChange)="lastnameDraft.set($event)" />
-        <button
-          type="button"
-          class="btn btn-primary btn-sm"
-          [disabled]="session.loading() || !firstnameDraft().trim() || !lastnameDraft().trim()"
-          (click)="requestCode()"
-        >
-          {{ session.loading() ? 'Envoi…' : 'Recevoir un code' }}
-        </button>
-      } @else {
-        <label class="text-sm font-semibold">Se connecter</label>
-        <input
-          class="input"
-          type="tel"
-          placeholder="Votre numéro de téléphone"
-          [ngModel]="phoneDraft()"
-          (ngModelChange)="phoneDraft.set($event)"
-        />
-        <input
-          class="input"
-          type="email"
-          placeholder="Votre email"
-          [ngModel]="emailDraft()"
-          (ngModelChange)="emailDraft.set($event)"
-          (keydown.enter)="requestCode()"
-        />
-        <button
-          type="button"
-          class="btn btn-primary btn-sm"
-          [disabled]="session.loading() || !phoneDraft().trim() || !emailDraft().trim()"
-          (click)="requestCode()"
-        >
-          {{ session.loading() ? 'Envoi…' : 'Recevoir un code' }}
-        </button>
-        <p class="text-muted text-xs">Optionnel — retrouvez votre historique et vos points de fidélité.</p>
-        <p class="text-muted text-xs">Nouveau client ? Entrez vos infos, un compte est créé automatiquement.</p>
-      }
-
-      @if (session.error()) {
-        <p class="error-text text-xs">{{ session.error() }}</p>
-      }
-    </div>
+      </div>
+    }
+  } @else {
+    <a class="customer-login__toggle" routerLink="/connexion">👤 Se connecter</a>
   }
 </div>

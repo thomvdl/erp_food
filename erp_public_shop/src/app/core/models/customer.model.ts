@@ -1,24 +1,25 @@
-/** Réponse de ShopCustomerController::verifyCode/login — voir CustomerSessionService pour l'état
- *  persisté. */
+/** Réponse de ShopCustomerController::register/authenticate/login/exchangeGoogleToken — voir
+ *  CustomerSessionService pour l'état persisté. `phone` est nullable : un compte créé via email +
+ *  mot de passe ou Google (voir CustomerSessionService.register()/loginWithGoogle()) n'en a
+ *  généralement pas. */
 export interface Customer {
   id: number;
   firstname: string;
   lastname: string;
   email: string | null;
-  phone: string;
+  phone: string | null;
   points_balance: number;
 }
 
-/** Numéro inconnu, pas encore de compte — le front redemande prénom/nom avant de rappeler
- *  requestCode() avec (voir ShopCustomerController::requestCode). Même forme renvoyée par login()
- *  si le client a disparu entre-temps (voir CustomerSessionService.refresh()). */
+/** Renvoyé par login() si le client a disparu entre-temps (voir
+ *  CustomerSessionService.refresh()). */
 export interface CustomerLoginResult {
   exists: false;
 }
 
-/** Réponse de ShopCustomerController::requestCode — soit le code vient d'être envoyé par email,
- *  soit le numéro est inconnu et le front doit redemander prénom/nom avant de réessayer. */
-export interface RequestCodeResult {
+/** Réponse de ShopCustomerController::requestOtp — soit le code vient d'être envoyé par email,
+ *  soit l'email est inconnu et le front doit redemander prénom/nom avant de réessayer. */
+export interface RequestOtpResult {
   sent?: true;
   exists?: false;
 }

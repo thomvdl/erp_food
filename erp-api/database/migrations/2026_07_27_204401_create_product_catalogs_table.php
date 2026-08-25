@@ -33,6 +33,9 @@ return new class extends Migration
             // afficher un catalogue différent en même temps.
             $table->boolean('active_self_order')->default(false);
             $table->boolean('active_kiosk')->default(false);
+            // Idem pour la boutique en ligne (erp_public_shop) — canal de vente indépendant des
+            // précédents.
+            $table->boolean('active_public_shop')->default(false);
         });
     }
 

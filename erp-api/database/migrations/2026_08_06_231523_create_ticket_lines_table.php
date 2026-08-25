@@ -23,6 +23,10 @@ return new class extends Migration
             // jamais recalculer un total différent si le prix du Product change après coup.
             $table->decimal('unit_price', 8, 2);
             $table->foreignId('product_id')->constrained()->restrictOnDelete();
+            // Même rôle que order_lines.menu_id : trace le menu d'origine sur les lignes
+            // composants générées par un menu (nullOnDelete, ligne déjà figée par unit_price de
+            // toute façon).
+            $table->foreignId('menu_id')->nullable()->constrained('products')->nullOnDelete();
             $table->foreignId('ticket_section_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
         });

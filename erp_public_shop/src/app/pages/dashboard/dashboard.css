@@ -1,0 +1,110 @@
+:host {
+  display: block;
+  min-height: 100dvh;
+  background: var(--surface-page);
+}
+
+.shop-history-page {
+  min-height: 100dvh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.shop-history {
+  flex: 1;
+  max-width: 560px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-5) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ---------- Commandes (liste) ---------- */
+
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.order-row {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  overflow: hidden;
+}
+
+.order-row__summary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: none;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.order-row__date {
+  font-weight: 600;
+}
+
+.order-row__summary > :last-child {
+  margin-left: auto;
+}
+
+.order-row__chevron {
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.order-row__detail {
+  padding: 0 var(--space-4) var(--space-3);
+  border-top: 1px solid var(--border-color);
+}
+
+.shop-history__line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) 0;
+}
+
+/* ---------- Adresses ---------- */
+
+.address-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.address-card {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.address-card__body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.address-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.address-card--new {
+  border-style: dashed;
+}

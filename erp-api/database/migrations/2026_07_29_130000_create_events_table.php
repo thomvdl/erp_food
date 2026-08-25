@@ -18,6 +18,10 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('slug')->unique();
+            // Visuel affiché en tête d'événement (voir App\Support\ImageUpload) — même principe
+            // que Product/ProductCategory, mais sans `icon` : un event n'a jamais eu de fallback
+            // emoji.
+            $table->string('image_path')->nullable();
             $table->timestamps();
         });
     }

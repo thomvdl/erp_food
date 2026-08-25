@@ -1,7 +1,9 @@
 <?php
 
+use App\Models\ProductCategory;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -26,6 +28,13 @@ return new class extends Migration
             // Un combo est un Product comme un autre (même prix/taxe/catalogues/panier/ticket) —
             // is_combo sert juste à savoir qu'il faut charger sa composition (product_components).
             $table->boolean('is_combo')->default(false);
+            // `is_menu` : même rôle que `is_combo`, mais un menu compose par GROUPES DE CHOIX
+            // (voir menu_groups/menu_group_options) plutôt que par une liste fixe de composants.
+            $table->boolean('is_menu')->default(false);
+            // Réglage par menu (is_menu=true) : quand actif, chaque groupe de choix atterrit dans
+            // sa propre OrderSection (une par label de groupe) au lieu de la section active côté
+            // staff — voir OrderLineController::addMenu. Sans effet sur un produit normal/combo.
+            $table->boolean('split_by_section')->default(false);
             // Stock optionnel (voir App\Support\StockManager) — null = non suivi (disponibilité
             // illimitée), décrémenté uniquement à la vente réelle, jamais à l'ajout au panier.
             $table->unsignedInteger('stock_quantity')->nullable();
@@ -43,6 +52,20 @@ return new class extends Migration
             $table->string('icon', 8)->nullable();
             $table->string('image_path')->nullable();
         });
+
+        // Produit générique satisfaisant la contrainte FK de ticket_lines.product_id pour
+        // l'encaissement d'une place d'événement (voir EventTicketController::pay) — le vrai
+        // montant vient toujours de ticket_lines.unit_price, jamais de products.price ici (figé à
+        // 0). Rattaché à la catégorie "système" créée dans create_product_categories_table.
+        DB::table('products')->insert([
+            'name' => 'Billet événement',
+            'slug' => 'billet-evenement',
+            'price' => 0,
+            'active' => true,
+            'product_category_id' => ProductCategory::query()->where('slug', 'billets-evenements')->value('id'),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 
     /**

@@ -21,6 +21,11 @@ return new class extends Migration
             $table->date('date');
             $table->time('hour');
             $table->timestamp('validated_at')->nullable();
+            // Troisième état "Présent" (voir BookingController::markPresent) — validated_at reste
+            // "En attente" -> "Validée", arrived_at ajoute "Validée" -> "Présent". Une réservation
+            // présente est toujours passée par validée (markPresent force aussi validated_at si
+            // absent), donc arrived_at seul suffit à distinguer les 3 états sans colonne enum.
+            $table->timestamp('arrived_at')->nullable();
             $table->timestamps();
         });
     }

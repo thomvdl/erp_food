@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\SelfOrderController;
 use App\Http\Controllers\Api\ShopCatalogController;
 use App\Http\Controllers\Api\ShopCheckoutController;
+use App\Http\Controllers\Api\ShopCustomerAddressController;
 use App\Http\Controllers\Api\ShopCustomerController;
 use App\Http\Controllers\Api\ShopDeliveryZoneController;
 use App\Http\Controllers\Api\StationController;
@@ -87,22 +88,35 @@ Route::post('public/bookings', [PublicBookingController::class, 'store']);
 // pas de route d'écriture ici.
 Route::get('public/event-dates', [EventDateController::class, 'index']);
 
-// erp_public_shop (boutique en ligne, voir Readme.md) : catalogue parcouru librement par un
-// client anonyme + paiement Stripe Checkout hébergé (voir ShopCheckoutController) — même famille
-// que le variant QR du kiosque, sans CashSession ni QR (voir docblocks des contrôleurs). Le
-// polling de statut (show) est public pour la même raison que kiosk-checkouts/{id} ne l'est pas :
-// ici c'est le client anonyme lui-même qui interroge son propre achat au retour de Stripe, pas un
-// appareil authentifié.
+// erp_public_shop (boutique en ligne, voir Readme.md) : catalogue + paiement Stripe Checkout
+// hébergé (voir ShopCheckoutController) — même famille que le variant QR du kiosque, sans
+// CashSession ni QR (voir docblocks des contrôleurs). Le polling de statut (show) est public pour
+// la même raison que kiosk-checkouts/{id} ne l'est pas : c'est le client lui-même qui interroge son
+// propre achat au retour de Stripe, pas un appareil authentifié. Connexion obligatoire pour
+// commander (voir erp_public_shop/src/app/core/auth.guard.ts) mais toujours sans vrai token de
+// session côté API (voir docblock de ShopCustomerController) — les routes ci-dessous restent donc
+// publiques, la garde vit entièrement côté front.
 Route::get('shop/catalog', [ShopCatalogController::class, 'index']);
 // Vérification d'adresse depuis la topbar (voir ShopDeliveryZoneController) — avant même la
 // composition du panier, revérifiée de toute façon au paiement (ShopCheckoutController::store).
 Route::post('shop/delivery-check', [ShopDeliveryZoneController::class, 'check']);
-// Compte client optionnel (identification par téléphone, voir ShopCustomerController) — jamais
-// obligatoire pour commander.
-Route::post('shop/customer/request-code', [ShopCustomerController::class, 'requestCode']);
-Route::post('shop/customer/verify-code', [ShopCustomerController::class, 'verifyCode']);
+// Compte client (email + mot de passe, code par email, ou Google — voir ShopCustomerController).
+Route::post('shop/customer/register', [ShopCustomerController::class, 'register']);
+Route::post('shop/customer/authenticate', [ShopCustomerController::class, 'authenticate']);
+Route::post('shop/customer/otp/request', [ShopCustomerController::class, 'requestOtp']);
+Route::post('shop/customer/otp/verify', [ShopCustomerController::class, 'verifyOtp']);
 Route::post('shop/customer/login', [ShopCustomerController::class, 'login']);
 Route::post('shop/customer/orders', [ShopCustomerController::class, 'orders']);
+Route::get('shop/customer/google/redirect', [ShopCustomerController::class, 'redirectToGoogle']);
+Route::get('shop/customer/google/callback', [ShopCustomerController::class, 'handleGoogleCallback']);
+Route::post('shop/customer/google/exchange', [ShopCustomerController::class, 'exchangeGoogleToken']);
+// Adresses enregistrées (voir dashboard "Mon compte") — voir ShopCustomerAddressController pour
+// le modèle de confiance (identique : phone/email, jamais un id brut).
+Route::post('shop/customer/addresses/list', [ShopCustomerAddressController::class, 'index']);
+Route::post('shop/customer/addresses', [ShopCustomerAddressController::class, 'store']);
+Route::put('shop/customer/addresses/{id}', [ShopCustomerAddressController::class, 'update']);
+Route::post('shop/customer/addresses/{id}/default', [ShopCustomerAddressController::class, 'setDefault']);
+Route::delete('shop/customer/addresses/{id}', [ShopCustomerAddressController::class, 'destroy']);
 Route::post('shop/checkout', [ShopCheckoutController::class, 'store']);
 Route::get('shop/checkouts/{shop_checkout}', [ShopCheckoutController::class, 'show']);
 // Bouton "Simuler le paiement" (pages/checkout, dev/test uniquement) — voir

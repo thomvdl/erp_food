@@ -40,6 +40,9 @@ return new class extends Migration
             // Pas de contrainte FK — même raison que orders.ticket_id (voir migration
             // add_ticket_id_to_orders_table) : simple repère, jamais de suppression en cascade.
             $table->unsignedBigInteger('ticket_id')->nullable();
+            // Repère libre saisi par le client (voir orders.table_number) — figé ici comme le
+            // reste avant même que l'Order/Ticket n'existent (webhook Stripe asynchrone).
+            $table->string('table_number', 20)->nullable();
             $table->timestamps();
         });
     }

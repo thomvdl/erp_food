@@ -29,6 +29,8 @@ return new class extends Migration
             $table->integer('points_redeemed')->nullable();
             $table->decimal('points_redeemed_amount', 8, 2)->nullable();
             $table->foreignId('table_id')->nullable()->constrained('tables')->nullOnDelete();
+            // Repère libre kiosque (voir orders.table_number) — pas de plan de salle associé.
+            $table->string('table_number', 20)->nullable();
             // Voir orders.source : un ticket issu du POS Restaurant recopie la valeur de l'Order
             // dont il est né (OrderController::pay), les autres (kiosk, self_order, pos_vente)
             // sont créés directement avec leur propre source.

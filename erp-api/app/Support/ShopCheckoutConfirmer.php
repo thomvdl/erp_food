@@ -34,8 +34,8 @@ class ShopCheckoutConfirmer
 
         $paymentMethodId = PaymentMethod::query()->where('slug', 'boutique-en-ligne')->value('id');
 
-        // Si un compte client est lié (voir ShopCheckoutController::store, connexion par téléphone
-        // + code email — jamais un client_id brut fait confiance côté front), son nom/téléphone
+        // Si un compte client est lié (voir ShopCheckoutController::store, résolu par téléphone ou
+        // email — jamais un client_id brut fait confiance côté front), son nom/téléphone
         // enregistrés priment sur ceux saisis dans le formulaire Stripe : ce dernier n'est que le
         // nom/téléphone du titulaire de la carte au moment du paiement, pas forcément celui du
         // compte identifié (carte d'un proche, autofill du navigateur...) — voir Gestion >

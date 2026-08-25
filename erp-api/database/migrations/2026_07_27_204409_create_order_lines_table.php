@@ -22,6 +22,12 @@ return new class extends Migration
             // (nullOnDelete : supprimer la définition du combo ne doit pas casser des lignes déjà
             // commandées), sert à regrouper/incrémenter si on en recommande, voir syncCombo().
             $table->foreignId('combo_id')->nullable()->constrained('products')->nullOnDelete();
+            // Un menu ajouté crée une OrderLine par produit choisi (product_id = le produit
+            // réellement choisi, pas le menu) PLUS une ligne "porteuse" (product_id = le menu
+            // lui-même) qui porte le prix fixe — menu_id garde la trace du menu d'origine sur les
+            // lignes composants (nullOnDelete : supprimer la définition du menu ne doit pas casser
+            // des lignes déjà commandées).
+            $table->foreignId('menu_id')->nullable()->constrained('products')->nullOnDelete();
             // Une section peut mélanger des produits de plusieurs stations (ex. entrée froide +
             // plat chaud) — "marquer prête"/"envoyer" ne peut donc pas être une bascule au niveau
             // de la section : chaque LIGNE suit son propre statut (done/sent), la section ne
@@ -34,6 +40,11 @@ return new class extends Migration
             // inverse son effet sur le total (voir OrderController::pay). done/sent sont forcés à
             // true à la création : une correction ne repasse jamais par la cuisine.
             $table->boolean('is_correction')->default(false);
+            // Distingue la ligne "porteuse" d'un menu (priced=true, comme n'importe quel produit —
+            // c'est elle qui compte dans le total) des lignes composants (priced=false, là
+            // uniquement pour que chaque poste de cuisine voie ce qu'il doit préparer, sans être
+            // facturées en plus). Défaut true : sans effet sur les combos/lignes normales.
+            $table->boolean('priced')->default(true);
             $table->foreignId('order_section_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
         });

@@ -1728,26 +1728,6 @@ textarea.input {
   min-width: 1rem;
 }
 
-.shop-header__search {
-  flex: 0 1 320px;
-  position: relative;
-}
-
-.shop-header__search-icon {
-  position: absolute;
-  left: 0.875rem;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: var(--font-size-sm);
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.shop-header__search-input {
-  padding-left: 2.5rem;
-  border-radius: var(--radius-pill);
-}
-
 .shop-header__cart {
   flex-shrink: 0;
   display: flex;

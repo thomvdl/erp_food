@@ -42,7 +42,8 @@ class ShopCheckoutController extends Controller
             // — n'importe quel client peut saisir un code.
             'discount_code' => ['nullable', 'string'],
             // Compte client optionnel (voir ShopCustomerController) — jamais un client_id brut,
-            // toujours reroutée par le numéro (même principe que ShopCustomerController::orders).
+            // toujours reroutée par le numéro OU l'email (même principe que
+            // ShopCustomerController::orders, voir Client::findByPhoneOrEmail ci-dessous).
             'customer_phone' => ['nullable', 'string', 'max:50'],
             'points_redeemed' => ['nullable', 'integer', 'min:1'],
             // Requise si delivery — voir App\Support\DeliveryZone, revérifiée ci-dessous (jamais
@@ -62,8 +63,10 @@ class ShopCheckoutController extends Controller
             'lines.*.menu_choices.*.product_notes.*.note' => ['nullable', 'string', 'max:255'],
         ]);
 
-        // Voir ShopCustomerController::login — jamais créé ici, juste retrouvé s'il existe déjà.
-        $client = !empty($data['customer_phone']) ? Client::query()->where('phone', $data['customer_phone'])->first() : null;
+        // Voir Client::findByPhoneOrEmail — jamais créé ici, juste retrouvé s'il existe déjà.
+        // customer_email est toujours fourni (voir validation ci-dessus) donc ceci résout aussi
+        // les comptes Google/mot de passe, qui n'ont généralement pas de téléphone.
+        $client = Client::findByPhoneOrEmail($data['customer_phone'] ?? null, $data['customer_email']);
 
         $catalogIds = ProductCatalog::query()->where('active_public_shop', true)->where('active', true)->pluck('id');
 

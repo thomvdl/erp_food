@@ -1,0 +1,16 @@
+<div class="shop-state">
+  <div class="card card-elevated shop-login">
+    <div class="card-body">
+      @if (deniedByGoogle() || session.error()) {
+        <p class="shop-login__icon">⚠️</p>
+        <h1>Connexion Google impossible</h1>
+        <p class="text-muted text-sm">{{ session.error() || 'La connexion a été annulée ou a échoué.' }}</p>
+        <button type="button" class="btn btn-primary shop-login__retry" (click)="backToLogin()">Retour à la connexion</button>
+      } @else {
+        <p class="shop-login__icon">⏳</p>
+        <h1>Connexion en cours…</h1>
+        <p class="text-muted text-sm">Merci de patienter.</p>
+      }
+    </div>
+  </div>
+</div>

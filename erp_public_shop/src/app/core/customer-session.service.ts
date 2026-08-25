@@ -3,15 +3,21 @@ import { CustomerService } from './customer.service';
 import { Customer } from './models/customer.model';
 
 const STORAGE_KEY = 'erp_public_shop.customer';
+/** Clé de retour mémorisée avant la navigation pleine page vers Google (voir loginWithGoogle) —
+ *  sessionStorage et non localStorage : n'a de sens que pour cet aller-retour, pas au-delà. */
+const RETURN_URL_KEY = 'erp_public_shop.post_login_return_url';
 
 /**
- * État partagé entre le panneau topbar (voir shared/customer-login), pages/checkout (pré-
- * remplissage + points) et pages/order-history — même principe que CartService/
- * DeliveryAddressService (signal + persistance localStorage). La connexion se fait en deux temps
- * (voir requestCode()/verifyCode() ci-dessous) : un code à 6 chiffres envoyé par email prouve la
- * possession de l'adresse, seule vraie vérification du compte (voir ShopCustomerController côté
- * API pour le détail — l'ancienne identification par téléphone seul a été jugée trop faible).
- * "Se déconnecter" reste un simple oubli local, aucun vrai token de session.
+ * État partagé entre le panneau topbar (voir shared/customer-login), pages/login (connexion,
+ * obligatoire avant toute navigation — voir core/auth.guard.ts), pages/checkout (pré-remplissage +
+ * points) et pages/dashboard — même principe que CartService/DeliveryAddressService (signal +
+ * persistance localStorage). Trois façons de prouver l'identité : email + mot de passe (voir
+ * register()/authenticate()), un code à 6 chiffres par email (voir
+ * requestOtp()/verifyOtp()/cancelPendingOtp()), ou une connexion Google (voir
+ * loginWithGoogle()/completeGoogleLogin()) — voir ShopCustomerController côté API pour le détail,
+ * notamment l'arbitrage assumé de register() (un mot de passe seul ne prouve pas la possession de
+ * l'email, contrairement au code par email ou à Google). "Se déconnecter" reste un simple oubli
+ * local, aucun vrai token de session.
  */
 @Injectable({ providedIn: 'root' })
 export class CustomerSessionService {
@@ -20,35 +26,51 @@ export class CustomerSessionService {
   readonly customer = signal<Customer | null>(this.restore());
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
-  /** Vrai après requestCode() sur un numéro inconnu sans nom fourni — le composant topbar doit
-   *  alors demander prénom/nom avant de rappeler requestCode() avec. */
-  readonly needsSignup = signal(false);
-  /** Vrai après un requestCode() réussi (code envoyé) — le composant topbar doit alors afficher le
-   *  champ de saisie du code plutôt que le formulaire téléphone/email. */
-  readonly pendingCode = signal(false);
+  /** Vrai après requestOtp() sur un email inconnu sans nom fourni — pages/login doit alors
+   *  demander prénom/nom avant de rappeler requestOtp() avec. */
+  readonly needsOtpSignup = signal(false);
+  /** Vrai après un requestOtp() réussi (code envoyé) — pages/login doit alors afficher le champ de
+   *  saisie du code plutôt que le formulaire email. */
+  readonly pendingOtp = signal(false);
 
-  private pendingPhone = '';
-  private pendingEmail = '';
+  private pendingOtpEmail = '';
 
-  requestCode(phone: string, email: string, firstname?: string, lastname?: string): void {
-    const trimmedPhone = phone.trim();
-    const trimmedEmail = email.trim();
-    if (!trimmedPhone || !trimmedEmail || this.loading()) return;
+  register(email: string, password: string, firstname: string, lastname: string, phone: string | null): void {
+    if (this.loading()) return;
 
     this.loading.set(true);
     this.error.set(null);
-    this.needsSignup.set(false);
 
-    this.customerService.requestCode(trimmedPhone, trimmedEmail, firstname?.trim(), lastname?.trim()).subscribe({
+    this.customerService.register(email.trim(), password, firstname.trim(), lastname.trim(), phone?.trim() || null).subscribe({
+      next: (customer) => {
+        this.loading.set(false);
+        this.customer.set(customer);
+        this.persist(customer);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.error.set(err.error?.errors?.email?.[0] ?? err.error?.message ?? "Impossible de créer le compte.");
+      },
+    });
+  }
+
+  requestOtp(email: string, firstname?: string, lastname?: string): void {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || this.loading()) return;
+
+    this.loading.set(true);
+    this.error.set(null);
+    this.needsOtpSignup.set(false);
+
+    this.customerService.requestOtp(trimmedEmail, firstname?.trim(), lastname?.trim()).subscribe({
       next: (result) => {
         this.loading.set(false);
         if (result.exists === false) {
-          this.needsSignup.set(true);
+          this.needsOtpSignup.set(true);
           return;
         }
-        this.pendingPhone = trimmedPhone;
-        this.pendingEmail = trimmedEmail;
-        this.pendingCode.set(true);
+        this.pendingOtpEmail = trimmedEmail;
+        this.pendingOtp.set(true);
       },
       error: (err) => {
         this.loading.set(false);
@@ -57,17 +79,17 @@ export class CustomerSessionService {
     });
   }
 
-  verifyCode(code: string): void {
+  verifyOtp(code: string): void {
     const trimmed = code.trim();
-    if (!trimmed || this.loading() || !this.pendingCode()) return;
+    if (!trimmed || this.loading() || !this.pendingOtp()) return;
 
     this.loading.set(true);
     this.error.set(null);
 
-    this.customerService.verifyCode(this.pendingPhone, this.pendingEmail, trimmed).subscribe({
+    this.customerService.verifyOtp(this.pendingOtpEmail, trimmed).subscribe({
       next: (customer) => {
         this.loading.set(false);
-        this.pendingCode.set(false);
+        this.pendingOtp.set(false);
         this.customer.set(customer);
         this.persist(customer);
       },
@@ -78,12 +100,31 @@ export class CustomerSessionService {
     });
   }
 
-  /** Retour au formulaire téléphone/email depuis l'écran de saisie du code (ex. mauvais numéro
-   *  saisi) — n'annule pas le code déjà envoyé côté serveur, juste l'affichage local. */
-  cancelPendingCode(): void {
-    this.pendingCode.set(false);
-    this.needsSignup.set(false);
+  /** Retour au formulaire email depuis l'écran de saisie du code (ex. mauvaise adresse saisie) —
+   *  n'annule pas le code déjà envoyé côté serveur, juste l'affichage local. */
+  cancelPendingOtp(): void {
+    this.pendingOtp.set(false);
+    this.needsOtpSignup.set(false);
     this.error.set(null);
+  }
+
+  authenticate(email: string, password: string): void {
+    if (this.loading()) return;
+
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.customerService.authenticate(email.trim(), password).subscribe({
+      next: (customer) => {
+        this.loading.set(false);
+        this.customer.set(customer);
+        this.persist(customer);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.error.set(err.error?.errors?.email?.[0] ?? err.error?.message ?? 'Identifiants invalides.');
+      },
+    });
   }
 
   /** Rafraîchit le solde de points après une commande (voir pages/checkout) — le customer stocké
@@ -91,7 +132,7 @@ export class CustomerSessionService {
   refresh(): void {
     const current = this.customer();
     if (!current) return;
-    this.customerService.login(current.phone).subscribe({
+    this.customerService.login(current.phone, current.email).subscribe({
       next: (result) => {
         if (!('exists' in result)) {
           this.customer.set(result);
@@ -101,10 +142,54 @@ export class CustomerSessionService {
     });
   }
 
+  /** Déclenche la connexion Google — navigation pleine page (voir CustomerService.googleRedirectUrl),
+   *  jamais un appel XHR. `returnUrl` (chemin relatif, ex. "/checkout") est mémorisé pour que
+   *  pages/auth-callback sache où renvoyer l'utilisateur une fois revenu de Google. */
+  loginWithGoogle(returnUrl: string): void {
+    try {
+      sessionStorage.setItem(RETURN_URL_KEY, returnUrl);
+    } catch {
+      // Sans conséquence — voir persist()/logout(), au pire l'utilisateur atterrit sur l'accueil.
+    }
+    window.location.href = this.customerService.googleRedirectUrl();
+  }
+
+  /** Lit puis efface l'URL de retour mémorisée par loginWithGoogle() — usage unique, voir
+   *  pages/auth-callback. */
+  consumeReturnUrl(): string {
+    try {
+      const url = sessionStorage.getItem(RETURN_URL_KEY);
+      sessionStorage.removeItem(RETURN_URL_KEY);
+      return url || '/';
+    } catch {
+      return '/';
+    }
+  }
+
+  /** Voir pages/auth-callback — échange le token reçu au retour de Google (voir
+   *  ShopCustomerController::exchangeGoogleToken) contre le client, même traitement que
+   *  register()/authenticate(). */
+  completeGoogleLogin(token: string): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.customerService.exchangeGoogleToken(token).subscribe({
+      next: (customer) => {
+        this.loading.set(false);
+        this.customer.set(customer);
+        this.persist(customer);
+      },
+      error: (err) => {
+        this.loading.set(false);
+        this.error.set(err.error?.message ?? 'Connexion Google impossible.');
+      },
+    });
+  }
+
   logout(): void {
     this.customer.set(null);
-    this.needsSignup.set(false);
-    this.pendingCode.set(false);
+    this.needsOtpSignup.set(false);
+    this.pendingOtp.set(false);
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch {

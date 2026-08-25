@@ -14,6 +14,10 @@ return new class extends Migration
         Schema::create('rooms', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            // Optionnel : sert de préfixe au label auto-généré des tables de la salle (ex. "BAR"
+            // -> BAR-1, BAR-2 — voir FloorPlanEditor::nextTableLabel côté erp-app). Si vide,
+            // l'éditeur retombe sur le préfixe par défaut "T".
+            $table->string('prefix')->nullable();
             $table->string('slug')->unique();
             // 'restaurant' par défaut : les salles existantes ont été créées pour le plan de
             // salle du POS Restaurant avant que ce champ n'existe.

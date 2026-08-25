@@ -11,13 +11,12 @@ return new class extends Migration
      * — même principe que kiosk_checkouts (voir create_kiosk_checkouts_table) : le site crée
      * cette ligne au moment où le client valide son panier, mais le Ticket/Order réels (voir
      * App\Support\ShopSaleRecorder) ne sont créés qu'une fois le webhook Stripe reçu (voir
-     * App\Http\Controllers\Api\StripeWebhookController). `lines`/`total`/`delivery_fee` sont
-     * figés ici au moment de la commande, jamais recalculés par le webhook. Contrairement à
-     * kiosk_checkouts : pas de cash_session_id/client_id/discount_x/points_x (aucun caissier
-     * physique, pas de compte client pour la boutique en v1) ; customer_name/email/phone et
-     * delivery_address ne sont connus qu'après paiement (collectés par Stripe Checkout lui-même
-     * — voir shipping_address_collection/customer_details dans ShopCheckoutController), donc
-     * nullable, remplis par le webhook.
+     * App\Http\Controllers\Api\StripeWebhookController). `lines`/`total`/`delivery_fee`/
+     * `discount_id`/`discount_amount`/`client_id`/`points_*` sont tous figés ici au moment de la
+     * commande (avant paiement, voir ShopCheckoutController::store), jamais recalculés par le
+     * webhook — pas de cash_session_id en revanche, contrairement à kiosk_checkouts : aucun
+     * caissier physique sur la boutique en ligne. `client_id` résolu par téléphone/email au moment
+     * de la commande (jamais un id brut envoyé par le front, voir ShopCustomerController).
      */
     public function up(): void
     {
@@ -37,6 +36,16 @@ return new class extends Migration
             $table->string('customer_email')->nullable();
             $table->string('customer_phone')->nullable();
             $table->text('delivery_address')->nullable();
+            // Code de réduction (voir App\Support\DiscountCalculator) — n'importe quel client
+            // anonyme peut en saisir un, pas de garde de rôle (route publique).
+            $table->foreignId('discount_id')->nullable()->constrained('discounts')->nullOnDelete();
+            $table->decimal('discount_amount', 8, 2)->nullable();
+            // Compte client optionnel (voir ShopCustomerController) — points_earned/redeemed/
+            // redeemed_amount figés à la création comme le reste, jamais recalculés par le webhook.
+            $table->foreignId('client_id')->nullable()->constrained('clients')->nullOnDelete();
+            $table->integer('points_earned')->nullable();
+            $table->integer('points_redeemed')->nullable();
+            $table->decimal('points_redeemed_amount', 8, 2)->nullable();
             // Pas de contrainte FK — même raison que kiosk_checkouts.ticket_id/orders.ticket_id :
             // simple repère, jamais de suppression en cascade.
             $table->unsignedBigInteger('ticket_id')->nullable();
