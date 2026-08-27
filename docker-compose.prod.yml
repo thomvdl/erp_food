@@ -2,8 +2,8 @@
 # Fichier autonome (pas un override de docker-compose.yml, qui reste dédié au dev avec bind
 # mounts + ng serve) — voir Readme.md, section "Déploiement en production", pour le process complet.
 #
-# `name:` ci-dessous donne à ce fichier son propre projet Compose ("erp_v2_prod"), distinct de
-# celui du compose dev ("erp_v2", nom par défaut basé sur le dossier) — sans ça, Docker Compose
+# `name:` ci-dessous donne à ce fichier son propre projet Compose ("erp_food_prod"), distinct de
+# celui du compose dev ("erp_food", nom par défaut basé sur le dossier) — sans ça, Docker Compose
 # utilise le même nom de projet pour les deux fichiers (juste le nom du dossier), et les
 # `container_name:` fixes ci-dessous entrent en collision directe avec ceux de docker-compose.yml
 # : lancer ce fichier recrée alors les conteneurs dev en place avec la config prod (vécu — Caddy
@@ -16,12 +16,12 @@
 # api.$DOMAIN, app.$DOMAIN, kiosk.$DOMAIN, self-order.$DOMAIN, kitchen.$DOMAIN,
 # validate-event.$DOMAIN, shop.$DOMAIN, ws.$DOMAIN (Reverb).
 
-name: erp_v2_prod
+name: erp_food_prod
 
 services:
   db:
     image: mysql:8.4
-    container_name: erp_v2_prod_db
+    container_name: erp_food_prod_db
     restart: unless-stopped
     command: >
       --innodb-buffer-pool-size=256M
@@ -29,8 +29,8 @@ services:
       --key-buffer-size=16M
       --max-connections=100
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-erp_v2}
-      MYSQL_USER: ${DB_USERNAME:-erp_v2_user}
+      MYSQL_DATABASE: ${DB_DATABASE:-erp_food}
+      MYSQL_USER: ${DB_USERNAME:-erp_food_user}
       MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD doit être défini dans .env}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD doit être défini dans .env}
     volumes:
@@ -45,7 +45,7 @@ services:
   api:
     build:
       context: ./erp-api
-    container_name: erp_v2_prod_api
+    container_name: erp_food_prod_api
     restart: unless-stopped
     depends_on:
       db:
@@ -75,7 +75,7 @@ services:
   reverb:
     build:
       context: ./erp-api
-    container_name: erp_v2_prod_reverb
+    container_name: erp_food_prod_reverb
     restart: unless-stopped
     entrypoint: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
     depends_on:
@@ -96,7 +96,7 @@ services:
     build:
       context: ./erp-app
       dockerfile: Dockerfile.prod
-    container_name: erp_v2_prod_app
+    container_name: erp_food_prod_app
     restart: unless-stopped
     environment:
       API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
@@ -110,7 +110,7 @@ services:
     build:
       context: ./erp_validate_event
       dockerfile: Dockerfile.prod
-    container_name: erp_v2_prod_validate_event
+    container_name: erp_food_prod_validate_event
     restart: unless-stopped
     environment:
       API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
@@ -121,7 +121,7 @@ services:
     build:
       context: ./erp_kitchen_display
       dockerfile: Dockerfile.prod
-    container_name: erp_v2_prod_kitchen_display
+    container_name: erp_food_prod_kitchen_display
     restart: unless-stopped
     environment:
       API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
@@ -136,7 +136,7 @@ services:
     build:
       context: ./erp_self_order
       dockerfile: Dockerfile.prod
-    container_name: erp_v2_prod_self_order
+    container_name: erp_food_prod_self_order
     restart: unless-stopped
     environment:
       API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
@@ -150,7 +150,7 @@ services:
     build:
       context: ./erp_kiosk
       dockerfile: Dockerfile.prod
-    container_name: erp_v2_prod_kiosk
+    container_name: erp_food_prod_kiosk
     restart: unless-stopped
     environment:
       API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
@@ -164,7 +164,7 @@ services:
     build:
       context: ./erp_public_shop
       dockerfile: Dockerfile.prod
-    container_name: erp_v2_prod_public_shop
+    container_name: erp_food_prod_public_shop
     restart: unless-stopped
     environment:
       API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
@@ -177,7 +177,7 @@ services:
 
   caddy:
     image: caddy:2-alpine
-    container_name: erp_v2_prod_caddy
+    container_name: erp_food_prod_caddy
     restart: unless-stopped
     env_file: ./.env
     environment:

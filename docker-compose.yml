@@ -1,7 +1,7 @@
 services:
   db:
     image: mysql:8.4
-    container_name: erp_v2_db
+    container_name: erp_food_db
     restart: unless-stopped
     # Réglages mémoire réduits (buffer pool par défaut de MySQL 8.4 vise plusieurs centaines de
     # Mo) — la VM Docker de cette machine n'a que ~970 Mo au total pour tous les conteneurs
@@ -17,9 +17,9 @@ services:
       --max-connections=50
       --performance-schema=OFF
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-erp_v2}
-      MYSQL_USER: ${DB_USERNAME:-erp_v2_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-erp_v2_password}
+      MYSQL_DATABASE: ${DB_DATABASE:-erp_food}
+      MYSQL_USER: ${DB_USERNAME:-erp_food_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-erp_food_password}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password}
     ports:
       - "${DB_PORT:-19306}:3306"
@@ -33,7 +33,7 @@ services:
 
   adminer:
     image: adminer
-    container_name: erp_v2_adminer
+    container_name: erp_food_adminer
     restart: unless-stopped
     ports:
       - "${ADMINER_PORT:-19080}:8080"
@@ -43,7 +43,7 @@ services:
   api:
     build:
       context: ./erp-api
-    container_name: erp_v2_api
+    container_name: erp_food_api
     restart: unless-stopped
     depends_on:
       db:
@@ -74,7 +74,7 @@ services:
   reverb:
     build:
       context: ./erp-api
-    container_name: erp_v2_reverb
+    container_name: erp_food_reverb
     restart: unless-stopped
     entrypoint: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
     depends_on:
@@ -96,7 +96,7 @@ services:
   app:
     build:
       context: ./erp-app
-    container_name: erp_v2_app
+    container_name: erp_food_app
     restart: unless-stopped
     ports:
       - "${APP_PORT:-19002}:4200"
@@ -109,7 +109,7 @@ services:
   validate_event:
     build:
       context: ./erp_validate_event
-    container_name: erp_v2_validate_event
+    container_name: erp_food_validate_event
     restart: unless-stopped
     ports:
       - "${VALIDATE_EVENT_PORT:-19003}:4200"
@@ -122,7 +122,7 @@ services:
   kitchen_display:
     build:
       context: ./erp_kitchen_display
-    container_name: erp_v2_kitchen_display
+    container_name: erp_food_kitchen_display
     restart: unless-stopped
     ports:
       - "${KITCHEN_DISPLAY_PORT:-19005}:4200"
@@ -136,7 +136,7 @@ services:
   self_order:
     build:
       context: ./erp_self_order
-    container_name: erp_v2_self_order
+    container_name: erp_food_self_order
     restart: unless-stopped
     ports:
       - "${SELF_ORDER_PORT:-19006}:4200"
@@ -149,7 +149,7 @@ services:
   kiosk:
     build:
       context: ./erp_kiosk
-    container_name: erp_v2_kiosk
+    container_name: erp_food_kiosk
     restart: unless-stopped
     ports:
       - "${KIOSK_PORT:-19007}:4200"
@@ -162,7 +162,7 @@ services:
   public_shop:
     build:
       context: ./erp_public_shop
-    container_name: erp_v2_public_shop
+    container_name: erp_food_public_shop
     restart: unless-stopped
     ports:
       - "${PUBLIC_SHOP_PORT:-19009}:4200"
