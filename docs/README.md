@@ -11,6 +11,7 @@ le [`Readme.md`](../Readme.md) à la racine du projet.
 
 ## Sommaire
 
+- [Première configuration — que créer, dans quel ordre](premiere-configuration.md)
 - [Architecture](#architecture)
 - [Démarrer le projet](#démarrer-le-projet)
 - [Temps réel (Laravel Echo / Reverb)](#temps-réel-laravel-echo--reverb)
