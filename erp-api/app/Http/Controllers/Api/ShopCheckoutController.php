@@ -61,7 +61,12 @@ class ShopCheckoutController extends Controller
             'lines.*.menu_choices.*.product_notes' => ['array'],
             'lines.*.menu_choices.*.product_notes.*.product_id' => ['integer'],
             'lines.*.menu_choices.*.product_notes.*.note' => ['nullable', 'string', 'max:255'],
+            // Bouton "Simuler le paiement" (voir simulate() plus bas) — ignoré hors dev/test
+            // (même garde que simulate()) : jamais de vraie commande créée sans session Stripe
+            // en production, même si un client forgeait cette requête à la main.
+            'simulate' => ['boolean'],
         ]);
+        $simulate = ($data['simulate'] ?? false) && !app()->isProduction();
 
         // Voir Client::findByPhoneOrEmail — jamais créé ici, juste retrouvé s'il existe déjà.
         // customer_email est toujours fourni (voir validation ci-dessus) donc ceci résout aussi
@@ -166,6 +171,14 @@ class ShopCheckoutController extends Controller
             'points_redeemed' => $pointsRedeemed > 0 ? $pointsRedeemed : null,
             'points_redeemed_amount' => $pointsRedeemed > 0 ? round($pointsRedeemedAmount, 2) : null,
         ]);
+
+        // $simulate : aucune session Stripe créée du tout — le front appellera simulate() juste
+        // après avec cet id (voir checkout.ts) au lieu de rediriger vers checkout_url. Sans ce
+        // court-circuit, store() exigeait des clés Stripe même pour tester le parcours en
+        // dev/test alors que simulate() n'en a jamais eu besoin lui-même.
+        if ($simulate) {
+            return response()->json(['id' => $shopCheckout->id, 'checkout_url' => null], 201);
+        }
 
         $shopUrl = rtrim(config('app.shop_url'), '/');
 

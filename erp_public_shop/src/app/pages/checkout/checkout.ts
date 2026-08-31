@@ -116,13 +116,15 @@ export class Checkout {
       // Pas de cart.clear() ici : si le client revient en arrière depuis Stripe sans payer
       // (onglet fermé, navigation manuelle), le panier doit rester composé — seule une
       // confirmation de paiement réussie (pages/confirmation) justifie de le vider.
-      window.location.href = res.checkout_url;
+      // Non-null : checkout_url n'est null que si simulate=true a été envoyé (voir createCheckout).
+      window.location.href = res.checkout_url!;
     });
   }
 
   /** Bouton de test (dev/test uniquement, voir isDevMode) : crée le même ShopCheckout qu'un
-   *  paiement réel, mais appelle ShopCheckoutController::simulate au lieu de rediriger vers
-   *  Stripe — évite de ressaisir une carte de test à chaque essai. */
+   *  paiement réel, mais avec simulate=true — le serveur ne crée alors aucune session Stripe
+   *  (voir ShopCheckoutController::store) et on appelle directement ShopCheckoutController::simulate
+   *  au lieu de rediriger vers Stripe. */
   simulate(): void {
     this.createCheckout((res) => {
       this.shopService.simulatePayment(res.id).subscribe({
@@ -136,10 +138,10 @@ export class Checkout {
           this.submitError.set(err.error?.message ?? 'Impossible de simuler le paiement.');
         },
       });
-    });
+    }, true);
   }
 
-  private createCheckout(onSuccess: (res: ShopCheckoutResponse) => void): void {
+  private createCheckout(onSuccess: (res: ShopCheckoutResponse) => void, simulate = false): void {
     if (this.cart.lines().length === 0 || this.submitting() || !this.canSubmit()) return;
     this.submitting.set(true);
     this.submitError.set(null);
@@ -157,6 +159,7 @@ export class Checkout {
           note: line.note || null,
           menu_choices: line.menuChoices,
         })),
+        simulate,
       })
       .subscribe({
         next: onSuccess,

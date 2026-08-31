@@ -119,12 +119,18 @@ export interface ShopCheckoutPayload {
   /** Revalidé côté serveur (App\Support\LoyaltyPoints) — jamais de montant envoyé par le client,
    *  juste le nombre de points. */
   points_redeemed?: number | null;
+  /** Bouton "Simuler le paiement" (voir pages/checkout, dev/test uniquement) — ignoré côté
+   *  serveur hors dev/test (voir ShopCheckoutController::store), jamais de vraie commande sans
+   *  session Stripe en production même en cas de payload forgé. */
+  simulate?: boolean;
   lines: ShopLinePayload[];
 }
 
 export interface ShopCheckoutResponse {
   id: number;
-  checkout_url: string;
+  /** null quand `simulate: true` a été envoyé — aucune session Stripe créée, voir
+   *  ShopCheckoutController::store. */
+  checkout_url: string | null;
 }
 
 export interface ShopCheckoutStatus {
