@@ -31,6 +31,21 @@
   flex-direction: column;
 }
 
+/* Topbar + bandeau catégories collés en haut du viewport pendant que .self-order-menu défile en
+ *  dessous (retour utilisateur) — nécessaire ici contrairement à kiosk-order.css : self_order
+ *  tourne dans un navigateur mobile normal (page-scroll classique, voir :host ci-dessus), pas dans
+ *  un viewport figé avec régions scrollables internes, donc rien ne reste "fixe" sans position:
+ *  sticky explicite. background opaque obligatoire : sans lui le contenu qui défile en dessous
+ *  transparaîtrait à travers le bandeau une fois collé. */
+.self-order-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  flex-shrink: 0;
+  background: var(--surface-page);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+}
+
 .self-order-topbar {
   flex-shrink: 0;
   display: flex;
@@ -215,6 +230,21 @@
   /* padding-top : sans lui, le badge de quantité (top: -6px, voir __badge) de la première
      rangée de produits se fait couper net par le bord du conteneur. */
   padding: 10px var(--space-5) calc(96px + var(--space-5));
+}
+
+/* Une section par catégorie, toutes affichées à la suite dans .self-order-menu (voir
+ *  groupedCategories côté TS) — le bandeau de pastilles (.self-order-category-strip, dans le
+ *  bloc collant .self-order-sticky-header) ne filtre plus la grille, il ne fait que défiler
+ *  jusqu'à l'ancre [id] de la section correspondante (scrollToCategory). */
+.self-order-category-section + .self-order-category-section {
+  margin-top: var(--space-6);
+}
+
+.self-order-category-section__title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .self-order-menu__grid {

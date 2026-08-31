@@ -37,15 +37,43 @@
   </div>
 } @else {
   <div class="self-order-page">
-    <header class="self-order-topbar">
+    <!-- Regroupe topbar + bandeau catégories dans un même bloc collant (position: sticky) — voir
+         .self-order-sticky-header : contrairement au kiosque (device dédié, viewport figé +
+         régions scrollables internes), self_order tourne dans un navigateur mobile normal où toute
+         la page défile, donc rien ne reste visible en scrollant sans position: sticky explicite. -->
+    <div class="self-order-sticky-header">
+      <header class="self-order-topbar">
+        @if (!homeScreen()) {
+          <button type="button" class="self-order-topbar__back" (click)="goHome()">‹ Retour</button>
+        } @else {
+          <button type="button" class="self-order-topbar__back" (click)="backToScan()">‹ Autre table</button>
+        }
+        <span class="self-order-topbar__brand">🍽️ {{ context()?.table?.label }}</span>
+        <span class="self-order-topbar__spacer"></span>
+      </header>
+
       @if (!homeScreen()) {
-        <button type="button" class="self-order-topbar__back" (click)="goHome()">‹ Retour</button>
-      } @else {
-        <button type="button" class="self-order-topbar__back" (click)="backToScan()">‹ Autre table</button>
+        <nav class="self-order-category-strip">
+          @for (category of categories(); track category.id) {
+            <button
+              type="button"
+              class="self-order-category-pill"
+              [class.is-active]="selectedCategoryId() === category.id"
+              (click)="scrollToCategory(category.id)"
+            >
+              <span class="self-order-category-pill__icon">
+                @if (category.image_url) {
+                  <img [src]="category.image_url" alt="" />
+                } @else {
+                  {{ category.icon ?? categoryEmoji(category.id) }}
+                }
+              </span>
+              <span class="self-order-category-pill__label">{{ category.name }}</span>
+            </button>
+          }
+        </nav>
       }
-      <span class="self-order-topbar__brand">🍽️ {{ context()?.table?.label }}</span>
-      <span class="self-order-topbar__spacer"></span>
-    </header>
+    </div>
 
     @if (homeScreen()) {
       <div class="self-order-home">
@@ -54,7 +82,7 @@
 
         <div class="self-order-home__grid">
           @for (category of categories(); track category.id) {
-            <button type="button" class="self-order-tile" (click)="openCategory(category.id)">
+            <button type="button" class="self-order-tile" (click)="scrollToCategory(category.id)">
               <span class="self-order-tile__media">
                 @if (category.image_url) {
                   <img [src]="category.image_url" alt="" />
@@ -69,56 +97,41 @@
       </div>
     } @else {
       <div class="self-order-browse">
-        <nav class="self-order-category-strip">
-          @for (category of categories(); track category.id) {
-            <button
-              type="button"
-              class="self-order-category-pill"
-              [class.is-active]="selectedCategoryId() === category.id"
-              (click)="selectedCategoryId.set(category.id)"
-            >
-              <span class="self-order-category-pill__icon">
-                @if (category.image_url) {
-                  <img [src]="category.image_url" alt="" />
-                } @else {
-                  {{ category.icon ?? categoryEmoji(category.id) }}
-                }
-              </span>
-              <span class="self-order-category-pill__label">{{ category.name }}</span>
-            </button>
-          }
-        </nav>
-
         <section class="self-order-menu">
-          <div class="self-order-menu__grid">
-            @for (product of filteredProducts(); track product.id) {
-              <button type="button" class="self-order-product-card" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
-                @if (isOutOfStock(product)) {
-                  <span class="self-order-product-card__ribbon">Rupture de stock</span>
-                } @else if (quantityInCart(product) > 0) {
-                  <span class="self-order-product-card__badge">{{ quantityInCart(product) }}</span>
-                }
-                <span class="self-order-product-card__media">
-                  @if (product.image_url) {
-                    <img [src]="product.image_url" alt="" />
-                  } @else {
-                    <span class="self-order-product-card__emoji">{{ product.icon ?? productEmoji(product) }}</span>
-                  }
-                </span>
-                <span class="self-order-product-card__name">{{ product.name }}</span>
-                <span class="self-order-product-card__price">{{ formatMoney(product.price) }}</span>
-                @if (remainingStock(product); as remaining) {
-                  @if (remaining > 0) {
-                    <span class="self-order-product-card__stock" [class.self-order-product-card__stock--low]="isLowStock(product)">
-                      {{ remaining }} en stock
+          @for (group of groupedCategories(); track group.category.id) {
+            <section class="self-order-category-section" [id]="categoryAnchorId(group.category.id)">
+              <h2 class="self-order-category-section__title">{{ group.category.name }}</h2>
+              <div class="self-order-menu__grid">
+                @for (product of group.products; track product.id) {
+                  <button type="button" class="self-order-product-card" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
+                    @if (isOutOfStock(product)) {
+                      <span class="self-order-product-card__ribbon">Rupture de stock</span>
+                    } @else if (quantityInCart(product) > 0) {
+                      <span class="self-order-product-card__badge">{{ quantityInCart(product) }}</span>
+                    }
+                    <span class="self-order-product-card__media">
+                      @if (product.image_url) {
+                        <img [src]="product.image_url" alt="" />
+                      } @else {
+                        <span class="self-order-product-card__emoji">{{ product.icon ?? productEmoji(product) }}</span>
+                      }
                     </span>
-                  }
+                    <span class="self-order-product-card__name">{{ product.name }}</span>
+                    <span class="self-order-product-card__price">{{ formatMoney(product.price) }}</span>
+                    @if (remainingStock(product); as remaining) {
+                      @if (remaining > 0) {
+                        <span class="self-order-product-card__stock" [class.self-order-product-card__stock--low]="isLowStock(product)">
+                          {{ remaining }} en stock
+                        </span>
+                      }
+                    }
+                  </button>
                 }
-              </button>
-            } @empty {
-              <p class="text-muted">Aucun produit dans cette catégorie.</p>
-            }
-          </div>
+              </div>
+            </section>
+          } @empty {
+            <p class="text-muted">Aucun produit disponible.</p>
+          }
         </section>
       </div>
     }

@@ -101,7 +101,7 @@ export class Order {
 
   /** Écran d'accueil en tuiles catégories avant la grille produit — même pattern que
    *  kiosk-order.ts (homeScreen). Vrai à l'arrivée sur le menu, puis basculé une fois pour la
-   *  session (voir openCategory()) : contrairement au kiosque, un client self_order ne revient
+   *  session (voir scrollToCategory()) : contrairement au kiosque, un client self_order ne revient
    *  jamais "à l'accueil" entre deux commandes (une seule table, une seule visite). */
   readonly homeScreen = signal(true);
   readonly showCart = signal(false);
@@ -129,11 +129,16 @@ export class Order {
     return Array.from(byId.values()).sort((a, b) => a.position - b.position);
   });
 
-  readonly filteredProducts = computed(() => {
-    const categoryId = this.selectedCategoryId();
-    return (this.context()?.products ?? []).filter(
-      (product) => categoryId === null || (product.category?.id ?? null) === categoryId,
-    );
+  /** Tous les produits disponibles, groupés par catégorie (même ordre que `categories`) — la
+   *  grille ne filtre plus par catégorie sélectionnée (retour utilisateur : afficher tout le menu
+   *  d'un coup, même changement que kiosk-order.ts), la pastille tapée ne fait plus que défiler
+   *  jusqu'à sa section (voir scrollToCategory ci-dessous). */
+  readonly groupedCategories = computed(() => {
+    const products = this.context()?.products ?? [];
+    return this.categories().map((category) => ({
+      category,
+      products: products.filter((product) => (product.category?.id ?? null) === category.id),
+    }));
   });
 
   readonly cartCount = computed(() => this.cart().reduce((sum, line) => sum + line.quantity, 0));
@@ -193,11 +198,30 @@ export class Order {
     return categoryId === null ? '🍽️' : PRODUCT_EMOJIS[categoryId % PRODUCT_EMOJIS.length];
   }
 
-  /** Tuile catégorie de l'accueil tapée — categoryId est null pour le bucket "Autres" (produits
-   *  sans catégorie), voir `categories` computed. Voir homeScreen. */
-  openCategory(categoryId: number | null): void {
+  /** Identifiant d'ancre DOM d'une section catégorie — categoryId est null pour le bucket
+   *  "Autres" (produits sans catégorie), voir `categories`/`groupedCategories` computed. */
+  categoryAnchorId(categoryId: number | null): string {
+    return `self-order-category-${categoryId ?? 'other'}`;
+  }
+
+  /** Tuile catégorie de l'accueil OU pastille de la barre de nav (self-order-category-strip) —
+   *  les deux ne font plus que défiler jusqu'à la bonne section : tous les produits restent
+   *  affichés en permanence (voir groupedCategories), il n'y a plus de filtrage par catégorie.
+   *  Depuis l'accueil, la section n'existe pas encore dans le DOM tant que homeScreen n'est pas
+   *  repassé à false — d'où le setTimeout, le temps qu'Angular rende l'écran de navigation. */
+  scrollToCategory(categoryId: number | null): void {
+    const wasHome = this.homeScreen();
     this.selectedCategoryId.set(categoryId);
     this.homeScreen.set(false);
+
+    const scroll = () =>
+      document.getElementById(this.categoryAnchorId(categoryId))?.scrollIntoView({ behavior: wasHome ? 'auto' : 'smooth', block: 'start' });
+
+    if (wasHome) {
+      setTimeout(scroll, 0);
+    } else {
+      scroll();
+    }
   }
 
   goHome(): void {
