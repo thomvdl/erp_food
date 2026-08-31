@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use App\Models\Param;
 use App\Models\Printer as PrinterModel;
 use App\Models\Ticket;
 use Mike42\Escpos\PrintConnectors\NetworkPrintConnector;
@@ -18,25 +17,20 @@ use RuntimeException;
  */
 class ThermalReceipt
 {
-    /** Voir Paramètres > Réglages (App\Models\Param, clé/valeur libre) — IP modifiable sans
-     *  redéploiement, contrairement à PRINTER_HOST (config/printer.php) qui reste le filet de
-     *  secours si aucune ligne "ip_printer_kiosk" n'existe encore en base. Utilisé uniquement
-     *  quand aucune App\Models\Printer précise n'est passée à print() (voir $printer ci-dessous) —
-     *  ancien comportement (une seule imprimante pour tout le système), conservé pour les
-     *  installations à un seul poste qui n'ont pas besoin de configurer plusieurs imprimantes. */
-    private const PARAM_KEY = 'ip_printer_kiosk';
-
     /**
      * $printer : l'imprimante choisie par CE poste (voir ActivePrinterService côté erp-app/
-     * erp_kiosk, TicketController::printThermal) — absente, retombe sur l'IP globale unique
-     * (comportement historique, voir PARAM_KEY ci-dessus).
+     * erp_kiosk, TicketController::printThermal) — absente, retombe sur PRINTER_HOST (.env), pour
+     * les installations à un seul poste qui n'ont pas besoin de configurer plusieurs imprimantes.
+     * Le réglage Paramètres "ip_printer_kiosk" a existé un temps comme fallback intermédiaire
+     * (IP modifiable sans redéploiement) mais a été retiré (retour utilisateur : plus qu'une seule
+     * source de vérité, éviter la confusion sur quelle IP est réellement utilisée).
      */
     public static function print(Ticket $ticket, ?PrinterModel $printer = null): void
     {
-        $host = $printer?->ip_address ?? (Param::where('name', self::PARAM_KEY)->value('value') ?: config('printer.host'));
+        $host = $printer?->ip_address ?? config('printer.host');
 
         if (!$host) {
-            throw new RuntimeException("Aucune imprimante thermique configurée (choisissez une imprimante pour ce poste, ou ajoutez un réglage \"" . self::PARAM_KEY . "\" dans Paramètres > Réglages, ou PRINTER_HOST).");
+            throw new RuntimeException('Aucune imprimante thermique configurée (choisissez une imprimante pour ce poste, ou définissez PRINTER_HOST).');
         }
 
         $port = $printer?->port ?? (int) config('printer.port', 9100);
