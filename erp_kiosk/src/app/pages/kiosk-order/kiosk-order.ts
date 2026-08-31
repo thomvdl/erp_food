@@ -270,9 +270,16 @@ export class KioskOrder implements OnInit, OnDestroy {
     return Array.from(byId.values()).sort((a, b) => a.position - b.position);
   });
 
-  readonly filteredProducts = computed(() => {
-    const categoryId = this.selectedCategoryId();
-    return this.availableProducts().filter((product) => categoryId === null || (product.category?.id ?? null) === categoryId);
+  /** Tous les produits disponibles, groupés par catégorie (même ordre que `categories`) — la
+   *  grille ne filtre plus par catégorie sélectionnée (retour utilisateur : afficher tout le menu
+   *  d'un coup), la pastille tapée ne fait plus que défiler jusqu'à sa section (voir
+   *  scrollToCategory ci-dessous). */
+  readonly groupedCategories = computed(() => {
+    const products = this.availableProducts();
+    return this.categories().map((category) => ({
+      category,
+      products: products.filter((product) => (product.category?.id ?? null) === category.id),
+    }));
   });
 
   readonly cartTotal = computed(() => this.cart().reduce((sum, line) => sum + Number(line.product.price) * line.quantity, 0));
@@ -697,11 +704,30 @@ export class KioskOrder implements OnInit, OnDestroy {
     this.tableNumberConfirmed.set(true);
   }
 
-  /** Tuile catégorie de l'accueil tapée — categoryId est null pour le bucket "Autres" (produits
-   *  sans catégorie), voir `categories` computed. Voir homeScreen. */
-  openCategory(categoryId: number | null): void {
+  /** Identifiant d'ancre DOM d'une section catégorie — categoryId est null pour le bucket
+   *  "Autres" (produits sans catégorie), voir `categories`/`groupedCategories` computed. */
+  categoryAnchorId(categoryId: number | null): string {
+    return `kiosk-category-${categoryId ?? 'other'}`;
+  }
+
+  /** Tuile catégorie de l'accueil OU pastille de la barre de nav (kiosk-category-strip) — les
+   *  deux ne font plus que défiler jusqu'à la bonne section : tous les produits restent affichés
+   *  en permanence (voir groupedCategories), il n'y a plus de filtrage par catégorie. Depuis
+   *  l'accueil, la section n'existe pas encore dans le DOM tant que homeScreen n'est pas repassé à
+   *  false — d'où le setTimeout, le temps qu'Angular rende l'écran de navigation. */
+  scrollToCategory(categoryId: number | null): void {
+    const wasHome = this.homeScreen();
     this.selectedCategoryId.set(categoryId);
     this.homeScreen.set(false);
+
+    const scroll = () =>
+      document.getElementById(this.categoryAnchorId(categoryId))?.scrollIntoView({ behavior: wasHome ? 'auto' : 'smooth', block: 'start' });
+
+    if (wasHome) {
+      setTimeout(scroll, 0);
+    } else {
+      scroll();
+    }
   }
 
   goHome(): void {

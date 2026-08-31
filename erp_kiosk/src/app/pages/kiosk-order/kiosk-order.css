@@ -226,6 +226,21 @@
   padding: 10px var(--space-5) calc(96px + var(--space-5));
 }
 
+/* Une section par catégorie, toutes affichées à la suite dans .kiosk-menu (voir groupedCategories
+ *  côté TS) — la barre de pastilles (.kiosk-category-strip) reste hors du flux scrollable (flex
+ *  item figé au-dessus, voir .kiosk-browse) et ne fait plus que défiler jusqu'à l'ancre [id] de la
+ *  section correspondante (scrollToCategory), elle ne filtre plus la grille. */
+.kiosk-category-section + .kiosk-category-section {
+  margin-top: var(--space-6);
+}
+
+.kiosk-category-section__title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
 .kiosk-menu__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));

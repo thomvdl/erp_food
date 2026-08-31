@@ -2,7 +2,7 @@
   <div class="kiosk-state">
     <p class="text-muted">Chargement…</p>
   </div>
-} @else if (loadError() && filteredProducts().length === 0 && cart().length === 0) {
+} @else if (loadError() && availableProducts().length === 0 && cart().length === 0) {
   <div class="kiosk-state">
     <p class="error-text">{{ loadError() }}</p>
     <button type="button" class="btn btn-ghost btn-sm" (click)="goToSetup()">⚙️ Configuration</button>
@@ -294,7 +294,7 @@
 
         <div class="kiosk-home__grid">
           @for (category of categories(); track category.id) {
-            <button type="button" class="kiosk-tile" (click)="openCategory(category.id)">
+            <button type="button" class="kiosk-tile" (click)="scrollToCategory(category.id)">
               <span class="kiosk-tile__media">
                 @if (category.image_url) {
                   <img [src]="category.image_url" alt="" />
@@ -315,7 +315,7 @@
               type="button"
               class="kiosk-category-pill"
               [class.is-active]="selectedCategoryId() === category.id"
-              (click)="selectedCategoryId.set(category.id)"
+              (click)="scrollToCategory(category.id)"
             >
               <span class="kiosk-category-pill__icon">
                 @if (category.image_url) {
@@ -330,35 +330,40 @@
         </nav>
 
         <section class="kiosk-menu">
-          <div class="kiosk-menu__grid">
-            @for (product of filteredProducts(); track product.id) {
-              <button type="button" class="kiosk-product-card" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
-                @if (isOutOfStock(product)) {
-                  <span class="kiosk-product-card__ribbon">Rupture de stock</span>
-                } @else if (quantityInCart(product) > 0) {
-                  <span class="kiosk-product-card__badge">{{ quantityInCart(product) }}</span>
-                }
-                <span class="kiosk-product-card__media">
-                  @if (product.image_url) {
-                    <img [src]="product.image_url" alt="" />
-                  } @else {
-                    <span class="kiosk-product-card__emoji">{{ product.icon ?? productEmoji(product) }}</span>
-                  }
-                </span>
-                <span class="kiosk-product-card__name">{{ product.name }}</span>
-                <span class="kiosk-product-card__price">{{ formatMoney(product.price) }}</span>
-                @if (remainingStock(product); as remaining) {
-                  @if (remaining > 0) {
-                    <span class="kiosk-product-card__stock" [class.kiosk-product-card__stock--low]="isLowStock(product)">
-                      {{ remaining }} en stock
+          @for (group of groupedCategories(); track group.category.id) {
+            <section class="kiosk-category-section" [id]="categoryAnchorId(group.category.id)">
+              <h2 class="kiosk-category-section__title">{{ group.category.name }}</h2>
+              <div class="kiosk-menu__grid">
+                @for (product of group.products; track product.id) {
+                  <button type="button" class="kiosk-product-card" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
+                    @if (isOutOfStock(product)) {
+                      <span class="kiosk-product-card__ribbon">Rupture de stock</span>
+                    } @else if (quantityInCart(product) > 0) {
+                      <span class="kiosk-product-card__badge">{{ quantityInCart(product) }}</span>
+                    }
+                    <span class="kiosk-product-card__media">
+                      @if (product.image_url) {
+                        <img [src]="product.image_url" alt="" />
+                      } @else {
+                        <span class="kiosk-product-card__emoji">{{ product.icon ?? productEmoji(product) }}</span>
+                      }
                     </span>
-                  }
+                    <span class="kiosk-product-card__name">{{ product.name }}</span>
+                    <span class="kiosk-product-card__price">{{ formatMoney(product.price) }}</span>
+                    @if (remainingStock(product); as remaining) {
+                      @if (remaining > 0) {
+                        <span class="kiosk-product-card__stock" [class.kiosk-product-card__stock--low]="isLowStock(product)">
+                          {{ remaining }} en stock
+                        </span>
+                      }
+                    }
+                  </button>
                 }
-              </button>
-            } @empty {
-              <p class="text-muted">Aucun produit dans cette catégorie.</p>
-            }
-          </div>
+              </div>
+            </section>
+          } @empty {
+            <p class="text-muted">Aucun produit disponible.</p>
+          }
         </section>
       </div>
     }
