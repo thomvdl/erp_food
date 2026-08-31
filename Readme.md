@@ -67,12 +67,15 @@ Au premier démarrage, `docker/entrypoint.sh` du conteneur `api` lance automatiq
 moyens de paiement, utilisateur admin). Identifiants admin par défaut définis dans `.env`
 (`ADMIN_USERNAME`/`ADMIN_EMAIL`/`ADMIN_PASSWORD`, `admin` / `admin@erp.local` / `password`).
 Mettre `DEMO=true` dans `.env` avant le premier démarrage pour peupler aussi un plan de salle,
-des clients et un catalogue produit de démonstration (`DemoSeeder`).
+des clients et un catalogue produit de démonstration (`DemoSeeder`). Sans ça, les seeders de base
+ne créent aucun produit, aucune salle/table et aucun compte staff à part `admin` — voir
+[`docs/premiere-configuration.md`](docs/premiere-configuration.md) pour l'ordre dans lequel tout
+créer à la main.
 
-**Piège connu** : `erp-api` (contrairement aux 3 apps Angular, bind-mountées et rechargées à
-chaud) n'a **aucun bind mount** — le code PHP est cuit dans l'image au build. Toute modification
-côté `erp-api`/`routes`/migrations nécessite `docker compose build api reverb && docker compose
-up -d api reverb` pour être prise en compte par les conteneurs déjà démarrés.
+**Piège connu** : `erp-api` (contrairement aux apps Angular, bind-mountées et rechargées à chaud)
+n'a **aucun bind mount** — le code PHP est cuit dans l'image au build. Toute modification côté
+`erp-api`/`routes`/migrations nécessite `docker compose build api reverb && docker compose up -d
+api reverb` pour être prise en compte par les conteneurs déjà démarrés.
 
 ## Déploiement en production
 
