@@ -2,6 +2,12 @@
 	email {$ACME_EMAIL}
 }
 
+# Apex du domaine (sans sous-domaine) — site public événementiel, voir Readme.md "Déploiement en
+# production" et docker-compose.prod.yml (service public_site_event).
+{$DOMAIN} {
+	reverse_proxy public_site_event:80
+}
+
 api.{$DOMAIN} {
 	reverse_proxy api:80
 }

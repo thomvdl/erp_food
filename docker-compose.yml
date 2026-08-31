@@ -173,6 +173,22 @@ services:
       - api
       - reverb
 
+  # Site public événementiel (apex du domaine en prod, voir Readme.md "Déploiement en
+  # production" et docker-compose.prod.yml/Caddyfile) — absent de ce fichier jusqu'ici alors que
+  # PUBLIC_SITE_PORT était déjà réservé dans .env.example : jamais accessible en dev.
+  public_site_event:
+    build:
+      context: ./erp_public_site_event
+    container_name: erp_food_public_site_event
+    restart: unless-stopped
+    ports:
+      - "${PUBLIC_SITE_PORT:-19008}:4200"
+    volumes:
+      - ./erp_public_site_event:/app
+      - public_site_event_node_modules:/app/node_modules
+    depends_on:
+      - api
+
 volumes:
   db_data:
   api_storage:
@@ -182,3 +198,4 @@ volumes:
   self_order_node_modules:
   kiosk_node_modules:
   public_shop_node_modules:
+  public_site_event_node_modules:
