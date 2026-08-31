@@ -36,7 +36,9 @@ quoi que ce soit d'autre.
 ## 3. DNS
 
 Cible : un domaine dont les sous-domaines pointent vers l'IP du VPS (enregistrements **A**) :
-`api.`, `app.`, `kiosk.`, `self-order.`, `kitchen.`, `validate-event.`, `ws.` (Reverb).
+`api.`, `app.`, `kiosk.`, `self-order.`, `kitchen.`, `validate-event.`, `shop.`, `ws.` (Reverb) —
+plus l'apex du domaine lui-même (`mondomaine.tld`, sans sous-domaine), qui sert le site public
+événementiel (`erp_public_site_event`, voir Caddyfile).
 
 - Domaine chez OVH : Manager → Domaines → Zone DNS → ajouter un enregistrement A par sous-domaine.
 - Domaine ailleurs : même principe dans le panel du registrar concerné.
