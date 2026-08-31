@@ -221,12 +221,17 @@ class RoleAccessTest extends TestCase
         $eventDate = \App\Models\EventDate::query()->create([
             'event_id' => $event->id, 'date' => now()->addWeek()->toDateString(), 'start_hour' => '20:00',
         ]);
+        // event_ticket_type_id est requis par EventTicketController::store — voir le même
+        // commentaire dans EventTicketTest::setUp().
+        $ticketType = \App\Models\EventTicketType::query()->create(['name' => 'Standard']);
+        $event->ticketTypes()->attach($ticketType->id, ['price' => 15]);
 
         $this->getJson('/api/event-dates')->assertOk();
 
         $this->postJson('/api/event-tickets', [
             'event_date_id' => $eventDate->id,
             'client_id' => $client->id,
+            'event_ticket_type_id' => $ticketType->id,
         ])->assertCreated();
     }
 

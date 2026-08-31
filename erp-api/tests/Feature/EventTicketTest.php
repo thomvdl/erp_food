@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Event;
 use App\Models\EventDate;
 use App\Models\EventTicket;
+use App\Models\EventTicketType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
@@ -17,6 +18,7 @@ class EventTicketTest extends TestCase
 
     private Client $client;
     private EventDate $eventDate;
+    private EventTicketType $ticketType;
 
     protected function setUp(): void
     {
@@ -32,12 +34,19 @@ class EventTicketTest extends TestCase
             'start_hour' => '21:00',
             'number_place_limit' => 2,
         ]);
+        // event_ticket_type_id est requis par EventTicketController::store (voir le prix relu via
+        // Event::ticketTypes(), un type absent du pivot event_ticket_prices n'est pas vendable
+        // pour cet event) — un type non attaché à $event échouerait avec "Ce type de place n'est
+        // pas disponible pour cette date."
+        $this->ticketType = EventTicketType::query()->create(['name' => 'Standard']);
+        $event->ticketTypes()->attach($this->ticketType->id, ['price' => 15]);
     }
 
     public function test_store_creates_the_requested_quantity_of_tickets(): void
     {
         $response = $this->postJson('/api/event-tickets', [
             'event_date_id' => $this->eventDate->id,
+            'event_ticket_type_id' => $this->ticketType->id,
             'client_id' => $this->client->id,
             'quantity' => 2,
         ]);
@@ -51,12 +60,14 @@ class EventTicketTest extends TestCase
         // Limite posée à 2 (voir setUp) — en vendre 2 d'abord, puis tenter d'en vendre 1 de plus.
         $this->postJson('/api/event-tickets', [
             'event_date_id' => $this->eventDate->id,
+            'event_ticket_type_id' => $this->ticketType->id,
             'client_id' => $this->client->id,
             'quantity' => 2,
         ])->assertCreated();
 
         $response = $this->postJson('/api/event-tickets', [
             'event_date_id' => $this->eventDate->id,
+            'event_ticket_type_id' => $this->ticketType->id,
             'client_id' => $this->client->id,
             'quantity' => 1,
         ]);
@@ -69,6 +80,7 @@ class EventTicketTest extends TestCase
     {
         $response = $this->postJson('/api/event-tickets', [
             'event_date_id' => $this->eventDate->id,
+            'event_ticket_type_id' => $this->ticketType->id,
             'client_id' => $this->client->id,
             'quantity' => 2,
         ]);
@@ -80,6 +92,7 @@ class EventTicketTest extends TestCase
     {
         $ticket = $this->postJson('/api/event-tickets', [
             'event_date_id' => $this->eventDate->id,
+            'event_ticket_type_id' => $this->ticketType->id,
             'client_id' => $this->client->id,
         ])->json('0');
 
@@ -100,6 +113,7 @@ class EventTicketTest extends TestCase
     {
         $ticket = $this->postJson('/api/event-tickets', [
             'event_date_id' => $this->eventDate->id,
+            'event_ticket_type_id' => $this->ticketType->id,
             'client_id' => $this->client->id,
         ])->json('0');
 
@@ -114,6 +128,7 @@ class EventTicketTest extends TestCase
     {
         $ticket = $this->postJson('/api/event-tickets', [
             'event_date_id' => $this->eventDate->id,
+            'event_ticket_type_id' => $this->ticketType->id,
             'client_id' => $this->client->id,
         ])->json('0');
 
@@ -125,6 +140,7 @@ class EventTicketTest extends TestCase
     {
         $ticket = $this->postJson('/api/event-tickets', [
             'event_date_id' => $this->eventDate->id,
+            'event_ticket_type_id' => $this->ticketType->id,
             'client_id' => $this->client->id,
         ])->json('0');
 
@@ -143,6 +159,7 @@ class EventTicketTest extends TestCase
 
         $this->postJson('/api/event-tickets', [
             'event_date_id' => $this->eventDate->id,
+            'event_ticket_type_id' => $this->ticketType->id,
             'client_id' => $client->id,
             'quantity' => 2,
             'send_email' => true,
@@ -159,6 +176,7 @@ class EventTicketTest extends TestCase
 
         $this->postJson('/api/event-tickets', [
             'event_date_id' => $this->eventDate->id,
+            'event_ticket_type_id' => $this->ticketType->id,
             'client_id' => $client->id,
         ])->assertCreated();
 
@@ -183,6 +201,7 @@ class EventTicketTest extends TestCase
 
         $response = $this->postJson('/api/event-tickets', [
             'event_date_id' => $this->eventDate->id,
+            'event_ticket_type_id' => $this->ticketType->id,
             'client_id' => $client->id,
             'quantity' => 2,
             'send_email' => true,
