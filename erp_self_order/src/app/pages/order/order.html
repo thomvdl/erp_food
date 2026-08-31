@@ -99,7 +99,11 @@
       <div class="self-order-browse">
         <section class="self-order-menu">
           @for (group of groupedCategories(); track group.category.id) {
-            <section class="self-order-category-section" [id]="categoryAnchorId(group.category.id)">
+            <section
+              class="self-order-category-section"
+              [id]="categoryAnchorId(group.category.id)"
+              [attr.data-category-id]="group.category.id ?? 'other'"
+            >
               <h2 class="self-order-category-section__title">{{ group.category.name }}</h2>
               <div class="self-order-menu__grid">
                 @for (product of group.products; track product.id) {

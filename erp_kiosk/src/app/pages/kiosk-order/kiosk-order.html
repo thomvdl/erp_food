@@ -331,7 +331,11 @@
 
         <section class="kiosk-menu">
           @for (group of groupedCategories(); track group.category.id) {
-            <section class="kiosk-category-section" [id]="categoryAnchorId(group.category.id)">
+            <section
+              class="kiosk-category-section"
+              [id]="categoryAnchorId(group.category.id)"
+              [attr.data-category-id]="group.category.id ?? 'other'"
+            >
               <h2 class="kiosk-category-section__title">{{ group.category.name }}</h2>
               <div class="kiosk-menu__grid">
                 @for (product of group.products; track product.id) {

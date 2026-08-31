@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, afterRenderEffect, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -165,7 +165,50 @@ export class Order {
         ),
       });
     });
+
+    // Scrollspy : la pastille active de self-order-category-strip suit la section actuellement en
+    // haut de l'écran pendant qu'on défile, sans qu'il faille taper une pastille — même
+    // comportement que kiosk-order.ts. Réexécuté à chaque fois que la liste de sections change
+    // (groupedCategories) ou qu'on quitte/rentre dans homeScreen — onCleanup déconnecte l'observer
+    // précédent avant d'en recréer un, et au destroy du composant.
+    afterRenderEffect((onCleanup) => {
+      this.groupedCategories();
+      if (this.homeScreen()) return;
+
+      const sections = document.querySelectorAll('.self-order-category-section');
+      if (sections.length === 0) return;
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (this.scrollSpyMuted) return;
+          const visible = entries
+            .filter((entry) => entry.isIntersecting)
+            .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+          if (visible.length === 0) return;
+
+          const raw = (visible[0].target as HTMLElement).dataset['categoryId'];
+          const categoryId = raw === 'other' ? null : Number(raw);
+          if (this.selectedCategoryId() !== categoryId) this.selectedCategoryId.set(categoryId);
+        },
+        // root omis (= viewport) : contrairement au kiosque (device dédié, .kiosk-menu défile en
+        // interne), self_order défile au niveau de la page (voir .self-order-page/CSS). Marge du
+        // haut ~hauteur de .self-order-sticky-header (topbar + bandeau, position: sticky) : sans
+        // elle, une section serait comptée "visible" dès qu'elle touche le haut du viewport alors
+        // qu'elle est encore cachée derrière le bandeau collant. Marge du bas identique au kiosque
+        // : n'observe que la bande des 30% du haut de l'espace réellement visible.
+        { root: null, rootMargin: '-110px 0px -70% 0px', threshold: 0 },
+      );
+
+      sections.forEach((section) => observer.observe(section));
+      onCleanup(() => observer.disconnect());
+    });
   }
+
+  /** Coupe temporairement le scrollspy ci-dessus pendant un défilement déclenché par un clic
+   *  (scrollToCategory) — sans ça, les sections traversées pendant l'animation smooth-scroll
+   *  activent brièvement leur propre pastille avant d'atteindre la cible, un scintillement
+   *  visible. */
+  private scrollSpyMuted = false;
 
   private loadContext(): void {
     this.loading.set(true);
@@ -213,6 +256,9 @@ export class Order {
     const wasHome = this.homeScreen();
     this.selectedCategoryId.set(categoryId);
     this.homeScreen.set(false);
+
+    this.scrollSpyMuted = true;
+    setTimeout(() => (this.scrollSpyMuted = false), 600);
 
     const scroll = () =>
       document.getElementById(this.categoryAnchorId(categoryId))?.scrollIntoView({ behavior: wasHome ? 'auto' : 'smooth', block: 'start' });

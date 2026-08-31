@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, afterRenderEffect, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -123,7 +123,47 @@ export class KioskOrder implements OnInit, OnDestroy {
         this.allProducts().map((product) => (product.id === productId ? { ...product, stock_quantity: stockQuantity } : product)),
       );
     });
+
+    // Scrollspy : la pastille active de kiosk-category-strip suit la section actuellement en
+    // haut de l'écran pendant qu'on défile, sans qu'il faille taper une pastille (retour
+    // utilisateur). Réexécuté à chaque fois que la liste de sections change (groupedCategories)
+    // ou qu'on quitte/rentre dans homeScreen — onCleanup déconnecte l'observer précédent avant
+    // d'en recréer un, et au destroy du composant.
+    afterRenderEffect((onCleanup) => {
+      this.groupedCategories();
+      if (this.homeScreen()) return;
+
+      const menu = document.querySelector('.kiosk-menu');
+      const sections = document.querySelectorAll('.kiosk-category-section');
+      if (!menu || sections.length === 0) return;
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (this.scrollSpyMuted) return;
+          const visible = entries
+            .filter((entry) => entry.isIntersecting)
+            .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+          if (visible.length === 0) return;
+
+          const raw = (visible[0].target as HTMLElement).dataset['categoryId'];
+          const categoryId = raw === 'other' ? null : Number(raw);
+          if (this.selectedCategoryId() !== categoryId) this.selectedCategoryId.set(categoryId);
+        },
+        // N'observe que la bande des 30% du haut de la zone scrollable — une section devient
+        // active dès que son bord haut y entre, pas seulement quand elle occupe tout l'écran.
+        { root: menu, rootMargin: '0px 0px -70% 0px', threshold: 0 },
+      );
+
+      sections.forEach((section) => observer.observe(section));
+      onCleanup(() => observer.disconnect());
+    });
   }
+
+  /** Coupe temporairement le scrollspy ci-dessus pendant un défilement déclenché par un clic
+   *  (scrollToCategory) — sans ça, les sections traversées pendant l'animation smooth-scroll
+   *  activent brièvement leur propre pastille avant d'atteindre la cible, un scintillement visible
+   *  sur un petit écran kiosque. */
+  private scrollSpyMuted = false;
 
   readonly loading = signal(true);
   readonly loadError = signal<string | null>(null);
@@ -719,6 +759,9 @@ export class KioskOrder implements OnInit, OnDestroy {
     const wasHome = this.homeScreen();
     this.selectedCategoryId.set(categoryId);
     this.homeScreen.set(false);
+
+    this.scrollSpyMuted = true;
+    setTimeout(() => (this.scrollSpyMuted = false), 600);
 
     const scroll = () =>
       document.getElementById(this.categoryAnchorId(categoryId))?.scrollIntoView({ behavior: wasHome ? 'auto' : 'smooth', block: 'start' });
