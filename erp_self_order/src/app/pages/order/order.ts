@@ -178,6 +178,12 @@ export class Order {
       const sections = document.querySelectorAll('.self-order-category-section');
       if (sections.length === 0) return;
 
+      // Hauteur réelle du bandeau collant (topbar + pastilles) — mesurée plutôt que devinée, et
+      // réutilisée à la fois pour la marge de l'observer ci-dessous et pour scroll-margin-top
+      // (voir setStickyHeaderHeightVar/order.css) : une seule source de vérité pour "à partir d'où
+      // le contenu est réellement visible sous le bandeau".
+      const headerHeight = this.setStickyHeaderHeightVar();
+
       const observer = new IntersectionObserver(
         (entries) => {
           if (this.scrollSpyMuted) return;
@@ -192,16 +198,26 @@ export class Order {
         },
         // root omis (= viewport) : contrairement au kiosque (device dédié, .kiosk-menu défile en
         // interne), self_order défile au niveau de la page (voir .self-order-page/CSS). Marge du
-        // haut ~hauteur de .self-order-sticky-header (topbar + bandeau, position: sticky) : sans
-        // elle, une section serait comptée "visible" dès qu'elle touche le haut du viewport alors
-        // qu'elle est encore cachée derrière le bandeau collant. Marge du bas identique au kiosque
-        // : n'observe que la bande des 30% du haut de l'espace réellement visible.
-        { root: null, rootMargin: '-110px 0px -70% 0px', threshold: 0 },
+        // haut = hauteur du bandeau collant : sans elle, une section serait comptée "visible" dès
+        // qu'elle touche le haut du viewport alors qu'elle est encore cachée derrière lui. Marge
+        // du bas identique au kiosque : n'observe que la bande des 30% du haut de l'espace
+        // réellement visible.
+        { root: null, rootMargin: `-${headerHeight}px 0px -70% 0px`, threshold: 0 },
       );
 
       sections.forEach((section) => observer.observe(section));
       onCleanup(() => observer.disconnect());
     });
+  }
+
+  /** Mesure .self-order-sticky-header et pose sa hauteur en CSS custom property (voir
+   *  scroll-margin-top de .self-order-category-section dans order.css) — retourne la valeur pour
+   *  que l'IntersectionObserver ci-dessus s'aligne sur la même mesure. */
+  private setStickyHeaderHeightVar(): number {
+    const header = document.querySelector('.self-order-sticky-header');
+    const height = header?.getBoundingClientRect().height ?? 140;
+    document.documentElement.style.setProperty('--self-order-sticky-header-height', `${height}px`);
+    return height;
   }
 
   /** Coupe temporairement le scrollspy ci-dessus pendant un défilement déclenché par un clic
@@ -260,8 +276,14 @@ export class Order {
     this.scrollSpyMuted = true;
     setTimeout(() => (this.scrollSpyMuted = false), 600);
 
-    const scroll = () =>
+    const scroll = () => {
+      // Remesuré ici plutôt que de compter uniquement sur afterRenderEffect (voir plus haut) :
+      // au tout premier clic depuis l'accueil, rien ne garantit que cet effect ait déjà tourné
+      // au moment où ce setTimeout(0) s'exécute — sans ça, scroll-margin-top retomberait sur le
+      // filet de secours statique d'order.css pour ce premier clic.
+      this.setStickyHeaderHeightVar();
       document.getElementById(this.categoryAnchorId(categoryId))?.scrollIntoView({ behavior: wasHome ? 'auto' : 'smooth', block: 'start' });
+    };
 
     if (wasHome) {
       setTimeout(scroll, 0);

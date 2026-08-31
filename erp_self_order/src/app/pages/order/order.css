@@ -235,7 +235,18 @@
 /* Une section par catégorie, toutes affichées à la suite dans .self-order-menu (voir
  *  groupedCategories côté TS) — le bandeau de pastilles (.self-order-category-strip, dans le
  *  bloc collant .self-order-sticky-header) ne filtre plus la grille, il ne fait que défiler
- *  jusqu'à l'ancre [id] de la section correspondante (scrollToCategory). */
+ *  jusqu'à l'ancre [id] de la section correspondante (scrollToCategory). scroll-margin-top :
+ *  .self-order-sticky-header est en position: sticky (contrairement au kiosque, où topbar/bandeau
+ *  sont de vrais frères flex qui poussent la zone scrollable, jamais un overlay) — sans cette
+ *  marge, scrollIntoView aligne le haut de la section avec y=0, exactement sous le bandeau collant
+ *  qui la recouvre alors, et l'écran atterrit visuellement en plein milieu de la section au lieu
+ *  de son titre. Valeur posée dynamiquement (voir scrollToCategory) sur la hauteur réelle du
+ *  bandeau collant ; la valeur ici n'est qu'un filet de secours avant la première mesure.
+ */
+.self-order-category-section {
+  scroll-margin-top: var(--self-order-sticky-header-height, 140px);
+}
+
 .self-order-category-section + .self-order-category-section {
   margin-top: var(--space-6);
 }
