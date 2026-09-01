@@ -278,140 +278,114 @@
 } @else {
   <div class="kiosk-page">
     <header class="kiosk-topbar">
-      @if (!homeScreen()) {
-        <button type="button" class="kiosk-topbar__back" (click)="goHome()">‹ Retour</button>
-      } @else {
-        <span class="kiosk-topbar__spacer"></span>
-      }
+      <span class="kiosk-topbar__spacer"></span>
       <span class="kiosk-topbar__brand">🍽️ ERP v2</span>
       <span class="kiosk-topbar__spacer"></span>
     </header>
 
-    @if (homeScreen()) {
-      <div class="kiosk-home">
-        <p class="kiosk-home__eyebrow">Bienvenue</p>
-        <h1 class="kiosk-home__title">Composez votre commande</h1>
-
-        <div class="kiosk-home__grid">
-          @for (category of categories(); track category.id) {
-            <button type="button" class="kiosk-tile" (click)="scrollToCategory(category.id)">
-              <span class="kiosk-tile__media">
-                @if (category.image_url) {
-                  <img [src]="category.image_url" alt="" />
-                } @else {
-                  <span class="kiosk-tile__emoji">{{ category.icon ?? categoryEmoji(category.id) }}</span>
-                }
-              </span>
-              <span class="kiosk-tile__label">{{ category.name }}</span>
-            </button>
-          }
-        </div>
-      </div>
-    } @else {
-      <div class="kiosk-browse">
-        <section class="kiosk-menu">
-          @if (visibleBanners().length > 0) {
-            <div class="kiosk-hero-carousel">
-              <div class="kiosk-hero-carousel__track" [style.transform]="'translateX(-' + activeBannerIndex() * 100 + '%)'">
-                @for (banner of visibleBanners(); track banner.id) {
-                  <div class="kiosk-hero-carousel__slide">
-                    @if (banner.image_url) {
-                      <img [src]="banner.image_url" alt="" />
-                    }
-                    @if (banner.title || banner.subtitle) {
-                      <div class="kiosk-hero-carousel__caption">
-                        @if (banner.title) {
-                          <p class="kiosk-hero-carousel__title">{{ banner.title }}</p>
-                        }
-                        @if (banner.subtitle) {
-                          <p class="kiosk-hero-carousel__subtitle">{{ banner.subtitle }}</p>
-                        }
-                      </div>
-                    }
-                  </div>
-                }
-              </div>
-
-              @if (visibleBanners().length > 1) {
-                <div class="kiosk-hero-carousel__dots">
-                  @for (banner of visibleBanners(); track banner.id; let i = $index) {
-                    <button
-                      type="button"
-                      class="kiosk-hero-carousel__dot"
-                      [class.is-active]="activeBannerIndex() === i"
-                      (click)="goToBannerSlide(i)"
-                      [attr.aria-label]="'Bannière ' + (i + 1)"
-                    ></button>
+    <div class="kiosk-browse">
+      <section class="kiosk-menu">
+        @if (visibleBanners().length > 0) {
+          <div class="kiosk-hero-carousel">
+            <div class="kiosk-hero-carousel__track" [style.transform]="'translateX(-' + activeBannerIndex() * 100 + '%)'">
+              @for (banner of visibleBanners(); track banner.id) {
+                <div class="kiosk-hero-carousel__slide">
+                  @if (banner.image_url) {
+                    <img [src]="banner.image_url" alt="" />
+                  }
+                  @if (banner.title || banner.subtitle) {
+                    <div class="kiosk-hero-carousel__caption">
+                      @if (banner.title) {
+                        <p class="kiosk-hero-carousel__title">{{ banner.title }}</p>
+                      }
+                      @if (banner.subtitle) {
+                        <p class="kiosk-hero-carousel__subtitle">{{ banner.subtitle }}</p>
+                      }
+                    </div>
                   }
                 </div>
               }
             </div>
-          }
 
-          <!-- Sticky : reste collée en haut de .kiosk-menu une fois qu'on scrolle passé le
-               carrousel hero ci-dessus (lui défile normalement) — voir --kiosk-sticky-offset
-               (kiosk-order.ts), même structure que erp_public_shop/pages/catalog. -->
-          <nav class="kiosk-category-strip">
-            @for (category of categories(); track category.id) {
-              <button
-                type="button"
-                class="kiosk-category-pill"
-                [class.is-active]="selectedCategoryId() === category.id"
-                (click)="scrollToCategory(category.id)"
-              >
-                <span class="kiosk-category-pill__icon">
-                  @if (category.image_url) {
-                    <img [src]="category.image_url" alt="" />
-                  } @else {
-                    {{ category.icon ?? categoryEmoji(category.id) }}
-                  }
-                </span>
-                <span class="kiosk-category-pill__label">{{ category.name }}</span>
-              </button>
-            }
-          </nav>
-
-          @for (group of groupedCategories(); track group.category.id) {
-            <section
-              class="kiosk-category-section"
-              [id]="categoryAnchorId(group.category.id)"
-              [attr.data-category-id]="group.category.id ?? 'other'"
-            >
-              <h2 class="kiosk-category-section__title">{{ group.category.name }}</h2>
-              <div class="kiosk-menu__grid">
-                @for (product of group.products; track product.id) {
-                  <button type="button" class="kiosk-product-card" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
-                    @if (isOutOfStock(product)) {
-                      <span class="kiosk-product-card__ribbon">Rupture de stock</span>
-                    } @else if (quantityInCart(product) > 0) {
-                      <span class="kiosk-product-card__badge">{{ quantityInCart(product) }}</span>
-                    }
-                    <span class="kiosk-product-card__media">
-                      @if (product.image_url) {
-                        <img [src]="product.image_url" alt="" />
-                      } @else {
-                        <span class="kiosk-product-card__emoji">{{ product.icon ?? productEmoji(product) }}</span>
-                      }
-                    </span>
-                    <span class="kiosk-product-card__name">{{ product.name }}</span>
-                    <span class="kiosk-product-card__price">{{ formatMoney(product.price) }}</span>
-                    @if (remainingStock(product); as remaining) {
-                      @if (remaining > 0) {
-                        <span class="kiosk-product-card__stock" [class.kiosk-product-card__stock--low]="isLowStock(product)">
-                          {{ remaining }} en stock
-                        </span>
-                      }
-                    }
-                  </button>
+            @if (visibleBanners().length > 1) {
+              <div class="kiosk-hero-carousel__dots">
+                @for (banner of visibleBanners(); track banner.id; let i = $index) {
+                  <button
+                    type="button"
+                    class="kiosk-hero-carousel__dot"
+                    [class.is-active]="activeBannerIndex() === i"
+                    (click)="goToBannerSlide(i)"
+                    [attr.aria-label]="'Bannière ' + (i + 1)"
+                  ></button>
                 }
               </div>
-            </section>
-          } @empty {
-            <p class="text-muted">Aucun produit disponible.</p>
+            }
+          </div>
+        }
+
+        <!-- Sticky : reste collée en haut de .kiosk-menu une fois qu'on scrolle passé le
+             carrousel hero ci-dessus (lui défile normalement) — voir --kiosk-sticky-offset
+             (kiosk-order.ts), même structure que erp_public_shop/pages/catalog. -->
+        <nav class="kiosk-category-strip">
+          @for (category of categories(); track category.id) {
+            <button
+              type="button"
+              class="kiosk-category-pill"
+              [class.is-active]="selectedCategoryId() === category.id"
+              (click)="scrollToCategory(category.id)"
+            >
+              <span class="kiosk-category-pill__icon">
+                @if (category.image_url) {
+                  <img [src]="category.image_url" alt="" />
+                } @else {
+                  {{ category.icon ?? categoryEmoji(category.id) }}
+                }
+              </span>
+              <span class="kiosk-category-pill__label">{{ category.name }}</span>
+            </button>
           }
-        </section>
-      </div>
-    }
+        </nav>
+
+        @for (group of groupedCategories(); track group.category.id) {
+          <section
+            class="kiosk-category-section"
+            [id]="categoryAnchorId(group.category.id)"
+            [attr.data-category-id]="group.category.id ?? 'other'"
+          >
+            <h2 class="kiosk-category-section__title">{{ group.category.name }}</h2>
+            <div class="kiosk-menu__grid">
+              @for (product of group.products; track product.id) {
+                <button type="button" class="kiosk-product-card" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
+                  @if (isOutOfStock(product)) {
+                    <span class="kiosk-product-card__ribbon">Rupture de stock</span>
+                  } @else if (quantityInCart(product) > 0) {
+                    <span class="kiosk-product-card__badge">{{ quantityInCart(product) }}</span>
+                  }
+                  <span class="kiosk-product-card__media">
+                    @if (product.image_url) {
+                      <img [src]="product.image_url" alt="" />
+                    } @else {
+                      <span class="kiosk-product-card__emoji">{{ product.icon ?? productEmoji(product) }}</span>
+                    }
+                  </span>
+                  <span class="kiosk-product-card__name">{{ product.name }}</span>
+                  <span class="kiosk-product-card__price">{{ formatMoney(product.price) }}</span>
+                  @if (remainingStock(product); as remaining) {
+                    @if (remaining > 0) {
+                      <span class="kiosk-product-card__stock" [class.kiosk-product-card__stock--low]="isLowStock(product)">
+                        {{ remaining }} en stock
+                      </span>
+                    }
+                  }
+                </button>
+              }
+            </div>
+          </section>
+        } @empty {
+          <p class="text-muted">Aucun produit disponible.</p>
+        }
+      </section>
+    </div>
 
     <button type="button" class="kiosk-cart-bar" [disabled]="cart().length === 0" (click)="toggleCartDrawer()">
       <span class="kiosk-cart-bar__icon">

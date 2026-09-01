@@ -127,12 +127,10 @@ export class KioskOrder implements OnInit, OnDestroy {
 
     // Scrollspy : la pastille active de kiosk-category-strip suit la section actuellement en
     // haut de l'écran pendant qu'on défile, sans qu'il faille taper une pastille (retour
-    // utilisateur). Réexécuté à chaque fois que la liste de sections change (groupedCategories)
-    // ou qu'on quitte/rentre dans homeScreen — onCleanup déconnecte l'observer précédent avant
-    // d'en recréer un, et au destroy du composant.
+    // utilisateur). Réexécuté à chaque fois que la liste de sections change (groupedCategories) —
+    // onCleanup déconnecte l'observer précédent avant d'en recréer un, et au destroy du composant.
     afterRenderEffect((onCleanup) => {
       this.groupedCategories();
-      if (this.homeScreen()) return;
 
       const menu = document.querySelector('.kiosk-menu') as HTMLElement | null;
       const nav = document.querySelector('.kiosk-category-strip') as HTMLElement | null;
@@ -241,7 +239,7 @@ export class KioskOrder implements OnInit, OnDestroy {
   readonly diningMode = signal<DiningMode | null>(null);
   readonly tableNumberInput = signal('');
   /** Distinct de `!!tableNumberInput()` : une fois "Valider" pressé, l'écran clavier laisse place
-   *  à l'accueil — voir confirmTableNumber(). */
+   *  à l'écran de navigation — voir confirmTableNumber(). */
   readonly tableNumberConfirmed = signal(false);
 
   /** Le client peut commencer à composer sa commande (voir kiosk-order.html) — soit le réglage
@@ -251,11 +249,6 @@ export class KioskOrder implements OnInit, OnDestroy {
     () => !this.tableNumberEnabled() || this.diningMode() === 'takeaway' || (this.diningMode() === 'dine_in' && this.tableNumberConfirmed()),
   );
 
-  /** Écran d'accueil (grille de catégories, voir kiosk-order.html) vs écran de navigation dans
-   *  une catégorie — purement visuel (aucune donnée métier derrière), nécessaire pour le
-   *  redesign portrait (notion/kiosk/) qui sépare les deux au lieu de tout afficher d'un coup
-   *  dans une mise en page à 3 colonnes. */
-  readonly homeScreen = signal(true);
   /** Tiroir "Mon panier" (voir kiosk-order.html) — replié par défaut, occupe tout l'écran une
    *  fois ouvert (portrait, pas de place pour un panier permanent à côté de la grille produits). */
   readonly cartDrawerOpen = signal(false);
@@ -781,32 +774,16 @@ export class KioskOrder implements OnInit, OnDestroy {
     return `kiosk-category-${categoryId ?? 'other'}`;
   }
 
-  /** Tuile catégorie de l'accueil OU pastille de la barre de nav (kiosk-category-strip) — les
-   *  deux ne font plus que défiler jusqu'à la bonne section : tous les produits restent affichés
-   *  en permanence (voir groupedCategories), il n'y a plus de filtrage par catégorie. Depuis
-   *  l'accueil, la section n'existe pas encore dans le DOM tant que homeScreen n'est pas repassé à
-   *  false — d'où le setTimeout, le temps qu'Angular rende l'écran de navigation. */
+  /** Pastille de la barre de nav (kiosk-category-strip) — défile jusqu'à la bonne section : tous
+   *  les produits restent affichés en permanence (voir groupedCategories), il n'y a pas de
+   *  filtrage par catégorie. */
   scrollToCategory(categoryId: number | null): void {
-    const wasHome = this.homeScreen();
     this.selectedCategoryId.set(categoryId);
-    this.homeScreen.set(false);
 
     this.scrollSpyMuted = true;
     setTimeout(() => (this.scrollSpyMuted = false), 600);
 
-    const scroll = () =>
-      document.getElementById(this.categoryAnchorId(categoryId))?.scrollIntoView({ behavior: wasHome ? 'auto' : 'smooth', block: 'start' });
-
-    if (wasHome) {
-      setTimeout(scroll, 0);
-    } else {
-      scroll();
-    }
-  }
-
-  goHome(): void {
-    this.homeScreen.set(true);
-    this.selectedCategoryId.set(null);
+    document.getElementById(this.categoryAnchorId(categoryId))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   toggleCartDrawer(): void {
@@ -1119,7 +1096,6 @@ export class KioskOrder implements OnInit, OnDestroy {
     this.discountError.set(null);
     this.thermalPrinted.set(false);
     this.printError.set(null);
-    this.homeScreen.set(true);
     this.selectedCategoryId.set(null);
     this.cartDrawerOpen.set(false);
     this.diningMode.set(null);

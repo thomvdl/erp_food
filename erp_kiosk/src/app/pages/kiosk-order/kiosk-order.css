@@ -90,58 +90,6 @@
   line-height: 1.1;
 }
 
-.kiosk-home__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--space-4);
-}
-
-.kiosk-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0;
-  background: transparent;
-  border: none;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.kiosk-tile__media {
-  width: 100%;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface-card);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.kiosk-tile:active .kiosk-tile__media {
-  transform: scale(0.95);
-}
-
-.kiosk-tile__media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.kiosk-tile__emoji {
-  font-size: 2.75rem;
-  line-height: 1;
-}
-
-.kiosk-tile__label {
-  font-weight: 700;
-  font-size: var(--font-size-base);
-  color: var(--text-primary);
-}
-
 /* ---------- Navigation catégorie : bandeau + grille produit ---------- */
 
 .kiosk-browse {
@@ -1065,7 +1013,6 @@
 }
 
 @media (max-width: 420px) {
-  .kiosk-home__grid,
   .kiosk-menu__grid {
     grid-template-columns: repeat(2, 1fr);
   }
