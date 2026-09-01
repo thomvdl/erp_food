@@ -134,9 +134,20 @@ export class KioskOrder implements OnInit, OnDestroy {
       this.groupedCategories();
       if (this.homeScreen()) return;
 
-      const menu = document.querySelector('.kiosk-menu');
+      const menu = document.querySelector('.kiosk-menu') as HTMLElement | null;
+      const nav = document.querySelector('.kiosk-category-strip') as HTMLElement | null;
       const sections = document.querySelectorAll('.kiosk-category-section');
-      if (!menu || sections.length === 0) return;
+      if (!menu || !nav || sections.length === 0) return;
+
+      // .kiosk-category-strip est sticky EN HAUT de .kiosk-menu (le carrousel hero défile, lui,
+      // normalement au-dessus) — --kiosk-sticky-offset pilote scroll-margin-top sur les sections
+      // (voir CSS) pour que scrollToCategory()/scrollIntoView ne les cache pas derrière la barre.
+      // Un ResizeObserver la garde synchronisée plutôt qu'une valeur codée en dur, même pattern
+      // que erp_public_shop/pages/catalog.
+      const syncStickyOffset = () => document.documentElement.style.setProperty('--kiosk-sticky-offset', `${nav.getBoundingClientRect().height}px`);
+      syncStickyOffset();
+      const resizeObserver = new ResizeObserver(syncStickyOffset);
+      resizeObserver.observe(nav);
 
       const observer = new IntersectionObserver(
         (entries) => {
@@ -150,13 +161,16 @@ export class KioskOrder implements OnInit, OnDestroy {
           const categoryId = raw === 'other' ? null : Number(raw);
           if (this.selectedCategoryId() !== categoryId) this.selectedCategoryId.set(categoryId);
         },
-        // N'observe que la bande des 30% du haut de la zone scrollable — une section devient
-        // active dès que son bord haut y entre, pas seulement quand elle occupe tout l'écran.
-        { root: menu, rootMargin: '0px 0px -70% 0px', threshold: 0 },
+        // N'observe que la bande sous la barre sticky — une section devient active dès que son
+        // bord haut y entre, pas seulement quand elle occupe tout l'écran.
+        { root: menu, rootMargin: `-${nav.getBoundingClientRect().height}px 0px -70% 0px`, threshold: 0 },
       );
 
       sections.forEach((section) => observer.observe(section));
-      onCleanup(() => observer.disconnect());
+      onCleanup(() => {
+        resizeObserver.disconnect();
+        observer.disconnect();
+      });
     });
   }
 
