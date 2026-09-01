@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, afterRenderEffect, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
@@ -54,11 +54,17 @@ export class Catalog {
   readonly loadError = signal<string | null>(null);
   readonly catalog = signal<ShopCatalog | null>(null);
 
-  /** `'all'` = pas de filtre catégorie (grille complète) ; `null` = bucket "Autres" (produits
-   *  sans catégorie) — un sentinel dédié pour "tout" plutôt que réutiliser `null` évite l'ambiguïté
-   *  avec l'id de ce bucket. */
-  readonly selectedCategoryId = signal<number | null | 'all'>('all');
+  /** Pastille active de la barre de catégories, suit la section en haut de la fenêtre pendant le
+   *  défilement (voir le scrollspy dans le constructeur) — `null` = bucket "Autres". Comme dans
+   *  erp_kiosk/pages/kiosk-order, tous les produits sont toujours affichés (plus de filtrage par
+   *  catégorie) : la pastille tapée ne fait que défiler jusqu'à sa section (scrollToCategory). */
+  readonly selectedCategoryId = signal<number | null>(null);
   readonly searchQuery = signal('');
+
+  /** Coupe temporairement le scrollspy pendant un défilement déclenché par un clic
+   *  (scrollToCategory) — même pattern que kiosk-order.ts, évite qu'une section traversée pendant
+   *  l'animation smooth-scroll active brièvement sa propre pastille. */
+  private scrollSpyMuted = false;
 
   // --- Menu à choix (voir App\Support\MenuResolver côté API) — un menu ne s'ajoute jamais
   // directement au panier : cette modale bloque tant que chaque groupe n'a pas un nombre de
@@ -85,9 +91,19 @@ export class Catalog {
 
   readonly showCart = signal(false);
 
+  /** Uniquement filtrés par la recherche — voir groupedCategories/categories ci-dessous, il n'y a
+   *  plus de filtrage par catégorie (comme kiosk-order.ts). */
+  readonly filteredProducts = computed(() => {
+    const query = this.searchQuery().trim().toLowerCase();
+    return (this.catalog()?.products ?? []).filter((product) => !query || product.name.toLowerCase().includes(query));
+  });
+
+  /** Dérivées de filteredProducts (pas de tous les produits) : une catégorie sans résultat pour
+   *  la recherche en cours disparaît de la barre de pastilles, cohérent avec groupedCategories qui
+   *  n'affiche alors plus sa section. */
   readonly categories = computed<CategoryFilter[]>(() => {
     const byId = new Map<number | null, CategoryFilter>();
-    for (const product of this.catalog()?.products ?? []) {
+    for (const product of this.filteredProducts()) {
       const category = product.category ?? null;
       const key = category?.id ?? null;
       const existing = byId.get(key);
@@ -105,14 +121,15 @@ export class Catalog {
     return Array.from(byId.values()).sort((a, b) => a.position - b.position);
   });
 
-  readonly filteredProducts = computed(() => {
-    const categoryId = this.selectedCategoryId();
-    const query = this.searchQuery().trim().toLowerCase();
-    return (this.catalog()?.products ?? []).filter((product) => {
-      const categoryMatch = categoryId === 'all' || (product.category?.id ?? null) === categoryId;
-      const searchMatch = !query || product.name.toLowerCase().includes(query);
-      return categoryMatch && searchMatch;
-    });
+  /** Tous les produits (filtrés par la recherche), groupés par catégorie — même pattern que
+   *  kiosk-order.ts::groupedCategories, une section par catégorie affichée à la suite au lieu
+   *  d'une grille filtrée par catégorie sélectionnée. */
+  readonly groupedCategories = computed(() => {
+    const products = this.filteredProducts();
+    return this.categories().map((category) => ({
+      category,
+      products: products.filter((product) => (product.category?.id ?? null) === category.id),
+    }));
   });
 
   constructor() {
@@ -127,6 +144,59 @@ export class Catalog {
       this.catalog.set({
         ...catalog,
         products: catalog.products.map((product) => (product.id === productId ? { ...product, stock_quantity: stockQuantity } : product)),
+      });
+    });
+
+    // Scrollspy : la pastille active de la barre de catégories suit la section actuellement sous
+    // la barre sticky pendant que la page défile — même logique que kiosk-order.ts, sauf que le
+    // scroll se fait ici au niveau de la fenêtre (root: null) puisque cette page n'a pas de zone
+    // scrollable interne dédiée (contrairement au kiosque, un appareil plein écran). onCleanup
+    // déconnecte les observers précédents avant d'en recréer, et au destroy du composant.
+    afterRenderEffect((onCleanup) => {
+      this.groupedCategories();
+
+      const header = document.querySelector('.shop-header') as HTMLElement | null;
+      const nav = document.querySelector('.shop-categories') as HTMLElement | null;
+      const sections = document.querySelectorAll('.shop-category-section');
+      if (!header || !nav || sections.length === 0) return;
+
+      // La barre de catégories colle juste sous l'en-tête (lui-même sticky), dont la hauteur
+      // varie (flex-wrap sur mobile) — un ResizeObserver garde `top`/`--shop-sticky-offset`
+      // synchronisés plutôt qu'une valeur codée en dur qui se déréglerait au redimensionnement/à
+      // la rotation. La variable CSS pilote .shop-category-section { scroll-margin-top: … } :
+      // scrollToCategory() peut alors utiliser le scrollIntoView natif (comme kiosk-order.ts) sans
+      // recalculer lui-même la position d'arrivée.
+      const syncStickyOffset = () => {
+        const offset = header.getBoundingClientRect().height + nav.getBoundingClientRect().height;
+        nav.style.top = `${header.getBoundingClientRect().height}px`;
+        document.documentElement.style.setProperty('--shop-sticky-offset', `${offset}px`);
+      };
+      syncStickyOffset();
+      const resizeObserver = new ResizeObserver(syncStickyOffset);
+      resizeObserver.observe(header);
+      resizeObserver.observe(nav);
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (this.scrollSpyMuted) return;
+          const visible = entries
+            .filter((entry) => entry.isIntersecting)
+            .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+          if (visible.length === 0) return;
+
+          const raw = (visible[0].target as HTMLElement).dataset['categoryId'];
+          const categoryId = raw === 'other' ? null : Number(raw);
+          if (this.selectedCategoryId() !== categoryId) this.selectedCategoryId.set(categoryId);
+        },
+        // N'observe que la bande sous la barre sticky (header + nav) — une section devient active
+        // dès que son bord haut y entre, pas seulement quand elle occupe tout l'écran.
+        { root: null, rootMargin: `-${header.getBoundingClientRect().height + nav.getBoundingClientRect().height}px 0px -60% 0px`, threshold: 0 },
+      );
+
+      sections.forEach((section) => observer.observe(section));
+      onCleanup(() => {
+        resizeObserver.disconnect();
+        observer.disconnect();
       });
     });
   }
@@ -155,8 +225,24 @@ export class Catalog {
     return categoryId === null ? '🍽️' : PRODUCT_EMOJIS[categoryId % PRODUCT_EMOJIS.length];
   }
 
-  selectCategory(categoryId: number | null | 'all'): void {
+  /** Identifiant d'ancre DOM d'une section catégorie — categoryId est null pour le bucket
+   *  "Autres" (produits sans catégorie), voir `categories`/`groupedCategories` ci-dessus. */
+  categoryAnchorId(categoryId: number | null): string {
+    return `shop-category-${categoryId ?? 'other'}`;
+  }
+
+  /** Pastille de la barre de catégories — défile jusqu'à la section correspondante au lieu de
+   *  filtrer la grille (voir groupedCategories). Le décalage sous la barre sticky (en-tête +
+   *  pastilles) est géré par `scroll-margin-top` en CSS (voir --shop-sticky-offset, synchronisé
+   *  dans le constructeur) plutôt que par un calcul manuel de position — scrollIntoView s'en sert
+   *  nativement, même pattern que kiosk-order.ts::scrollToCategory. */
+  scrollToCategory(categoryId: number | null): void {
     this.selectedCategoryId.set(categoryId);
+
+    this.scrollSpyMuted = true;
+    setTimeout(() => (this.scrollSpyMuted = false), 600);
+
+    document.getElementById(this.categoryAnchorId(categoryId))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   quantityInCart(product: ShopProduct): number {

@@ -55,16 +55,12 @@
     </div>
 
     <nav class="shop-categories">
-      <button type="button" class="shop-category-chip" [class.is-active]="selectedCategoryId() === 'all'" (click)="selectCategory('all')">
-        <span class="shop-category-chip__icon">🧺</span>
-        <span>Tous</span>
-      </button>
       @for (category of categories(); track category.id) {
         <button
           type="button"
           class="shop-category-chip"
           [class.is-active]="selectedCategoryId() === category.id"
-          (click)="selectCategory(category.id)"
+          (click)="scrollToCategory(category.id)"
         >
           <span class="shop-category-chip__icon">
             @if (category.image_url) {
@@ -78,43 +74,50 @@
       }
     </nav>
 
-    <section class="shop-grid">
-      @for (product of filteredProducts(); track product.id) {
-        <article class="shop-product-card" [class.is-disabled]="isOutOfStock(product)">
-          <button type="button" class="shop-product-card__media" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
-            @if (isOutOfStock(product)) {
-              <span class="shop-product-card__ribbon">Rupture de stock</span>
-            } @else if (quantityInCart(product) > 0) {
-              <span class="shop-product-card__badge">{{ quantityInCart(product) }}</span>
-            }
-            @if (product.image_url) {
-              <img [src]="product.image_url" alt="" />
-            } @else {
-              <span class="shop-product-card__emoji">{{ product.icon ?? productEmoji(product) }}</span>
-            }
-          </button>
+    <section class="shop-menu">
+      @for (group of groupedCategories(); track group.category.id) {
+        <section class="shop-category-section" [id]="categoryAnchorId(group.category.id)" [attr.data-category-id]="group.category.id ?? 'other'">
+          <h2 class="shop-category-section__title">{{ group.category.name }}</h2>
+          <div class="shop-grid">
+            @for (product of group.products; track product.id) {
+              <article class="shop-product-card" [class.is-disabled]="isOutOfStock(product)">
+                <button type="button" class="shop-product-card__media" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
+                  @if (isOutOfStock(product)) {
+                    <span class="shop-product-card__ribbon">Rupture de stock</span>
+                  } @else if (quantityInCart(product) > 0) {
+                    <span class="shop-product-card__badge">{{ quantityInCart(product) }}</span>
+                  }
+                  @if (product.image_url) {
+                    <img [src]="product.image_url" alt="" />
+                  } @else {
+                    <span class="shop-product-card__emoji">{{ product.icon ?? productEmoji(product) }}</span>
+                  }
+                </button>
 
-          <div class="shop-product-card__body">
-            @if (product.category) {
-              <span class="shop-product-card__category">{{ product.category.name }}</span>
-            }
-            <span class="shop-product-card__name">{{ product.name }}</span>
-            @if (remainingStock(product); as remaining) {
-              @if (remaining > 0) {
-                <span class="shop-product-card__stock" [class.shop-product-card__stock--low]="isLowStock(product)">
-                  {{ remaining }} en stock
-                </span>
-              }
+                <div class="shop-product-card__body">
+                  @if (product.category) {
+                    <span class="shop-product-card__category">{{ product.category.name }}</span>
+                  }
+                  <span class="shop-product-card__name">{{ product.name }}</span>
+                  @if (remainingStock(product); as remaining) {
+                    @if (remaining > 0) {
+                      <span class="shop-product-card__stock" [class.shop-product-card__stock--low]="isLowStock(product)">
+                        {{ remaining }} en stock
+                      </span>
+                    }
+                  }
+                </div>
+
+                <div class="shop-product-card__footer">
+                  <span class="shop-product-card__price">{{ formatMoney(product.price) }}</span>
+                  <button type="button" class="btn btn-primary btn-sm" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
+                    Ajouter
+                  </button>
+                </div>
+              </article>
             }
           </div>
-
-          <div class="shop-product-card__footer">
-            <span class="shop-product-card__price">{{ formatMoney(product.price) }}</span>
-            <button type="button" class="btn btn-primary btn-sm" [disabled]="isOutOfStock(product)" (click)="addToCart(product)">
-              Ajouter
-            </button>
-          </div>
-        </article>
+        </section>
       } @empty {
         <p class="text-muted shop-grid__empty">Aucun produit ne correspond à votre recherche.</p>
       }

@@ -112,8 +112,15 @@
   display: flex;
   gap: var(--space-2);
   overflow-x: auto;
-  padding: 0 var(--space-5) var(--space-2);
+  padding: var(--space-2) var(--space-5);
   flex-shrink: 0;
+  /* Colle juste sous .shop-header (lui-même sticky) — `top` est resynchronisé en JS sur la
+     hauteur réelle de l'en-tête, voir le ResizeObserver dans catalog.ts (elle varie avec le
+     flex-wrap mobile). */
+  position: sticky;
+  z-index: 15;
+  background: var(--surface-page);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .shop-category-chip {
@@ -157,20 +164,48 @@
   color: var(--text-on-sidebar);
 }
 
-/* ---------- Grille produits ---------- */
+/* ---------- Menu par catégorie ---------- */
+
+.shop-menu {
+  flex: 1;
+  padding: var(--space-3) 0 var(--space-8);
+}
+
+/* Une section par catégorie, toutes affichées à la suite (voir groupedCategories côté TS) — la
+   barre de pastilles (.shop-categories) reste au-dessus, sticky, et ne fait plus que défiler
+   jusqu'à l'ancre [id] de la section correspondante (scrollToCategory), elle ne filtre plus la
+   grille. Même pattern que erp_kiosk/pages/kiosk-order. */
+.shop-category-section {
+  /* Laisse la place à la barre sticky (en-tête + pastilles, hauteur variable) quand
+     scrollIntoView() amène cette section en haut de la fenêtre — voir --shop-sticky-offset,
+     synchronisé en JS dans catalog.ts (ResizeObserver). Fallback avant que le JS n'ait tourné. */
+  scroll-margin-top: calc(var(--shop-sticky-offset, 120px) + var(--space-3));
+}
+
+.shop-category-section + .shop-category-section {
+  margin-top: var(--space-6);
+}
+
+.shop-category-section__title {
+  margin: 0 0 var(--space-3);
+  padding: 0 var(--space-5);
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
 
 .shop-grid {
-  flex: 1;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--space-4);
-  padding: var(--space-3) var(--space-5) var(--space-8);
+  padding: 0 var(--space-5);
 }
 
+/* Enfant direct de .shop-menu (pas de .shop-grid) : le cas @empty couvre groupedCategories()
+   vide dans son ensemble, plus aucune section catégorie à afficher. */
 .shop-grid__empty {
-  grid-column: 1 / -1;
   text-align: center;
-  padding: var(--space-6) 0;
+  padding: var(--space-6) var(--space-5);
 }
 
 .shop-product-card {
