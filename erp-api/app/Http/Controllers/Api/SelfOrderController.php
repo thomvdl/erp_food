@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Events\OrderKitchenUpdated;
 use App\Http\Controllers\Controller;
+use App\Models\KioskBanner;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\ProductCatalog;
@@ -80,6 +81,10 @@ class SelfOrderController extends Controller
                 'room_name' => $table->room?->name,
             ],
             'products' => $products,
+            // Même carrousel hero que erp_kiosk (voir KioskBannerController::index/Paramètres >
+            // Bannières kiosque) — pas de set dédié à self_order, une seule liste à gérer côté
+            // admin pour les deux canaux.
+            'banners' => KioskBanner::query()->orderBy('position')->get(),
         ]);
     }
 

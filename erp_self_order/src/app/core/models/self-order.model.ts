@@ -88,6 +88,17 @@ export interface SelfOrderProduct {
   ingredients?: SelfOrderProductIngredient[];
 }
 
+/** Slide du carrousel hero affiché entre la topbar et les catégories (voir order.ts) — même
+ *  bannières que erp_kiosk (Paramètres > Bannières kiosque côté erp-app, KioskBannerController). */
+export interface SelfOrderBanner {
+  id: number;
+  title: string | null;
+  subtitle: string | null;
+  position: number;
+  active: boolean;
+  image_url: string | null;
+}
+
 export interface SelfOrderContext {
   table: { label: string; room_name: string | null };
   /** Voir App\Support\OpeningHours côté API — absent des anciennes réponses en cache, donc
@@ -97,6 +108,8 @@ export interface SelfOrderContext {
   message?: string;
   /** Absent quand closed === true (le catalogue n'est délibérément pas chargé, voir SelfOrderController::show). */
   products?: SelfOrderProduct[];
+  /** Absent quand closed === true, même raison que products ci-dessus. */
+  banners?: SelfOrderBanner[];
 }
 
 export interface SelfOrderLinePayload {

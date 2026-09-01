@@ -1,4 +1,4 @@
-import { Component, afterRenderEffect, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, afterRenderEffect, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -55,7 +55,7 @@ const LOW_STOCK_THRESHOLD = 3;
   templateUrl: './order.html',
   styleUrl: './order.css',
 })
-export class Order {
+export class Order implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly selfOrderService = inject(SelfOrderService);
@@ -99,11 +99,6 @@ export class Order {
   readonly excludedIngredientIds = signal<Set<number>>(new Set());
   readonly ingredientsQuantity = signal(1);
 
-  /** Écran d'accueil en tuiles catégories avant la grille produit — même pattern que
-   *  kiosk-order.ts (homeScreen). Vrai à l'arrivée sur le menu, puis basculé une fois pour la
-   *  session (voir scrollToCategory()) : contrairement au kiosque, un client self_order ne revient
-   *  jamais "à l'accueil" entre deux commandes (une seule table, une seule visite). */
-  readonly homeScreen = signal(true);
   readonly showCart = signal(false);
   readonly submitting = signal(false);
   readonly submitError = signal<string | null>(null);
@@ -144,6 +139,18 @@ export class Order {
   readonly cartCount = computed(() => this.cart().reduce((sum, line) => sum + line.quantity, 0));
   readonly cartTotal = computed(() => this.cart().reduce((sum, line) => sum + Number(line.product.price) * line.quantity, 0));
 
+  /** Carrousel hero affiché entre la topbar et les catégories — même bannières que kiosk-order.ts
+   *  (voir SelfOrderContext.banners/SelfOrderController::show côté API), filtrées/triées ici comme
+   *  côté kiosque plutôt que côté serveur. */
+  readonly visibleBanners = computed(() =>
+    (this.context()?.banners ?? [])
+      .filter((banner) => banner.active)
+      .sort((a, b) => a.position - b.position),
+  );
+  readonly activeBannerIndex = signal(0);
+  private static readonly BANNER_INTERVAL_MS = 6000;
+  private bannerInterval: ReturnType<typeof setInterval> | null = null;
+
   constructor() {
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       const token = params.get('qrToken');
@@ -169,11 +176,14 @@ export class Order {
     // Scrollspy : la pastille active de self-order-category-strip suit la section actuellement en
     // haut de l'écran pendant qu'on défile, sans qu'il faille taper une pastille — même
     // comportement que kiosk-order.ts. Réexécuté à chaque fois que la liste de sections change
-    // (groupedCategories) ou qu'on quitte/rentre dans homeScreen — onCleanup déconnecte l'observer
-    // précédent avant d'en recréer un, et au destroy du composant.
+    // (groupedCategories) OU que le menu (re)devient l'écran affiché (confirmedOrderId repasse à
+    // null) — sans cette deuxième dépendance, "Commander autre chose" démonte puis remonte les
+    // sections sans rien changer à groupedCategories, et l'effect ne se relance jamais pour
+    // réattacher l'observer aux nouveaux nœuds DOM. onCleanup déconnecte l'observer précédent
+    // avant d'en recréer un, et au destroy du composant.
     afterRenderEffect((onCleanup) => {
       this.groupedCategories();
-      if (this.homeScreen()) return;
+      this.confirmedOrderId();
 
       const sections = document.querySelectorAll('.self-order-category-section');
       if (sections.length === 0) return;
@@ -210,12 +220,18 @@ export class Order {
     });
   }
 
-  /** Mesure .self-order-sticky-header et pose sa hauteur en CSS custom property (voir
-   *  scroll-margin-top de .self-order-category-section dans order.css) — retourne la valeur pour
-   *  que l'IntersectionObserver ci-dessus s'aligne sur la même mesure. */
+  /** Mesure la topbar (sticky à elle seule, voir order.css) et pose la barre de catégories juste
+   *  en dessous (son propre `top`, elle aussi sticky indépendamment) — la somme des deux hauteurs
+   *  est posée en CSS custom property (voir scroll-margin-top de .self-order-category-section
+   *  dans order.css) et retournée pour que l'IntersectionObserver ci-dessus s'aligne sur la même
+   *  mesure. Même pattern que erp_public_shop/pages/catalog.ts::syncStickyOffset. */
   private setStickyHeaderHeightVar(): number {
-    const header = document.querySelector('.self-order-sticky-header');
-    const height = header?.getBoundingClientRect().height ?? 140;
+    const topbar = document.querySelector('.self-order-topbar') as HTMLElement | null;
+    const strip = document.querySelector('.self-order-category-strip') as HTMLElement | null;
+    const topbarHeight = topbar?.getBoundingClientRect().height ?? 0;
+    if (strip) strip.style.top = `${topbarHeight}px`;
+
+    const height = topbarHeight + (strip?.getBoundingClientRect().height ?? 0) || 140;
     document.documentElement.style.setProperty('--self-order-sticky-header-height', `${height}px`);
     return height;
   }
@@ -233,6 +249,7 @@ export class Order {
       next: (context) => {
         this.context.set(context);
         this.loading.set(false);
+        this.startBannerCarousel();
       },
       error: (err) => {
         this.loading.set(false);
@@ -263,44 +280,48 @@ export class Order {
     return `self-order-category-${categoryId ?? 'other'}`;
   }
 
-  /** Tuile catégorie de l'accueil OU pastille de la barre de nav (self-order-category-strip) —
-   *  les deux ne font plus que défiler jusqu'à la bonne section : tous les produits restent
-   *  affichés en permanence (voir groupedCategories), il n'y a plus de filtrage par catégorie.
-   *  Depuis l'accueil, la section n'existe pas encore dans le DOM tant que homeScreen n'est pas
-   *  repassé à false — d'où le setTimeout, le temps qu'Angular rende l'écran de navigation. */
+  /** Pastille de la barre de nav (self-order-category-strip) — défile jusqu'à la bonne section :
+   *  tous les produits restent affichés en permanence (voir groupedCategories), il n'y a pas de
+   *  filtrage par catégorie. */
   scrollToCategory(categoryId: number | null): void {
-    const wasHome = this.homeScreen();
     this.selectedCategoryId.set(categoryId);
-    this.homeScreen.set(false);
 
     this.scrollSpyMuted = true;
     setTimeout(() => (this.scrollSpyMuted = false), 600);
 
-    const scroll = () => {
-      // Remesuré ici plutôt que de compter uniquement sur afterRenderEffect (voir plus haut) :
-      // au tout premier clic depuis l'accueil, rien ne garantit que cet effect ait déjà tourné
-      // au moment où ce setTimeout(0) s'exécute — sans ça, scroll-margin-top retomberait sur le
-      // filet de secours statique d'order.css pour ce premier clic.
-      this.setStickyHeaderHeightVar();
-      document.getElementById(this.categoryAnchorId(categoryId))?.scrollIntoView({ behavior: wasHome ? 'auto' : 'smooth', block: 'start' });
-    };
-
-    if (wasHome) {
-      setTimeout(scroll, 0);
-    } else {
-      scroll();
-    }
-  }
-
-  goHome(): void {
-    this.homeScreen.set(true);
-    this.selectedCategoryId.set(null);
+    this.setStickyHeaderHeightVar();
+    document.getElementById(this.categoryAnchorId(categoryId))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   /** Quitte cette table pour revenir à l'écran de scan (voir app.routes.ts, route ''/'' —
-   *  home.ts). Distinct de goHome() ci-dessus, qui reste sur cette même table. */
+   *  home.ts). */
   backToScan(): void {
     this.router.navigateByUrl('/');
+  }
+
+  /** (Re)démarre l'avance automatique du carrousel hero — même pattern que kiosk-order.ts. */
+  private startBannerCarousel(): void {
+    if (this.bannerInterval !== null) {
+      clearInterval(this.bannerInterval);
+      this.bannerInterval = null;
+    }
+
+    if (this.visibleBanners().length <= 1) return;
+
+    this.bannerInterval = setInterval(() => {
+      this.activeBannerIndex.set((this.activeBannerIndex() + 1) % this.visibleBanners().length);
+    }, Order.BANNER_INTERVAL_MS);
+  }
+
+  goToBannerSlide(index: number): void {
+    this.activeBannerIndex.set(index);
+    this.startBannerCarousel();
+  }
+
+  ngOnDestroy(): void {
+    if (this.bannerInterval !== null) {
+      clearInterval(this.bannerInterval);
+    }
   }
 
   /** Somme sur TOUTES les lignes de ce produit — un menu peut désormais apparaître dans plusieurs
@@ -668,7 +689,6 @@ export class Order {
 
   orderAgain(): void {
     this.confirmedOrderId.set(null);
-    this.homeScreen.set(true);
     this.selectedCategoryId.set(null);
   }
 }

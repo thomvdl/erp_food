@@ -1,8 +1,8 @@
 /* ==========================================================================
-   Écran de commande — mêmes patterns visuels que kiosk-order.css (accueil en
-   tuiles catégories, bandeau de pastilles + grille produit, panier en tiroir
-   plein écran) adaptés à self_order : pas de paiement/client/fidélité ici
-   (voir order.ts), juste une note par ligne et le nombre de convives en plus.
+   Écran de commande — mêmes patterns visuels que kiosk-order.css (carrousel
+   hero, bandeau de pastilles + grille produit, panier en tiroir plein écran)
+   adaptés à self_order : pas de paiement/client/fidélité ici (voir order.ts),
+   juste une note par ligne et le nombre de convives en plus.
    ========================================================================== */
 
 /* Bulbe orange arrondi accroché au bord droit — même détail que kiosk-order.css
@@ -31,28 +31,24 @@
   flex-direction: column;
 }
 
-/* Topbar + bandeau catégories collés en haut du viewport pendant que .self-order-menu défile en
- *  dessous (retour utilisateur) — nécessaire ici contrairement à kiosk-order.css : self_order
- *  tourne dans un navigateur mobile normal (page-scroll classique, voir :host ci-dessus), pas dans
- *  un viewport figé avec régions scrollables internes, donc rien ne reste "fixe" sans position:
- *  sticky explicite. background opaque obligatoire : sans lui le contenu qui défile en dessous
- *  transparaîtrait à travers le bandeau une fois collé. */
-.self-order-sticky-header {
+/* Topbar collée en haut du viewport en permanence (retour utilisateur : le header doit rester
+ *  au-dessus du carrousel hero, pas défiler avec lui) — nécessaire ici contrairement à
+ *  kiosk-order.css : self_order tourne dans un navigateur mobile normal (page-scroll classique,
+ *  voir :host ci-dessus), pas dans un viewport figé où la topbar est déjà hors du flux
+ *  scrollable. background opaque obligatoire : sans lui le contenu qui défile en dessous
+ *  transparaîtrait à travers une fois collée. */
+.self-order-topbar {
   position: sticky;
   top: 0;
   z-index: 10;
-  flex-shrink: 0;
-  background: var(--surface-page);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
-}
-
-.self-order-topbar {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
+  background: var(--surface-page);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
 }
 
 .self-order-topbar__brand {
@@ -78,80 +74,79 @@
   min-width: 2rem;
 }
 
-/* ---------- Accueil : grille de catégories ---------- */
+/* ---------- Carrousel hero ---------- */
 
-.self-order-home {
-  flex: 1;
-  padding: var(--space-2) var(--space-5) calc(96px + var(--space-5));
-}
-
-.self-order-home__eyebrow {
-  color: var(--color-primary-fill);
-  font-weight: 700;
-  font-size: var(--font-size-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin: 0 0 var(--space-1);
-}
-
-.self-order-home__title {
-  margin: 0 0 var(--space-5);
-  font-size: var(--font-size-3xl);
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  line-height: 1.1;
-}
-
-.self-order-home__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--space-4);
-}
-
-.self-order-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0;
-  background: transparent;
-  border: none;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.self-order-tile__media {
-  width: 100%;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--surface-card);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
+/* Défile normalement avec la page (contrairement à .self-order-topbar juste au-dessus et
+   .self-order-category-strip juste en dessous, sticky l'une comme l'autre) — voir
+   order.ts::visibleBanners/activeBannerIndex, mêmes bannières que kiosk-order (Paramètres >
+   Bannières kiosque côté erp-app). Même structure que .kiosk-hero-carousel. */
+.self-order-hero-carousel {
+  position: relative;
+  height: 200px;
+  margin: var(--space-3) var(--space-5) 0;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.self-order-tile:active .self-order-tile__media {
-  transform: scale(0.95);
+.self-order-hero-carousel__track {
+  display: flex;
+  height: 100%;
+  transition: transform 0.5s ease;
 }
 
-.self-order-tile__media img {
+.self-order-hero-carousel__slide {
+  position: relative;
+  flex: 0 0 100%;
+  height: 100%;
+  background: var(--surface-card);
+}
+
+.self-order-hero-carousel__slide img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.self-order-tile__emoji {
-  font-size: 2.75rem;
-  line-height: 1;
+.self-order-hero-carousel__caption {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: var(--space-4) var(--space-5);
+  background: linear-gradient(0deg, rgb(0 0 0 / 65%), transparent);
+  color: #fff;
 }
 
-.self-order-tile__label {
-  font-weight: 700;
-  font-size: var(--font-size-base);
-  color: var(--text-primary);
+.self-order-hero-carousel__title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+}
+
+.self-order-hero-carousel__subtitle {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  opacity: 0.9;
+}
+
+.self-order-hero-carousel__dots {
+  position: absolute;
+  inset: auto 0 var(--space-3) 0;
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.self-order-hero-carousel__dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 50%);
+  cursor: pointer;
+}
+
+.self-order-hero-carousel__dot.is-active {
+  background: #fff;
 }
 
 /* ---------- Navigation catégorie : bandeau + grille produit ---------- */
@@ -163,12 +158,20 @@
   gap: var(--space-3);
 }
 
+/* Sticky sous la topbar (voir .self-order-topbar ci-dessus) — `top` posé dynamiquement en JS sur
+   la hauteur réelle de la topbar (setStickyHeaderHeightVar côté TS), pas de valeur codée en dur
+   qui se déréglerait si son contenu changeait. background opaque : même raison que la topbar. */
 .self-order-category-strip {
+  position: sticky;
+  z-index: 9;
   flex-shrink: 0;
   display: flex;
   gap: var(--space-3);
   overflow-x: auto;
-  padding: 0 var(--space-5) var(--space-2);
+  margin-top: 10px;
+  padding: var(--space-2) var(--space-5);
+  background: var(--surface-page);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
 }
 
 .self-order-category-pill {
@@ -233,15 +236,15 @@
 }
 
 /* Une section par catégorie, toutes affichées à la suite dans .self-order-menu (voir
- *  groupedCategories côté TS) — le bandeau de pastilles (.self-order-category-strip, dans le
- *  bloc collant .self-order-sticky-header) ne filtre plus la grille, il ne fait que défiler
- *  jusqu'à l'ancre [id] de la section correspondante (scrollToCategory). scroll-margin-top :
- *  .self-order-sticky-header est en position: sticky (contrairement au kiosque, où topbar/bandeau
- *  sont de vrais frères flex qui poussent la zone scrollable, jamais un overlay) — sans cette
- *  marge, scrollIntoView aligne le haut de la section avec y=0, exactement sous le bandeau collant
- *  qui la recouvre alors, et l'écran atterrit visuellement en plein milieu de la section au lieu
- *  de son titre. Valeur posée dynamiquement (voir scrollToCategory) sur la hauteur réelle du
- *  bandeau collant ; la valeur ici n'est qu'un filet de secours avant la première mesure.
+ *  groupedCategories côté TS) — le bandeau de pastilles (.self-order-category-strip) ne filtre
+ *  plus la grille, il ne fait que défiler jusqu'à l'ancre [id] de la section correspondante
+ *  (scrollToCategory). scroll-margin-top : la topbar ET le bandeau sont chacun en position: sticky
+ *  (contrairement au kiosque, où ce sont de vrais frères flex qui poussent la zone scrollable,
+ *  jamais un overlay) — sans cette marge, scrollIntoView aligne le haut de la section avec y=0,
+ *  exactement sous les deux bandeaux collants qui la recouvrent alors, et l'écran atterrit
+ *  visuellement en plein milieu de la section au lieu de son titre. Valeur posée dynamiquement
+ *  (voir setStickyHeaderHeightVar/scrollToCategory) sur la somme des deux hauteurs réelles ; la
+ *  valeur ici n'est qu'un filet de secours avant la première mesure.
  */
 .self-order-category-section {
   scroll-margin-top: var(--self-order-sticky-header-height, 140px);
@@ -680,7 +683,6 @@
 }
 
 @media (max-width: 420px) {
-  .self-order-home__grid,
   .self-order-menu__grid {
     grid-template-columns: repeat(2, 1fr);
   }
