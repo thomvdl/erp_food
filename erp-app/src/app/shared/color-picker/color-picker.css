@@ -1,0 +1,118 @@
+:host {
+  display: block;
+  position: relative;
+  max-width: 200px;
+}
+
+.cp__trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+}
+
+.cp__trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cp__swatch {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+.cp__label {
+  flex: 1;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+}
+
+.cp__chevron {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.cp__panel {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 220px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-3);
+}
+
+.cp__presets {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.cp__preset {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  padding: 0;
+  outline-offset: 2px;
+}
+
+.cp__preset:hover {
+  transform: scale(1.08);
+}
+
+.cp__preset--selected {
+  outline: 2px solid var(--color-primary-fill);
+}
+
+.cp__preset--custom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-card-muted);
+  font-size: 0.85rem;
+}
+
+.cp__hex-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cp__hex-swatch {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+.cp__hex-input {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+}
+
+.cp__hex-error {
+  display: block;
+  margin-top: var(--space-1);
+}
+
+.cp__native-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}

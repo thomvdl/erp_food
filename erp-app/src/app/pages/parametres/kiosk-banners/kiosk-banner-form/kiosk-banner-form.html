@@ -2,90 +2,96 @@
 
 <h1 class="text-2xl">{{ isEdit() ? 'Modifier la bannière' : 'Nouvelle bannière' }}</h1>
 
-<div class="card">
-<div class="card-body">
 <form class="form" (ngSubmit)="submit()">
-  <label class="field">
-    Titre
-    <input class="input" type="text" name="title" [ngModel]="title()" (ngModelChange)="title.set($event)" />
-  </label>
+  <section class="form-section">
+    <h2 class="form-section-title">Nom</h2>
 
-  <label class="field">
-    Sous-titre
-    <input class="input" type="text" name="subtitle" [ngModel]="subtitle()" (ngModelChange)="subtitle.set($event)" />
-  </label>
-
-  <label class="field">
-    Position d'affichage
-    <input
-      class="input"
-      type="number"
-      name="position"
-      min="0"
-      placeholder="Auto (fin de liste)"
-      style="max-width: 160px"
-      [ngModel]="position()"
-      (ngModelChange)="position.set($event)"
-    />
-  </label>
-  <p class="text-muted text-sm">Détermine l'ordre d'affichage dans le carrousel (croissant). Laissé vide, la bannière est placée en fin de liste.</p>
-
-  <label class="checkbox-field">
-    <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
-    Actif
-  </label>
-
-  <div class="field">
-    Image
-    @if (!isEdit()) {
-      <p class="text-muted text-sm">Enregistrez d'abord la bannière pour pouvoir ajouter une image.</p>
-    } @else if (imageUrl(); as url) {
-      <div style="display: flex; align-items: center; gap: var(--space-3)">
-        <img [src]="url" alt="" style="width: 160px; height: 64px; object-fit: cover; border-radius: var(--radius-md)" />
-        <button type="button" class="btn btn-outline btn-sm" [disabled]="uploadingImage()" (click)="removeImage()">
-          {{ uploadingImage() ? '...' : "Supprimer l'image" }}
-        </button>
-      </div>
-    } @else {
-      <input type="file" accept="image/*" [disabled]="uploadingImage()" (change)="onImageSelected($event)" />
-    }
-    @if (imageError()) {
-      <p class="error-text text-sm">{{ imageError() }}</p>
-    }
-  </div>
-
-  @if (!imageUrl()) {
     <label class="field">
-      Couleur de fond
+      Titre
+      <input class="input" type="text" name="title" [ngModel]="title()" (ngModelChange)="title.set($event)" />
+    </label>
+
+    <label class="field">
+      Sous-titre
+      <input class="input" type="text" name="subtitle" [ngModel]="subtitle()" (ngModelChange)="subtitle.set($event)" />
+    </label>
+  </section>
+
+  <section class="form-section">
+    <h2 class="form-section-title">Affichage</h2>
+
+    <label class="field">
+      Position d'affichage
       <input
         class="input"
-        type="color"
-        name="backgroundColor"
-        style="max-width: 160px; padding: 4px"
-        [ngModel]="backgroundColor()"
-        (ngModelChange)="backgroundColor.set($event)"
+        type="number"
+        name="position"
+        min="0"
+        placeholder="Auto (fin de liste)"
+        style="max-width: 160px"
+        [ngModel]="position()"
+        (ngModelChange)="position.set($event)"
       />
     </label>
-    <p class="text-muted text-sm">Utilisée tant qu'aucune image n'est choisie ci-dessus.</p>
-  }
+    <p class="text-muted text-sm">Détermine l'ordre d'affichage dans le carrousel (croissant). Laissé vide, la bannière est placée en fin de liste.</p>
 
-  <label class="field">
-    Position du texte
-    <select class="select" name="textPosition" [ngModel]="textPosition()" (ngModelChange)="textPosition.set($event)">
-      <option value="top">Haut</option>
-      <option value="center">Centre</option>
-      <option value="bottom">Bas</option>
-    </select>
-  </label>
+    <label class="checkbox-field">
+      <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
+      Actif
+    </label>
+  </section>
 
-  <label class="field">
-    Taille du texte
-    <select class="select" name="textSize" [ngModel]="textSize()" (ngModelChange)="textSize.set($event)">
-      <option value="small">Petite</option>
-      <option value="medium">Moyenne</option>
-      <option value="large">Grande</option>
-    </select>
-  </label>
+  <section class="form-section">
+    <h2 class="form-section-title">Image</h2>
+
+    <div class="field">
+      @if (!isEdit()) {
+        <p class="text-muted text-sm">Enregistrez d'abord la bannière pour pouvoir ajouter une image.</p>
+      } @else if (imageUrl(); as url) {
+        <div style="display: flex; align-items: center; gap: var(--space-3)">
+          <img [src]="url" alt="" style="width: 160px; height: 64px; object-fit: cover; border-radius: var(--radius-md)" />
+          <button type="button" class="btn btn-outline btn-sm" [disabled]="uploadingImage()" (click)="removeImage()">
+            {{ uploadingImage() ? '...' : "Supprimer l'image" }}
+          </button>
+        </div>
+      } @else {
+        <input type="file" accept="image/*" [disabled]="uploadingImage()" (change)="onImageSelected($event)" />
+      }
+      @if (imageError()) {
+        <p class="error-text text-sm">{{ imageError() }}</p>
+      }
+    </div>
+  </section>
+
+  <section class="form-section">
+    <h2 class="form-section-title">Style</h2>
+
+    @if (!imageUrl()) {
+      <label class="field">
+        Couleur de fond
+        <app-color-picker [ngModel]="backgroundColor()" (ngModelChange)="backgroundColor.set($event)" name="backgroundColor" />
+      </label>
+      <p class="text-muted text-sm">Utilisée tant qu'aucune image n'est choisie dans la section Image ci-dessus.</p>
+    }
+
+    <label class="field">
+      Position du texte
+      <select class="select" name="textPosition" [ngModel]="textPosition()" (ngModelChange)="textPosition.set($event)">
+        <option value="top">Haut</option>
+        <option value="center">Centre</option>
+        <option value="bottom">Bas</option>
+      </select>
+    </label>
+
+    <label class="field">
+      Taille du texte
+      <select class="select" name="textSize" [ngModel]="textSize()" (ngModelChange)="textSize.set($event)">
+        <option value="small">Petite</option>
+        <option value="medium">Moyenne</option>
+        <option value="large">Grande</option>
+      </select>
+    </label>
+  </section>
 
   @if (error()) {
     <p class="error-text">{{ error() }}</p>
@@ -96,5 +102,3 @@
     <a class="btn btn-outline" routerLink="/parametres/bannieres-kiosque">Annuler</a>
   </div>
 </form>
-</div>
-</div>

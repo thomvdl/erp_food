@@ -1,0 +1,52 @@
+<button type="button" class="input cp__trigger" (click)="toggle()" [disabled]="disabled()">
+  <span class="cp__swatch" [style.background]="value()"></span>
+  <span class="cp__label">{{ value() | uppercase }}</span>
+  <span class="cp__chevron">▾</span>
+</button>
+
+@if (open()) {
+  <div class="cp__panel">
+    <div class="cp__presets">
+      @for (color of presets; track color) {
+        <button
+          type="button"
+          class="cp__preset"
+          [class.cp__preset--selected]="value().toLowerCase() === color.toLowerCase()"
+          [style.background]="color"
+          [title]="color"
+          (click)="selectPreset(color)"
+        ></button>
+      }
+      <button
+        type="button"
+        class="cp__preset cp__preset--custom"
+        [class.cp__preset--selected]="!isPreset()"
+        title="Couleur personnalisée"
+        (click)="openNativePicker()"
+      >🎨</button>
+    </div>
+
+    <div class="cp__hex-row">
+      <span class="cp__hex-swatch" [style.background]="hexInvalid() ? 'transparent' : hexDraft()"></span>
+      <input
+        class="input cp__hex-input"
+        [class.is-invalid]="hexInvalid()"
+        type="text"
+        maxlength="7"
+        [ngModel]="hexDraft()"
+        (ngModelChange)="onHexDraftChange($event)"
+      />
+    </div>
+    @if (hexInvalid()) {
+      <span class="error-text cp__hex-error">Format attendu : #RRGGBB</span>
+    }
+
+    <input
+      #nativeInput
+      class="cp__native-input"
+      type="color"
+      [value]="value()"
+      (input)="onNativeInput($event)"
+    />
+  </div>
+}

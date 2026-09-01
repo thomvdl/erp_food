@@ -3,11 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { KioskBannerService } from '../../../../core/kiosk-banner.service';
 import { KioskBannerTextPosition, KioskBannerTextSize } from '../../../../core/models/kiosk-banner.model';
+import { ColorPicker } from '../../../../shared/color-picker/color-picker';
 
 @Component({
   selector: 'app-kiosk-banner-form',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, ColorPicker],
   templateUrl: './kiosk-banner-form.html',
 })
 export class KioskBannerForm {
