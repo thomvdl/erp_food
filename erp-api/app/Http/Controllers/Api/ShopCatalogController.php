@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\KioskBanner;
 use App\Models\Param;
 use App\Models\Product;
 use App\Models\ProductCatalog;
@@ -52,6 +53,10 @@ class ShopCatalogController extends Controller
             // App\Support\DeliveryZone, pour ne jamais afficher un rayon différent de celui
             // réellement appliqué au paiement.
             'delivery_radius_km' => (float) (Param::query()->where('name', 'shop_delivery_radius_km')->value('value') ?? 10),
+            // Même carrousel hero que erp_kiosk / erp_self_order (voir KioskBannerController,
+            // Paramètres > Bannières kiosque) — une seule liste à gérer côté admin pour les trois
+            // canaux, voir SelfOrderController::show.
+            'banners' => KioskBanner::query()->orderBy('position')->get(),
         ]);
     }
 }

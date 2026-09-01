@@ -116,7 +116,7 @@
    transition ne fait que suivre l'index. */
 .kiosk-hero-carousel {
   position: relative;
-  height: 200px;
+  height: 320px;
   margin-top: var(--space-3);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -167,30 +167,30 @@
 
 .kiosk-hero-carousel__title {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-3xl);
   font-weight: 800;
 }
 
 .kiosk-hero-carousel__caption--small .kiosk-hero-carousel__title {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-lg);
 }
 
 .kiosk-hero-carousel__caption--large .kiosk-hero-carousel__title {
-  font-size: var(--font-size-2xl);
+  font-size: 2.75rem;
 }
 
 .kiosk-hero-carousel__subtitle {
   margin: var(--space-1) 0 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   opacity: 0.9;
 }
 
 .kiosk-hero-carousel__caption--small .kiosk-hero-carousel__subtitle {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
 }
 
 .kiosk-hero-carousel__caption--large .kiosk-hero-carousel__subtitle {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-lg);
 }
 
 .kiosk-hero-carousel__dots {

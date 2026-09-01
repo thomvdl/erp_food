@@ -82,7 +82,7 @@
    Bannières kiosque côté erp-app). Même structure que .kiosk-hero-carousel. */
 .self-order-hero-carousel {
   position: relative;
-  height: 200px;
+  height: 320px;
   margin: var(--space-3) var(--space-5) 0;
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -133,30 +133,30 @@
 
 .self-order-hero-carousel__title {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-3xl);
   font-weight: 800;
 }
 
 .self-order-hero-carousel__caption--small .self-order-hero-carousel__title {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-lg);
 }
 
 .self-order-hero-carousel__caption--large .self-order-hero-carousel__title {
-  font-size: var(--font-size-2xl);
+  font-size: 2.75rem;
 }
 
 .self-order-hero-carousel__subtitle {
   margin: var(--space-1) 0 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   opacity: 0.9;
 }
 
 .self-order-hero-carousel__caption--small .self-order-hero-carousel__subtitle {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
 }
 
 .self-order-hero-carousel__caption--large .self-order-hero-carousel__subtitle {
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-lg);
 }
 
 .self-order-hero-carousel__dots {

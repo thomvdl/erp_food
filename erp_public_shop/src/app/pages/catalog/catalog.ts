@@ -1,4 +1,4 @@
-import { Component, afterRenderEffect, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, afterRenderEffect, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
@@ -44,7 +44,7 @@ const LOW_STOCK_THRESHOLD = 3;
   templateUrl: './catalog.html',
   styleUrl: './catalog.css',
 })
-export class Catalog {
+export class Catalog implements OnDestroy {
   private readonly router = inject(Router);
   private readonly shopService = inject(ShopService);
   private readonly productStockEcho = inject(ProductStockEchoService);
@@ -90,6 +90,16 @@ export class Catalog {
   readonly ingredientsQuantity = signal(1);
 
   readonly showCart = signal(false);
+
+  /** Même carrousel hero que erp_kiosk/pages/kiosk-order et erp_self_order/pages/order (voir
+   *  ShopCatalogController::index, qui embarque la même liste de KioskBanner) — remplace
+   *  l'ancienne bannière statique .shop-hero. */
+  readonly visibleBanners = computed(() =>
+    (this.catalog()?.banners ?? []).filter((banner) => banner.active).sort((a, b) => a.position - b.position),
+  );
+  readonly activeBannerIndex = signal(0);
+  private static readonly BANNER_INTERVAL_MS = 6000;
+  private bannerInterval: ReturnType<typeof setInterval> | null = null;
 
   /** Uniquement filtrés par la recherche — voir groupedCategories/categories ci-dessous, il n'y a
    *  plus de filtrage par catégorie (comme kiosk-order.ts). */
@@ -208,12 +218,39 @@ export class Catalog {
       next: (catalog) => {
         this.catalog.set(catalog);
         this.loading.set(false);
+        this.startBannerCarousel();
       },
       error: () => {
         this.loading.set(false);
         this.loadError.set('Impossible de charger le catalogue — réessayez dans un instant.');
       },
     });
+  }
+
+  /** Voir kiosk-order.ts::startBannerCarousel — même logique (redémarre l'intervalle complet à
+   *  chaque tap manuel sur une pastille, voir goToBannerSlide). */
+  private startBannerCarousel(): void {
+    if (this.bannerInterval !== null) {
+      clearInterval(this.bannerInterval);
+      this.bannerInterval = null;
+    }
+    if (this.visibleBanners().length <= 1) {
+      return;
+    }
+    this.bannerInterval = setInterval(() => {
+      this.activeBannerIndex.set((this.activeBannerIndex() + 1) % this.visibleBanners().length);
+    }, Catalog.BANNER_INTERVAL_MS);
+  }
+
+  goToBannerSlide(index: number): void {
+    this.activeBannerIndex.set(index);
+    this.startBannerCarousel();
+  }
+
+  ngOnDestroy(): void {
+    if (this.bannerInterval !== null) {
+      clearInterval(this.bannerInterval);
+    }
   }
 
   productEmoji(product: ShopProduct): string {

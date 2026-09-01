@@ -73,6 +73,21 @@ export interface ShopProduct {
   ingredients?: ShopProductIngredient[];
 }
 
+/** Même carrousel hero que erp_kiosk / erp_self_order (voir KioskBanner côté API, Paramètres >
+ *  Bannières kiosque) — une seule liste gérée côté admin pour les trois canaux. */
+export interface ShopBanner {
+  id: number;
+  title: string | null;
+  subtitle: string | null;
+  position: number;
+  active: boolean;
+  image_url: string | null;
+  /** Utilisée tant qu'aucune image_url n'est renseignée. */
+  background_color: string | null;
+  text_position: 'top' | 'center' | 'bottom';
+  text_size: 'small' | 'medium' | 'large';
+}
+
 export interface ShopCatalog {
   categories: ShopCategory[];
   products: ShopProduct[];
@@ -82,6 +97,7 @@ export interface ShopCatalog {
   /** Affiché dans le composant adresse de livraison (voir shared/delivery-address) — même valeur
    *  que celle réellement appliquée côté serveur (App\Support\DeliveryZone). */
   delivery_radius_km: number;
+  banners: ShopBanner[];
 }
 
 /** Résultat de vérification d'une adresse (voir ShopService::checkDeliveryAddress) — jamais la

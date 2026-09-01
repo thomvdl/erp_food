@@ -34,14 +34,49 @@
       </button>
     </header>
 
-    <section class="shop-hero">
-      <div class="shop-hero__text">
-        <p class="shop-hero__eyebrow">Commande en ligne</p>
-        <h1 class="shop-hero__title">Vos produits préférés, à emporter ou livrés chez vous</h1>
-        <p class="shop-hero__subtitle">Composez votre commande, payez en ligne en toute sécurité.</p>
+    @if (visibleBanners().length > 0) {
+      <div class="shop-hero-carousel">
+        <div class="shop-hero-carousel__track" [style.transform]="'translateX(-' + activeBannerIndex() * 100 + '%)'">
+          @for (banner of visibleBanners(); track banner.id) {
+            <div class="shop-hero-carousel__slide" [style.background]="banner.image_url ? null : banner.background_color">
+              @if (banner.image_url) {
+                <img [src]="banner.image_url" alt="" />
+              }
+              @if (banner.title || banner.subtitle) {
+                <div
+                  class="shop-hero-carousel__caption"
+                  [class.shop-hero-carousel__caption--top]="banner.text_position === 'top'"
+                  [class.shop-hero-carousel__caption--center]="banner.text_position === 'center'"
+                  [class.shop-hero-carousel__caption--small]="banner.text_size === 'small'"
+                  [class.shop-hero-carousel__caption--large]="banner.text_size === 'large'"
+                >
+                  @if (banner.title) {
+                    <p class="shop-hero-carousel__title">{{ banner.title }}</p>
+                  }
+                  @if (banner.subtitle) {
+                    <p class="shop-hero-carousel__subtitle">{{ banner.subtitle }}</p>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        @if (visibleBanners().length > 1) {
+          <div class="shop-hero-carousel__dots">
+            @for (banner of visibleBanners(); track banner.id; let i = $index) {
+              <button
+                type="button"
+                class="shop-hero-carousel__dot"
+                [class.is-active]="activeBannerIndex() === i"
+                (click)="goToBannerSlide(i)"
+                [attr.aria-label]="'Bannière ' + (i + 1)"
+              ></button>
+            }
+          </div>
+        }
       </div>
-      <span class="shop-hero__emoji" aria-hidden="true">🥗</span>
-    </section>
+    }
 
     <div class="shop-search">
       <span class="shop-search__icon">🔍</span>
