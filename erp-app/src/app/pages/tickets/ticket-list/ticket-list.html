@@ -45,13 +45,13 @@
       <table class="table table--stack-mobile">
         <thead>
           <tr>
-            <th>Ticket</th>
-            <th>Date</th>
-            <th>Source</th>
-            <th>Table</th>
-            <th>Client</th>
-            <th>Paiement</th>
-            <th>Total</th>
+            <th class="is-sortable" (click)="toggleSort('id')">Ticket <span class="sort-indicator">{{ sortIndicator('id') }}</span></th>
+            <th class="is-sortable" (click)="toggleSort('date')">Date <span class="sort-indicator">{{ sortIndicator('date') }}</span></th>
+            <th class="is-sortable" (click)="toggleSort('source')">Source <span class="sort-indicator">{{ sortIndicator('source') }}</span></th>
+            <th class="is-sortable" (click)="toggleSort('table')">Table <span class="sort-indicator">{{ sortIndicator('table') }}</span></th>
+            <th class="is-sortable" (click)="toggleSort('client')">Client <span class="sort-indicator">{{ sortIndicator('client') }}</span></th>
+            <th class="is-sortable" (click)="toggleSort('payment')">Paiement <span class="sort-indicator">{{ sortIndicator('payment') }}</span></th>
+            <th class="is-sortable" (click)="toggleSort('total')">Total <span class="sort-indicator">{{ sortIndicator('total') }}</span></th>
             <th></th>
           </tr>
         </thead>
