@@ -127,10 +127,15 @@ export class KioskOrder implements OnInit, OnDestroy {
 
     // Scrollspy : la pastille active de kiosk-category-strip suit la section actuellement en
     // haut de l'écran pendant qu'on défile, sans qu'il faille taper une pastille (retour
-    // utilisateur). Réexécuté à chaque fois que la liste de sections change (groupedCategories) —
-    // onCleanup déconnecte l'observer précédent avant d'en recréer un, et au destroy du composant.
+    // utilisateur). Réexécuté à chaque fois que la liste de sections change (groupedCategories) OU
+    // que le menu (re)devient l'écran affiché (orderContextReady) — sans cette deuxième
+    // dépendance, un "Nouvelle commande" après paiement démonte puis remonte les sections sans
+    // rien changer à groupedCategories, et l'effect ne se relance jamais pour réattacher
+    // l'observer aux nouveaux nœuds DOM. onCleanup déconnecte l'observer précédent avant d'en
+    // recréer un, et au destroy du composant.
     afterRenderEffect((onCleanup) => {
       this.groupedCategories();
+      this.orderContextReady();
 
       const menu = document.querySelector('.kiosk-menu') as HTMLElement | null;
       const nav = document.querySelector('.kiosk-category-strip') as HTMLElement | null;
