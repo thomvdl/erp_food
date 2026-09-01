@@ -54,12 +54,18 @@
       <div class="self-order-hero-carousel">
         <div class="self-order-hero-carousel__track" [style.transform]="'translateX(-' + activeBannerIndex() * 100 + '%)'">
           @for (banner of visibleBanners(); track banner.id) {
-            <div class="self-order-hero-carousel__slide">
+            <div class="self-order-hero-carousel__slide" [style.background]="banner.image_url ? null : banner.background_color">
               @if (banner.image_url) {
                 <img [src]="banner.image_url" alt="" />
               }
               @if (banner.title || banner.subtitle) {
-                <div class="self-order-hero-carousel__caption">
+                <div
+                  class="self-order-hero-carousel__caption"
+                  [class.self-order-hero-carousel__caption--top]="banner.text_position === 'top'"
+                  [class.self-order-hero-carousel__caption--center]="banner.text_position === 'center'"
+                  [class.self-order-hero-carousel__caption--small]="banner.text_size === 'small'"
+                  [class.self-order-hero-carousel__caption--large]="banner.text_size === 'large'"
+                >
                   @if (banner.title) {
                     <p class="self-order-hero-carousel__title">{{ banner.title }}</p>
                   }

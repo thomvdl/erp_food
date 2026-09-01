@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['title', 'subtitle', 'position', 'active', 'image_path'])]
+#[Fillable(['title', 'subtitle', 'position', 'active', 'image_path', 'background_color', 'text_position', 'text_size'])]
 class KioskBanner extends Model
 {
     protected $appends = ['image_url'];

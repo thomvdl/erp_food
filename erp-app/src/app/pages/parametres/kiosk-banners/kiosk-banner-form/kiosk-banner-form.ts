@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { KioskBannerService } from '../../../../core/kiosk-banner.service';
+import { KioskBannerTextPosition, KioskBannerTextSize } from '../../../../core/models/kiosk-banner.model';
 
 @Component({
   selector: 'app-kiosk-banner-form',
@@ -23,6 +24,12 @@ export class KioskBannerForm {
   readonly active = signal(true);
   readonly error = signal<string | null>(null);
 
+  /** Utilisé quand aucune image n'est choisie (voir imageUrl ci-dessous) — sans ça le fond de la
+   *  bannière serait transparent côté kiosk/self_order. */
+  readonly backgroundColor = signal('#f5821f');
+  readonly textPosition = signal<KioskBannerTextPosition>('bottom');
+  readonly textSize = signal<KioskBannerTextSize>('medium');
+
   /** Voir category-form.ts — même pattern (image = endpoint séparé, disponible seulement en édition). */
   readonly imageUrl = signal<string | null>(null);
   readonly uploadingImage = signal(false);
@@ -42,6 +49,9 @@ export class KioskBannerForm {
             this.position.set(banner.position);
             this.active.set(banner.active);
             this.imageUrl.set(banner.image_url);
+            this.backgroundColor.set(banner.background_color ?? '#f5821f');
+            this.textPosition.set(banner.text_position);
+            this.textSize.set(banner.text_size);
           },
           error: () => this.error.set('Impossible de charger la bannière.'),
         });
@@ -57,6 +67,9 @@ export class KioskBannerForm {
       subtitle: this.subtitle().trim() || null,
       position: this.position() ?? undefined,
       active: this.active(),
+      background_color: this.backgroundColor(),
+      text_position: this.textPosition(),
+      text_size: this.textSize(),
     };
     const request =
       this.isEdit() && this.id !== null

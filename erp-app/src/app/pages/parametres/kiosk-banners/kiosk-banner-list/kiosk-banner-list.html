@@ -41,7 +41,7 @@
               @if (banner.image_url) {
                 <img class="list-thumb" [src]="banner.image_url" alt="" />
               } @else {
-                <span class="list-thumb">🖼️</span>
+                <span class="list-thumb" [style.background]="banner.background_color || undefined">🖼️</span>
               }
             </td>
             <td>{{ banner.title || '—' }}</td>

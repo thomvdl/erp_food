@@ -97,6 +97,10 @@ export interface SelfOrderBanner {
   position: number;
   active: boolean;
   image_url: string | null;
+  /** Utilisé quand image_url est null — sans ça le fond serait transparent. */
+  background_color: string | null;
+  text_position: 'top' | 'center' | 'bottom';
+  text_size: 'small' | 'medium' | 'large';
 }
 
 export interface SelfOrderContext {

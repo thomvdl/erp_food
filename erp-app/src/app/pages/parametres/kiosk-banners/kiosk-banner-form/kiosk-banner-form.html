@@ -54,6 +54,39 @@
     }
   </div>
 
+  @if (!imageUrl()) {
+    <label class="field">
+      Couleur de fond
+      <input
+        class="input"
+        type="color"
+        name="backgroundColor"
+        style="max-width: 160px; padding: 4px"
+        [ngModel]="backgroundColor()"
+        (ngModelChange)="backgroundColor.set($event)"
+      />
+    </label>
+    <p class="text-muted text-sm">Utilisée tant qu'aucune image n'est choisie ci-dessus.</p>
+  }
+
+  <label class="field">
+    Position du texte
+    <select class="select" name="textPosition" [ngModel]="textPosition()" (ngModelChange)="textPosition.set($event)">
+      <option value="top">Haut</option>
+      <option value="center">Centre</option>
+      <option value="bottom">Bas</option>
+    </select>
+  </label>
+
+  <label class="field">
+    Taille du texte
+    <select class="select" name="textSize" [ngModel]="textSize()" (ngModelChange)="textSize.set($event)">
+      <option value="small">Petite</option>
+      <option value="medium">Moyenne</option>
+      <option value="large">Grande</option>
+    </select>
+  </label>
+
   @if (error()) {
     <p class="error-text">{{ error() }}</p>
   }

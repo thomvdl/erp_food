@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\KioskBanner;
 use App\Support\ImageUpload;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class KioskBannerController extends Controller
 {
@@ -72,6 +73,11 @@ class KioskBannerController extends Controller
             'subtitle' => ['nullable', 'string', 'max:255'],
             'position' => ['nullable', 'integer', 'min:0'],
             'active' => ['boolean'],
+            // Utilisé quand la bannière n'a pas d'image (voir image_url) — sans ça le fond serait
+            // transparent.
+            'background_color' => ['nullable', 'string', 'max:9'],
+            'text_position' => ['nullable', Rule::in(['top', 'center', 'bottom'])],
+            'text_size' => ['nullable', Rule::in(['small', 'medium', 'large'])],
         ]);
     }
 }
