@@ -14,8 +14,7 @@
  *  ne peut pas référencer une custom property. */
 :host {
   display: block;
-  height: 100dvh;
-  overflow: hidden;
+  min-height: 100dvh;
   background-color: var(--surface-page);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath fill='%23f5821f' d='M75,0 Q35,50 75,100 L100,100 L100,0 Z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -25,20 +24,29 @@
 
 /* ---------- Page ---------- */
 
+/* min-height (pas height+overflow:hidden) : la page défile normalement comme
+   erp_self_order/pages/order (voir .self-order-page) plutôt que de contraindre tout l'écran à un
+   viewport figé avec une seule zone interne scrollable — même ascenseur natif sur les deux apps. */
 .kiosk-page {
-  height: 100dvh;
+  min-height: 100dvh;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
+/* Sticky (comme .self-order-topbar) — reste visible en permanence maintenant que .kiosk-page
+   défile normalement au lieu d'un viewport figé. */
 .kiosk-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
+  background: var(--surface-page);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
 }
 
@@ -95,11 +103,9 @@
 
 .kiosk-browse {
   flex: 1;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  overflow: hidden;
 }
 
 /* Carrousel hero — voir Paramètres > Bannières kiosque côté erp-app (KioskBanner). Premier enfant
@@ -111,7 +117,7 @@
 .kiosk-hero-carousel {
   position: relative;
   height: 200px;
-  margin-bottom: var(--space-3);
+  margin-top: var(--space-3);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
@@ -135,6 +141,9 @@
   object-fit: cover;
 }
 
+/* Position par défaut = bas (voir Paramètres > Bannières kiosque, text_position) — --top/--center
+   ci-dessous en sont des variantes, appliquées par classe plutôt qu'en ligne pour garder le
+   dégradé de lisibilité (adapté à chaque position) hors du binding TS. */
 .kiosk-hero-carousel__caption {
   position: absolute;
   inset: auto 0 0 0;
@@ -143,16 +152,45 @@
   color: #fff;
 }
 
+.kiosk-hero-carousel__caption--top {
+  inset: 0 0 auto 0;
+  background: linear-gradient(180deg, rgb(0 0 0 / 65%), transparent);
+}
+
+.kiosk-hero-carousel__caption--center {
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: rgb(0 0 0 / 35%);
+}
+
 .kiosk-hero-carousel__title {
   margin: 0;
   font-size: var(--font-size-lg);
   font-weight: 800;
 }
 
+.kiosk-hero-carousel__caption--small .kiosk-hero-carousel__title {
+  font-size: var(--font-size-base);
+}
+
+.kiosk-hero-carousel__caption--large .kiosk-hero-carousel__title {
+  font-size: var(--font-size-2xl);
+}
+
 .kiosk-hero-carousel__subtitle {
   margin: var(--space-1) 0 0;
   font-size: var(--font-size-sm);
   opacity: 0.9;
+}
+
+.kiosk-hero-carousel__caption--small .kiosk-hero-carousel__subtitle {
+  font-size: var(--font-size-xs);
+}
+
+.kiosk-hero-carousel__caption--large .kiosk-hero-carousel__subtitle {
+  font-size: var(--font-size-base);
 }
 
 .kiosk-hero-carousel__dots {
@@ -185,6 +223,12 @@
 /* margin horizontal négatif = padding de .kiosk-menu (var(--space-5)) : fait déborder le fond
    sticky jusqu'aux bords de l'écran, la nav propre padding en dessous ré-aligne les pastilles sur
    le reste du contenu. */
+/* Sticky sous la topbar (voir .kiosk-topbar ci-dessus) — `top` posé dynamiquement en JS sur la
+   hauteur réelle de la topbar (setStickyHeaderHeightVar côté TS, même pattern que
+   erp_self_order/pages/order), top:0 ici n'est qu'un filet de secours avant la première mesure.
+   margin horizontal négatif = padding de .kiosk-menu (var(--space-5)) : fait déborder le fond
+   sticky jusqu'aux bords de l'écran, la nav propre padding en dessous ré-aligne les pastilles sur
+   le reste du contenu. */
 .kiosk-category-strip {
   position: sticky;
   top: 0;
@@ -192,8 +236,8 @@
   display: flex;
   gap: var(--space-3);
   overflow-x: auto;
-  margin: 0 calc(var(--space-5) * -1) var(--space-3);
-  padding: 0 var(--space-5) var(--space-2);
+  margin: 10px calc(var(--space-5) * -1) 0;
+  padding: var(--space-2) var(--space-5);
   background: var(--surface-page);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
 }
@@ -252,30 +296,27 @@
   color: var(--color-primary-fill);
 }
 
+/* Ni flex:1/min-height:0 en tension avec un ancêtre à hauteur figée, ni overflow-y:auto : la page
+   défile désormais normalement (voir .kiosk-page/:host ci-dessus), .kiosk-menu n'est plus une
+   région scrollable isolée — même modèle que .self-order-menu. padding-top : sans lui, le badge
+   de quantité (top: -6px, voir .kiosk-product-card__badge) de la première rangée de produits se
+   fait couper net par le bord du conteneur. */
 .kiosk-menu {
   flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  /* Pas de padding-top : le carrousel hero et/ou la barre de catégories précèdent toujours les
-     sections produit (voir template) et servent déjà de tampon pour le badge de quantité qui
-     déborde en haut d'une carte (top: -6px, voir .kiosk-product-card__badge) — un padding-top ici
-     décalerait .kiosk-category-strip de ce même montant une fois sticky (position: sticky se
-     calcule depuis la padding box du conteneur scrollable), collé avec un espace parasite au lieu
-     d'être flush sous la topbar. */
-  padding: 0 var(--space-5) calc(96px + var(--space-5));
+  padding: 10px var(--space-5) calc(96px + var(--space-5));
 }
 
 /* Une section par catégorie, toutes affichées à la suite dans .kiosk-menu (voir groupedCategories
  *  côté TS) — la barre de pastilles (.kiosk-category-strip) défile avec le reste jusqu'à devenir
  *  sticky en haut de .kiosk-menu (voir plus haut), et ne fait plus que défiler jusqu'à l'ancre [id]
  *  de la section correspondante (scrollToCategory), elle ne filtre plus la grille. */
+/* Laisse la place à la topbar + .kiosk-category-strip (sticky l'une comme l'autre, voir plus
+   haut) quand scrollToCategory()/scrollIntoView amène cette section en haut de la page —
+   --kiosk-sticky-offset posé sur la somme des deux hauteurs réelles (voir
+   setStickyHeaderHeightVar côté TS), même pattern que erp_self_order/pages/order.ts. Valeur ici
+   : filet de secours avant la première mesure. */
 .kiosk-category-section {
-  /* Laisse la place à .kiosk-category-strip (désormais sticky, voir plus haut) quand
-     scrollToCategory()/scrollIntoView amène cette section en haut de .kiosk-menu —
-     --kiosk-sticky-offset synchronisé en JS dans kiosk-order.ts (ResizeObserver), même pattern
-     que erp_public_shop/pages/catalog. Fallback avant que le JS n'ait tourné. */
-  scroll-margin-top: calc(var(--kiosk-sticky-offset, 110px) + var(--space-3));
+  scroll-margin-top: var(--kiosk-sticky-offset, 160px);
 }
 
 .kiosk-category-section + .kiosk-category-section {

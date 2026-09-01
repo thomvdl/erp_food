@@ -132,25 +132,16 @@ export class KioskOrder implements OnInit, OnDestroy {
     // dépendance, un "Nouvelle commande" après paiement démonte puis remonte les sections sans
     // rien changer à groupedCategories, et l'effect ne se relance jamais pour réattacher
     // l'observer aux nouveaux nœuds DOM. onCleanup déconnecte l'observer précédent avant d'en
-    // recréer un, et au destroy du composant.
+    // recréer un, et au destroy du composant. root: null (page-scroll) — même pattern que
+    // erp_self_order/pages/order.ts, la page défile normalement plutôt qu'une zone interne dédiée.
     afterRenderEffect((onCleanup) => {
       this.groupedCategories();
       this.orderContextReady();
 
-      const menu = document.querySelector('.kiosk-menu') as HTMLElement | null;
-      const nav = document.querySelector('.kiosk-category-strip') as HTMLElement | null;
       const sections = document.querySelectorAll('.kiosk-category-section');
-      if (!menu || !nav || sections.length === 0) return;
+      if (sections.length === 0) return;
 
-      // .kiosk-category-strip est sticky EN HAUT de .kiosk-menu (le carrousel hero défile, lui,
-      // normalement au-dessus) — --kiosk-sticky-offset pilote scroll-margin-top sur les sections
-      // (voir CSS) pour que scrollToCategory()/scrollIntoView ne les cache pas derrière la barre.
-      // Un ResizeObserver la garde synchronisée plutôt qu'une valeur codée en dur, même pattern
-      // que erp_public_shop/pages/catalog.
-      const syncStickyOffset = () => document.documentElement.style.setProperty('--kiosk-sticky-offset', `${nav.getBoundingClientRect().height}px`);
-      syncStickyOffset();
-      const resizeObserver = new ResizeObserver(syncStickyOffset);
-      resizeObserver.observe(nav);
+      const headerHeight = this.setStickyHeaderHeightVar();
 
       const observer = new IntersectionObserver(
         (entries) => {
@@ -166,15 +157,28 @@ export class KioskOrder implements OnInit, OnDestroy {
         },
         // N'observe que la bande sous la barre sticky — une section devient active dès que son
         // bord haut y entre, pas seulement quand elle occupe tout l'écran.
-        { root: menu, rootMargin: `-${nav.getBoundingClientRect().height}px 0px -70% 0px`, threshold: 0 },
+        { root: null, rootMargin: `-${headerHeight}px 0px -70% 0px`, threshold: 0 },
       );
 
       sections.forEach((section) => observer.observe(section));
-      onCleanup(() => {
-        resizeObserver.disconnect();
-        observer.disconnect();
-      });
+      onCleanup(() => observer.disconnect());
     });
+  }
+
+  /** Mesure la topbar (sticky à elle seule) et pose la barre de catégories juste en dessous (son
+   *  propre `top`, elle aussi sticky indépendamment) — la somme des deux hauteurs est posée en
+   *  CSS custom property (voir scroll-margin-top de .kiosk-category-section dans
+   *  kiosk-order.css) et retournée pour que l'IntersectionObserver ci-dessus s'aligne sur la même
+   *  mesure. Même pattern que erp_self_order/pages/order.ts::setStickyHeaderHeightVar. */
+  private setStickyHeaderHeightVar(): number {
+    const topbar = document.querySelector('.kiosk-topbar') as HTMLElement | null;
+    const strip = document.querySelector('.kiosk-category-strip') as HTMLElement | null;
+    const topbarHeight = topbar?.getBoundingClientRect().height ?? 0;
+    if (strip) strip.style.top = `${topbarHeight}px`;
+
+    const height = topbarHeight + (strip?.getBoundingClientRect().height ?? 0) || 160;
+    document.documentElement.style.setProperty('--kiosk-sticky-offset', `${height}px`);
+    return height;
   }
 
   /** Coupe temporairement le scrollspy ci-dessus pendant un défilement déclenché par un clic
@@ -788,6 +792,7 @@ export class KioskOrder implements OnInit, OnDestroy {
     this.scrollSpyMuted = true;
     setTimeout(() => (this.scrollSpyMuted = false), 600);
 
+    this.setStickyHeaderHeightVar();
     document.getElementById(this.categoryAnchorId(categoryId))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
