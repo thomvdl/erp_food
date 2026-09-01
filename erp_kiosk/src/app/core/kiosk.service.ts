@@ -7,6 +7,7 @@ import {
   Client,
   CreateKioskCheckoutPayload,
   CreateKioskOrderPayload,
+  KioskBanner,
   KioskCheckout,
   KioskCheckoutState,
   KioskConfig,
@@ -42,6 +43,13 @@ export class KioskService {
 
   listCatalogs(): Observable<ProductCatalog[]> {
     return this.http.get<ProductCatalog[]>(`${API_URL}/product-catalogs`);
+  }
+
+  /** Carrousel hero affiché entre la topbar et les catégories (voir KioskOrder) — renvoie toutes
+   *  les bannières (actives et inactives, voir KioskBannerController::index), le tri par
+   *  `active`/`position` se fait côté kiosque comme pour listCatalogs()/active_kiosk. */
+  listBanners(): Observable<KioskBanner[]> {
+    return this.http.get<KioskBanner[]>(`${API_URL}/kiosk-banners`);
   }
 
   listPaymentMethods(): Observable<PaymentMethod[]> {

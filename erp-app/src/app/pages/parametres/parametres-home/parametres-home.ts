@@ -19,6 +19,7 @@ export class ParametresHome {
     { icon: '🪑', title: 'Tables & salles', description: 'Position des tables, ajout de salle', path: '/parametres/salles' },
     { icon: '🏷️', title: 'Catégories', description: 'Catégories de produits', path: '/parametres/categories' },
     { icon: '📚', title: 'Catalogues', description: 'Catalogues de produits, un seul actif à la fois', path: '/parametres/catalogues' },
+    { icon: '🖼️', title: 'Bannières kiosque', description: 'Carrousel affiché entre la topbar et les catégories du kiosque', path: '/parametres/bannieres-kiosque' },
     { icon: '👤', title: 'Utilisateurs', description: 'Comptes et rôles', path: '/parametres/utilisateurs' },
     { icon: '🔑', title: 'Rôles', description: 'Rôles utilisateurs', path: '/parametres/roles' },
     { icon: '👨‍🍳', title: 'Stations', description: 'Postes de préparation', path: '/parametres/stations' },

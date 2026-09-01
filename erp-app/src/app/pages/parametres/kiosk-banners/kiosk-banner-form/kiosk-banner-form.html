@@ -1,0 +1,67 @@
+<a routerLink="/parametres/bannieres-kiosque" class="back-link">← Bannières kiosque</a>
+
+<h1 class="text-2xl">{{ isEdit() ? 'Modifier la bannière' : 'Nouvelle bannière' }}</h1>
+
+<div class="card">
+<div class="card-body">
+<form class="form" (ngSubmit)="submit()">
+  <label class="field">
+    Titre
+    <input class="input" type="text" name="title" [ngModel]="title()" (ngModelChange)="title.set($event)" />
+  </label>
+
+  <label class="field">
+    Sous-titre
+    <input class="input" type="text" name="subtitle" [ngModel]="subtitle()" (ngModelChange)="subtitle.set($event)" />
+  </label>
+
+  <label class="field">
+    Position d'affichage
+    <input
+      class="input"
+      type="number"
+      name="position"
+      min="0"
+      placeholder="Auto (fin de liste)"
+      style="max-width: 160px"
+      [ngModel]="position()"
+      (ngModelChange)="position.set($event)"
+    />
+  </label>
+  <p class="text-muted text-sm">Détermine l'ordre d'affichage dans le carrousel (croissant). Laissé vide, la bannière est placée en fin de liste.</p>
+
+  <label class="checkbox-field">
+    <input type="checkbox" name="active" [ngModel]="active()" (ngModelChange)="active.set($event)" />
+    Actif
+  </label>
+
+  <div class="field">
+    Image
+    @if (!isEdit()) {
+      <p class="text-muted text-sm">Enregistrez d'abord la bannière pour pouvoir ajouter une image.</p>
+    } @else if (imageUrl(); as url) {
+      <div style="display: flex; align-items: center; gap: var(--space-3)">
+        <img [src]="url" alt="" style="width: 160px; height: 64px; object-fit: cover; border-radius: var(--radius-md)" />
+        <button type="button" class="btn btn-outline btn-sm" [disabled]="uploadingImage()" (click)="removeImage()">
+          {{ uploadingImage() ? '...' : "Supprimer l'image" }}
+        </button>
+      </div>
+    } @else {
+      <input type="file" accept="image/*" [disabled]="uploadingImage()" (change)="onImageSelected($event)" />
+    }
+    @if (imageError()) {
+      <p class="error-text text-sm">{{ imageError() }}</p>
+    }
+  </div>
+
+  @if (error()) {
+    <p class="error-text">{{ error() }}</p>
+  }
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+    <a class="btn btn-outline" routerLink="/parametres/bannieres-kiosque">Annuler</a>
+  </div>
+</form>
+</div>
+</div>

@@ -10,6 +10,7 @@ import { ActivePrinterService } from '../../core/active-printer.service';
 import { ProductStockEchoService } from '../../core/product-stock-echo.service';
 import {
   Client,
+  KioskBanner,
   KioskCheckout,
   KioskCheckoutState,
   MenuChoice,
@@ -174,6 +175,19 @@ export class KioskOrder implements OnInit, OnDestroy {
   private readonly activeCatalogIds = signal<number[]>([]);
   private readonly paymentMethods = signal<PaymentMethod[]>([]);
   private cashSessionId: number | null = null;
+
+  /** Carrousel hero affiché entre la topbar et les catégories (voir Paramètres > Bannières
+   *  kiosque côté erp-app) — trié/filtré ici comme activeCatalogIds ci-dessus plutôt que côté
+   *  serveur, l'API renvoie tout (actif ou non) pour que l'admin puisse aussi les gérer. */
+  private readonly banners = signal<KioskBanner[]>([]);
+  readonly visibleBanners = computed(() =>
+    this.banners()
+      .filter((banner) => banner.active)
+      .sort((a, b) => a.position - b.position),
+  );
+  readonly activeBannerIndex = signal(0);
+  private static readonly BANNER_INTERVAL_MS = 6000;
+  private bannerInterval: ReturnType<typeof setInterval> | null = null;
 
   readonly cart = signal<CartLine[]>([]);
   private nextCartLineId = 1;
@@ -349,8 +363,9 @@ export class KioskOrder implements OnInit, OnDestroy {
       paymentMethods: this.kioskService.listPaymentMethods(),
       session: this.kioskService.activeCashSession(userId),
       config: this.kioskService.getConfig(),
+      banners: this.kioskService.listBanners(),
     }).subscribe({
-      next: ({ products, catalogs, paymentMethods, session, config }) => {
+      next: ({ products, catalogs, paymentMethods, session, config, banners }) => {
         if (!session) {
           this.router.navigateByUrl('/setup');
           return;
@@ -360,6 +375,8 @@ export class KioskOrder implements OnInit, OnDestroy {
         this.paymentMethods.set(paymentMethods);
         this.activeCatalogIds.set(catalogs.filter((catalog) => catalog.active_kiosk).map((catalog) => catalog.id));
         this.tableNumberEnabled.set(config.table_number_enabled);
+        this.banners.set(banners);
+        this.startBannerCarousel();
         this.loading.set(false);
         if (this.activeCatalogIds().length === 0) {
           this.loadError.set('Aucun catalogue disponible pour le moment — contactez le personnel.');
@@ -1096,11 +1113,35 @@ export class KioskOrder implements OnInit, OnDestroy {
     this.tableNumberConfirmed.set(false);
   }
 
+  /** (Re)démarre l'avance automatique du carrousel hero — appelée au chargement initial et à
+   *  chaque tap sur une pastille (goToBannerSlide) pour repartir sur un intervalle complet plutôt
+   *  que de changer de slide juste après un choix manuel. Pas de rotation avec 0 ou 1 bannière. */
+  private startBannerCarousel(): void {
+    if (this.bannerInterval !== null) {
+      clearInterval(this.bannerInterval);
+      this.bannerInterval = null;
+    }
+
+    if (this.visibleBanners().length <= 1) return;
+
+    this.bannerInterval = setInterval(() => {
+      this.activeBannerIndex.set((this.activeBannerIndex() + 1) % this.visibleBanners().length);
+    }, KioskOrder.BANNER_INTERVAL_MS);
+  }
+
+  goToBannerSlide(index: number): void {
+    this.activeBannerIndex.set(index);
+    this.startBannerCarousel();
+  }
+
   goToSetup(): void {
     this.router.navigateByUrl('/setup');
   }
 
   ngOnDestroy(): void {
+    if (this.bannerInterval !== null) {
+      clearInterval(this.bannerInterval);
+    }
     if (this.newOrderTimeout !== null) {
       clearTimeout(this.newOrderTimeout);
     }

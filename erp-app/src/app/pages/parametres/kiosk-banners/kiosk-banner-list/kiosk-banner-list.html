@@ -1,0 +1,71 @@
+<a routerLink="/parametres" class="back-link">← Paramètres</a>
+
+<div class="app-topbar">
+  <h1 class="text-2xl">Bannières kiosque</h1>
+  <a class="btn btn-primary" routerLink="nouveau">+ Ajouter</a>
+</div>
+
+@if (error()) {
+  <p class="error-text">{{ error() }}</p>
+}
+
+<div class="card">
+  <div class="card-body">
+    <table class="table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Position</th>
+          <th></th>
+          <th>Titre</th>
+          <th>Sous-titre</th>
+          <th>Statut</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (banner of banners(); track banner.id) {
+          <tr (dragover)="onDragOver($event, banner)">
+            <td
+              class="text-muted"
+              draggable="true"
+              title="Glisser pour réordonner"
+              style="cursor: grab; text-align: center"
+              (dragstart)="onDragStart($event, banner)"
+              (dragend)="onDragEnd()"
+            >
+              ⠿
+            </td>
+            <td class="text-muted">{{ banner.position }}</td>
+            <td>
+              @if (banner.image_url) {
+                <img class="list-thumb" [src]="banner.image_url" alt="" />
+              } @else {
+                <span class="list-thumb">🖼️</span>
+              }
+            </td>
+            <td>{{ banner.title || '—' }}</td>
+            <td class="text-muted">{{ banner.subtitle || '—' }}</td>
+            <td>
+              @if (banner.active) {
+                <span class="badge badge-success">Actif</span>
+              } @else {
+                <span class="badge badge-neutral">Inactif</span>
+              }
+            </td>
+            <td>
+              <div class="td-actions">
+                <a class="btn btn-outline btn-sm" [routerLink]="[banner.id]">Modifier</a>
+                <button type="button" class="btn btn-outline btn-sm" (click)="remove(banner)">Supprimer</button>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="7" class="text-muted">Aucune bannière pour le moment.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -49,6 +49,21 @@ export const routes: Routes = [
               import('./pages/parametres/categories/category-form/category-form').then((m) => m.CategoryForm),
           },
           {
+            path: 'bannieres-kiosque',
+            loadComponent: () =>
+              import('./pages/parametres/kiosk-banners/kiosk-banner-list/kiosk-banner-list').then((m) => m.KioskBannerList),
+          },
+          {
+            path: 'bannieres-kiosque/nouveau',
+            loadComponent: () =>
+              import('./pages/parametres/kiosk-banners/kiosk-banner-form/kiosk-banner-form').then((m) => m.KioskBannerForm),
+          },
+          {
+            path: 'bannieres-kiosque/:id',
+            loadComponent: () =>
+              import('./pages/parametres/kiosk-banners/kiosk-banner-form/kiosk-banner-form').then((m) => m.KioskBannerForm),
+          },
+          {
             path: 'catalogues',
             loadComponent: () =>
               import('./pages/parametres/catalogs/catalog-list/catalog-list').then((m) => m.CatalogList),

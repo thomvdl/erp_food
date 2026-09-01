@@ -309,6 +309,44 @@
       </div>
     } @else {
       <div class="kiosk-browse">
+        @if (visibleBanners().length > 0) {
+          <div class="kiosk-hero-carousel">
+            <div class="kiosk-hero-carousel__track" [style.transform]="'translateX(-' + activeBannerIndex() * 100 + '%)'">
+              @for (banner of visibleBanners(); track banner.id) {
+                <div class="kiosk-hero-carousel__slide">
+                  @if (banner.image_url) {
+                    <img [src]="banner.image_url" alt="" />
+                  }
+                  @if (banner.title || banner.subtitle) {
+                    <div class="kiosk-hero-carousel__caption">
+                      @if (banner.title) {
+                        <p class="kiosk-hero-carousel__title">{{ banner.title }}</p>
+                      }
+                      @if (banner.subtitle) {
+                        <p class="kiosk-hero-carousel__subtitle">{{ banner.subtitle }}</p>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+            @if (visibleBanners().length > 1) {
+              <div class="kiosk-hero-carousel__dots">
+                @for (banner of visibleBanners(); track banner.id; let i = $index) {
+                  <button
+                    type="button"
+                    class="kiosk-hero-carousel__dot"
+                    [class.is-active]="activeBannerIndex() === i"
+                    (click)="goToBannerSlide(i)"
+                    [attr.aria-label]="'Bannière ' + (i + 1)"
+                  ></button>
+                }
+              </div>
+            }
+          </div>
+        }
+
         <nav class="kiosk-category-strip">
           @for (category of categories(); track category.id) {
             <button

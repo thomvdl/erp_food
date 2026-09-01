@@ -194,6 +194,18 @@ export interface KioskConfig {
   table_number_enabled: boolean;
 }
 
+/** Slide du carrousel hero affiché entre la topbar et les catégories (voir KioskOrder, Paramètres
+ *  > Bannières kiosque côté erp-app) — voir KioskBannerController::index côté API. */
+export interface KioskBanner {
+  id: number;
+  title: string | null;
+  subtitle: string | null;
+  /** Ordre d'affichage dans le carrousel (croissant). */
+  position: number;
+  active: boolean;
+  image_url: string | null;
+}
+
 export interface Client {
   id: number;
   firstname: string;

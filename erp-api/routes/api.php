@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\EventTicketController;
 use App\Http\Controllers\Api\EventTicketPriceController;
 use App\Http\Controllers\Api\EventTicketTypeController;
 use App\Http\Controllers\Api\IngredientController;
+use App\Http\Controllers\Api\KioskBannerController;
 use App\Http\Controllers\Api\KioskCheckoutController;
 use App\Http\Controllers\Api\KioskOrderController;
 use App\Http\Controllers\Api\OrderController;
@@ -158,6 +159,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Réglage "kiosk_table_available" exposé sous forme calculée (voir
     // KioskOrderController::config) — jamais les réglages bruts de /params, réservé à admin.
     Route::get('kiosk-config', [KioskOrderController::class, 'config']);
+    // Carrousel hero du kiosque (voir kiosk-order.ts) — lecture ouverte à tous comme
+    // product-categories/product-catalogs ci-dessus, le kiosque filtre lui-même sur `active`.
+    Route::get('kiosk-banners', [KioskBannerController::class, 'index']);
     Route::get('clients', [ClientController::class, 'index']);
     Route::post('clients', [ClientController::class, 'store']);
     // Doit être déclarée AVANT clients/{client} (sinon "lookup" serait interprété comme un id
@@ -179,6 +183,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('product-categories', ProductCategoryController::class)->except(['destroy', 'index']);
         Route::post('product-categories/{product_category}/image', [ProductCategoryController::class, 'uploadImage']);
         Route::delete('product-categories/{product_category}/image', [ProductCategoryController::class, 'removeImage']);
+        // Bannières du carrousel hero kiosque — index public ci-dessus, ->except(['index']) donc
+        // (destroy inclus : voir KioskBannerController, pas d'entité référencée à protéger).
+        Route::apiResource('kiosk-banners', KioskBannerController::class)->except(['index']);
+        Route::post('kiosk-banners/{kiosk_banner}/image', [KioskBannerController::class, 'uploadImage']);
+        Route::delete('kiosk-banners/{kiosk_banner}/image', [KioskBannerController::class, 'removeImage']);
         Route::apiResource('product-catalogs', ProductCatalogController::class)->except(['destroy', 'index']);
         // PUT + { active: bool } : chaque contexte accepte maintenant plusieurs catalogues actifs
         // à la fois (voir ProductCatalogController::setActiveForX), plus une activation exclusive.

@@ -153,6 +153,80 @@
   overflow: hidden;
 }
 
+/* Carrousel hero — voir Paramètres > Bannières kiosque côté erp-app (KioskBanner). Flex item figé
+   au-dessus de .kiosk-menu comme .kiosk-category-strip ci-dessous (pas de place perdue si aucune
+   bannière active, voir @if côté template). Avance automatique + pastilles pilotées depuis
+   kiosk-order.ts (activeBannerIndex/goToBannerSlide), la transition ne fait que suivre l'index. */
+.kiosk-hero-carousel {
+  flex-shrink: 0;
+  position: relative;
+  height: 200px;
+  margin: 0 var(--space-5);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.kiosk-hero-carousel__track {
+  display: flex;
+  height: 100%;
+  transition: transform 0.5s ease;
+}
+
+.kiosk-hero-carousel__slide {
+  position: relative;
+  flex: 0 0 100%;
+  height: 100%;
+  background: var(--surface-sidebar);
+}
+
+.kiosk-hero-carousel__slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.kiosk-hero-carousel__caption {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: var(--space-4) var(--space-5);
+  background: linear-gradient(0deg, rgb(0 0 0 / 65%), transparent);
+  color: #fff;
+}
+
+.kiosk-hero-carousel__title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 800;
+}
+
+.kiosk-hero-carousel__subtitle {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-size-sm);
+  opacity: 0.9;
+}
+
+.kiosk-hero-carousel__dots {
+  position: absolute;
+  inset: auto 0 var(--space-3) 0;
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.kiosk-hero-carousel__dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 50%);
+  cursor: pointer;
+}
+
+.kiosk-hero-carousel__dot.is-active {
+  background: #fff;
+}
+
 .kiosk-category-strip {
   flex-shrink: 0;
   display: flex;
