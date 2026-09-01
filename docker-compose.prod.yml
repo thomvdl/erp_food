@@ -117,20 +117,6 @@ services:
     depends_on:
       - api
 
-  # Site public événementiel — sert l'apex du domaine (voir Caddyfile, bloc {$DOMAIN} sans
-  # sous-domaine) : c'est l'adresse destinée au grand public, contrairement aux sous-domaines
-  # ci-dessus qui restent internes (staff/kiosques). Voir Readme.md, "Déploiement en production".
-  public_site_event:
-    build:
-      context: ./erp_public_site_event
-      dockerfile: Dockerfile.prod
-    container_name: erp_food_prod_public_site_event
-    restart: unless-stopped
-    environment:
-      API_URL: https://api.${DOMAIN:?DOMAIN doit être défini dans .env}/api
-    depends_on:
-      - api
-
   kitchen_display:
     build:
       context: ./erp_kitchen_display
@@ -214,7 +200,6 @@ services:
       - kitchen_display
       - validate_event
       - public_shop
-      - public_site_event
       - reverb
 
   # Adminer volontairement exclu (pas de client MySQL web exposé publiquement en prod) — voir
