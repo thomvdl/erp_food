@@ -9,6 +9,9 @@
         <p><a [href]="'tel:' + c.phone">{{ c.phone }}</a></p>
       }
     }
+    @if (openingHoursLabel(); as hours) {
+      <p>🕒 {{ hours }}</p>
+    }
   </div>
 
   <div class="shop-footer__trust">

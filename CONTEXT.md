@@ -1916,3 +1916,23 @@ points sûrs et à faible risque ; les points plus lourds ou sensibles sont remo
   `dd()`/`console.log` oubliés, pas de fuite mémoire (`takeUntilDestroyed()`/`clearInterval`
   correctement posés partout), zéro `any`, seulement 3 assertions non-null (`!`) toutes vérifiées
   sûres.
+
+## Horaires d'ouverture dans le footer de la boutique en ligne (2026-09-22)
+
+Demande : afficher les horaires d'ouverture (Params `shop_open_at`/`shop_close_at`/`shop_open_days`,
+voir "commande différée" plus haut) dans le footer public, à côté des coordonnées.
+
+- Aucune nouvelle route API : `GET /shop/catalog` (`ShopCatalogController::index`) exposait déjà
+  `open_days`/`open_at`/`close_at` pour le bandeau "fermé" et les créneaux du checkout — `footer.ts`
+  s'y abonne simplement en plus (même appel `shopService.getCatalog()` qu'ailleurs, ex.
+  `shared/delivery-address` — convention déjà en place : chaque composant qui a besoin d'un bout du
+  catalogue va le chercher lui-même plutôt que de le faire transiter par les pages parentes).
+- `openingHoursLabel` (computed) construit "lun, mar, ... : 10:00 - 22:00", ou juste "Tous les
+  jours" si `open_days` est `null` (pas de restriction), ou juste la liste des jours si les heures
+  ne sont pas configurées ; `null` (rien affiché) seulement si aucune des deux dimensions n'est
+  configurée. Labels de jours courts (`lun`/`mar`/...) définis localement dans `footer.ts` — même
+  clés que `App\Support\ShopOpeningHours::DAY_KEYS` côté API.
+- Vérifié via l'API (`GET /shop/catalog`, valeurs par défaut `mon..sun` + `10:00`/`22:00`, puis
+  test temporaire avec `shop_open_days` restreint à 6 jours pour valider le rendu "liste de
+  jours", remis à la valeur par défaut ensuite) et build Angular propre. Pas de test réel en
+  navigateur (rendu du footer à l'écran) de ma part cette session.
