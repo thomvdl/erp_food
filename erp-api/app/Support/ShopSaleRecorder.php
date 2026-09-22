@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\Ticket;
 use App\Models\TicketPayment;
 use App\Models\TicketSection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -43,8 +44,11 @@ class ShopSaleRecorder
         int $pointsEarned = 0,
         int $pointsRedeemed = 0,
         float $pointsRedeemedAmount = 0.0,
+        /** "Commande différée" (voir App\Support\ShopOpeningHours/ShopCheckoutController::store)
+         *  — null = "dès que possible", comportement historique inchangé. */
+        ?Carbon $scheduledAt = null,
     ): array {
-        return DB::transaction(function () use ($lines, $fulfillmentType, $deliveryAddress, $total, $paymentMethodId, $customerName, $customerPhone, $discount, $discountAmount, $client, $pointsEarned, $pointsRedeemed, $pointsRedeemedAmount) {
+        return DB::transaction(function () use ($lines, $fulfillmentType, $deliveryAddress, $total, $paymentMethodId, $customerName, $customerPhone, $discount, $discountAmount, $client, $pointsEarned, $pointsRedeemed, $pointsRedeemedAmount, $scheduledAt) {
             // Voir App\Support\StockManager — même moment de consommation physique qu'une vente
             // kiosque (paiement = engagement définitif du stock).
             StockManager::consume($lines);
@@ -52,6 +56,7 @@ class ShopSaleRecorder
             $ticket = Ticket::query()->create([
                 'paid_at' => now(),
                 'source' => 'public_shop',
+                'scheduled_at' => $scheduledAt,
                 'client_id' => $client?->id,
                 'discount_id' => $discount?->id,
                 'discount_amount' => $discount ? round($discountAmount, 2) : null,
@@ -91,6 +96,7 @@ class ShopSaleRecorder
                 'source' => 'public_shop',
                 'client_id' => $client?->id,
                 'fulfillment_type' => $fulfillmentType,
+                'scheduled_at' => $scheduledAt,
                 'delivery_address' => $deliveryAddress,
                 'customer_name' => $customerName,
                 'customer_phone' => $customerPhone,

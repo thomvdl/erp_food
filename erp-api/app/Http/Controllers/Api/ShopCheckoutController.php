@@ -13,7 +13,9 @@ use App\Support\DiscountCalculator;
 use App\Support\LoyaltyPoints;
 use App\Support\MenuResolver;
 use App\Support\ShopCheckoutConfirmer;
+use App\Support\ShopOpeningHours;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 use Laravel\Cashier\Checkout;
 
@@ -36,6 +38,11 @@ class ShopCheckoutController extends Controller
     {
         $data = $request->validate([
             'fulfillment_type' => ['required', 'string', 'in:pickup,delivery'],
+            // "Dès que possible" (comportement historique) ou "différé" à un jour/horaire précis
+            // — voir App\Support\ShopOpeningHours, revalidé plus bas (jamais confiance à ce que le
+            // front a proposé dans ses listes de créneaux).
+            'fulfillment_timing' => ['required', 'string', 'in:asap,scheduled'],
+            'scheduled_at' => ['required_if:fulfillment_timing,scheduled', 'nullable', 'date'],
             'customer_email' => ['required', 'email', 'max:255'],
             // Contrairement au kiosque (réservé aux superviseurs, voir KioskCheckoutController) :
             // pas de garde de rôle, il n'y a pas d'utilisateur connecté sur cette route publique
@@ -67,6 +74,60 @@ class ShopCheckoutController extends Controller
             'simulate' => ['boolean'],
         ]);
         $simulate = ($data['simulate'] ?? false) && !app()->isProduction();
+
+        // Ne fait pas confiance à l'écran affiché côté client : même si l'option "Livraison" a
+        // été masquée côté front (voir ShopCatalogController::index/shared/delivery-address), une
+        // requête directe à cette route ne doit jamais pouvoir créer de commande "delivery"
+        // pendant que le réglage est désactivé.
+        if ($data['fulfillment_type'] === 'delivery' && !self::deliveryAvailable()) {
+            throw ValidationException::withMessages([
+                'fulfillment_type' => ['La livraison n\'est pas disponible pour le moment.'],
+            ]);
+        }
+
+        // Ne fait pas confiance à l'écran affiché côté client, dans les deux cas ci-dessous :
+        // même hors horaires / avec un créneau forgé à la main, une requête directe à cette route
+        // ne doit jamais pouvoir créer de commande (voir App\Support\ShopOpeningHours — le
+        // catalogue, lui, reste consultable, voir ShopCatalogController::index).
+        $scheduledAt = null;
+
+        if ($data['fulfillment_timing'] === 'scheduled') {
+            $scheduledAt = Carbon::parse($data['scheduled_at']);
+            $now = Carbon::now();
+
+            if ($scheduledAt->lessThan($now)) {
+                throw ValidationException::withMessages([
+                    'scheduled_at' => ['Choisissez un horaire dans le futur.'],
+                ]);
+            }
+
+            // "Max J+5" (demande explicite) — fin de journée du 5ᵉ jour à partir d'aujourd'hui.
+            if ($scheduledAt->greaterThan($now->copy()->addDays(5)->endOfDay())) {
+                throw ValidationException::withMessages([
+                    'scheduled_at' => ['La commande différée est possible jusqu\'à 5 jours à l\'avance maximum.'],
+                ]);
+            }
+
+            // Créneaux de 15 min uniquement (demande explicite) — pas juste une contrainte
+            // d'affichage côté front, revérifiée ici au cas où.
+            if ($scheduledAt->second !== 0 || $scheduledAt->minute % 15 !== 0) {
+                throw ValidationException::withMessages([
+                    'scheduled_at' => ['L\'horaire doit être un multiple de 15 minutes.'],
+                ]);
+            }
+
+            if (!ShopOpeningHours::isOpenAt($scheduledAt)) {
+                throw ValidationException::withMessages([
+                    'scheduled_at' => [ShopOpeningHours::closedMessageAt($scheduledAt)],
+                ]);
+            }
+        } elseif (!ShopOpeningHours::isOpen()) {
+            // "Dès que possible" : la boutique doit être ouverte MAINTENANT, sans quoi il n'y a
+            // rien à faire "dès que possible" — seul un créneau différé (ci-dessus) a un sens.
+            throw ValidationException::withMessages([
+                'lines' => [ShopOpeningHours::closedMessage()],
+            ]);
+        }
 
         // Voir Client::findByPhoneOrEmail — jamais créé ici, juste retrouvé s'il existe déjà.
         // customer_email est toujours fourni (voir validation ci-dessus) donc ceci résout aussi
@@ -159,6 +220,7 @@ class ShopCheckoutController extends Controller
         $shopCheckout = ShopCheckout::query()->create([
             'status' => 'pending',
             'fulfillment_type' => $data['fulfillment_type'],
+            'scheduled_at' => $scheduledAt,
             'lines' => $lines,
             'total' => $total,
             'delivery_fee' => $deliveryFee,
@@ -234,6 +296,7 @@ class ShopCheckoutController extends Controller
         return response()->json([
             'status' => $shopCheckout->status,
             'fulfillment_type' => $shopCheckout->fulfillment_type,
+            'scheduled_at' => $shopCheckout->scheduled_at,
             'total' => $shopCheckout->total,
             'delivery_fee' => $shopCheckout->delivery_fee,
             'delivery_address' => $shopCheckout->delivery_address,
@@ -265,5 +328,14 @@ class ShopCheckoutController extends Controller
         );
 
         return response()->json(['status' => $shopCheckout->fresh()->status]);
+    }
+
+    /** Voir ShopCatalogController::deliveryAvailableValue — duplication volontaire de ce lookup
+     *  Param plutôt qu'un Support partagé pour un simple booléen. */
+    private static function deliveryAvailable(): bool
+    {
+        $value = Param::query()->where('name', 'shop_delivery_available')->value('value');
+
+        return $value === null || in_array(strtolower(trim((string) $value)), ['1', 'true'], true);
     }
 }

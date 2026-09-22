@@ -6,10 +6,44 @@ import { ClientAddressService } from '../../core/client-address.service';
 import { ShopService } from '../../core/shop.service';
 import { DeliveryAddressService } from '../../core/delivery-address.service';
 import { IS_DEV_MODE } from '../../core/dev-mode';
-import { FulfillmentType, ShopCheckoutResponse } from '../../core/models/shop.model';
+import { FulfillmentTiming, FulfillmentType, ShopCheckoutResponse } from '../../core/models/shop.model';
 import { DeliveryAddress } from '../../shared/delivery-address/delivery-address';
 import { CustomerLogin } from '../../shared/customer-login/customer-login';
 import { CustomerSessionService } from '../../core/customer-session.service';
+
+/** Même ordre que App\Support\ShopOpeningHours::DAY_KEYS côté API (CSV `shop_open_days`) — pas
+ *  les numéros ISO pour rester lisible. */
+const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+
+/** "Max J+5" (demande explicite) — revalidé de toute façon côté serveur (voir
+ *  ShopCheckoutController::store), cette limite n'est qu'une aide à la sélection. */
+const MAX_DAYS_AHEAD = 5;
+/** "Ajoute l'heure par créneau de 15 min" (demande explicite). */
+const SLOT_MINUTES = 15;
+
+interface ScheduleDateOption {
+  /** "YYYY-MM-DD", format natif d'un <input type="date"> — envoyé tel quel côté serveur, combiné
+   *  à l'heure choisie (voir submit()). */
+  value: string;
+  label: string;
+}
+
+function dayKeyOf(date: Date): (typeof DAY_KEYS)[number] {
+  const iso = date.getDay() === 0 ? 7 : date.getDay();
+  return DAY_KEYS[iso - 1];
+}
+
+function toDateInputValue(date: Date): string {
+  const y = date.getFullYear();
+  const m = (date.getMonth() + 1).toString().padStart(2, '0');
+  const d = date.getDate().toString().padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function parseDateInputValue(value: string): Date {
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
 
 /**
  * Récap du panier (voir CartService, partagé avec pages/catalog) + choix du mode de retrait avant
@@ -44,8 +78,52 @@ export class Checkout {
   readonly customerEmail = signal('');
   readonly discountCode = signal('');
   readonly deliveryFee = signal(0);
+  /** Réglage Paramètres > Réglages "shop_delivery_available" — masque l'onglet "Livraison"
+   *  ci-dessous quand false ; revalidé de toute façon côté serveur (voir createCheckout()). */
+  readonly deliveryAvailable = signal(true);
   readonly submitting = signal(false);
   readonly submitError = signal<string | null>(null);
+  /** Voir App\Support\ShopOpeningHours côté API — le catalogue reste accessible hors horaires,
+   *  seule la soumission est bloquée ici (canSubmit ci-dessous) + revérifiée côté serveur de
+   *  toute façon (voir createCheckout()). */
+  readonly closedMessage = signal<string | null>(null);
+
+  /** "Dès que possible" ou "différé" — voir App\Support\ShopOpeningHours côté API. */
+  readonly timing = signal<FulfillmentTiming>('asap');
+  /** "YYYY-MM-DD" (valeur native d'un <input type="date">) — vide tant qu'aucune date choisie. */
+  readonly scheduledDate = signal('');
+  /** "HH:mm" — vide tant qu'aucune heure choisie. */
+  readonly scheduledTime = signal('');
+  private readonly openDays = signal<string[] | null>(null);
+  private readonly openAt = signal<string | null>(null);
+  private readonly closeAt = signal<string | null>(null);
+
+  /** Aujourd'hui + jusqu'à 5 jours, filtrés sur les jours d'ouverture ET sur le fait qu'il reste
+   *  au moins un créneau valide ce jour-là (exclut "aujourd'hui" une fois les horaires dépassés). */
+  readonly availableDates = computed<ScheduleDateOption[]>(() => {
+    const openDays = this.openDays();
+    const options: ScheduleDateOption[] = [];
+    const today = new Date();
+
+    for (let i = 0; i <= MAX_DAYS_AHEAD; i++) {
+      const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+      if (openDays !== null && !openDays.includes(dayKeyOf(date))) continue;
+      if (this.timesFor(date).length === 0) continue;
+
+      const label =
+        i === 0 ? "Aujourd'hui" : i === 1 ? 'Demain' : date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short' });
+      options.push({ value: toDateInputValue(date), label });
+    }
+
+    return options;
+  });
+
+  /** Créneaux de 15 min pour la date actuellement choisie — recalculés à chaque changement de
+   *  date (voir selectDate()), jamais pour une date qui ne serait pas dans availableDates(). */
+  readonly availableTimes = computed<string[]>(() => {
+    const value = this.scheduledDate();
+    return value ? this.timesFor(parseDateInputValue(value)) : [];
+  });
   /** Bouton "Simuler le paiement" — masqué en prod (voir dev-mode.ts), le vrai garde-fou reste
    *  côté serveur (ShopCheckoutController::simulate renvoie 404 hors dev/test). */
   readonly isDevMode = IS_DEV_MODE;
@@ -67,7 +145,11 @@ export class Checkout {
    *  revérification a de toute façon lieu côté serveur (voir createCheckout()), ceci n'évite
    *  qu'un aller-retour inutile au client. */
   readonly canSubmit = computed(
-    () => this.hasValidEmail() && (this.fulfillmentType() === 'pickup' || this.deliveryAddress.result()?.within_radius === true),
+    () =>
+      (this.timing() === 'scheduled' || this.closedMessage() === null) &&
+      (this.timing() === 'asap' || (this.scheduledDate() !== '' && this.scheduledTime() !== '')) &&
+      this.hasValidEmail() &&
+      (this.fulfillmentType() === 'pickup' || this.deliveryAddress.result()?.within_radius === true),
   );
 
   constructor() {
@@ -79,7 +161,27 @@ export class Checkout {
     // Juste pour l'aperçu affiché ici — le montant réellement facturé est toujours recalculé côté
     // serveur à la soumission (voir docblock de ShopCatalogController::index).
     this.shopService.getCatalog().subscribe({
-      next: (catalog) => this.deliveryFee.set(catalog.delivery_fee),
+      next: (catalog) => {
+        this.deliveryFee.set(catalog.delivery_fee);
+        this.deliveryAvailable.set(catalog.delivery_available);
+        this.closedMessage.set(catalog.closed_message);
+        this.openDays.set(catalog.open_days);
+        this.openAt.set(catalog.open_at);
+        this.closeAt.set(catalog.close_at);
+
+        // Livraison désactivée entre-temps (réglage Paramètres) alors que "Livraison" était déjà
+        // sélectionné (ex. onglet resté ouvert) — retombe sur "à emporter", seule option restante.
+        if (!catalog.delivery_available && this.fulfillmentType() === 'delivery') {
+          this.fulfillmentType.set('pickup');
+        }
+
+        // Fermé maintenant : "dès que possible" n'a pas de sens, bascule directement sur
+        // "différé" plutôt que de laisser le client face à un bouton désactivé sans comprendre
+        // pourquoi (le bandeau closedMessage() l'explique, mais autant agir dessus tout de suite).
+        if (catalog.closed_message && this.timing() === 'asap') {
+          this.setTiming('scheduled');
+        }
+      },
       error: () => undefined,
     });
 
@@ -109,6 +211,46 @@ export class Checkout {
 
   back(): void {
     this.router.navigateByUrl('/');
+  }
+
+  setTiming(timing: FulfillmentTiming): void {
+    this.timing.set(timing);
+
+    if (timing === 'scheduled' && !this.scheduledDate()) {
+      const first = this.availableDates()[0];
+      if (first) this.selectDate(first.value);
+    }
+  }
+
+  selectDate(value: string): void {
+    this.scheduledDate.set(value);
+    this.scheduledTime.set(this.timesFor(parseDateInputValue(value))[0] ?? '');
+  }
+
+  /** Créneaux de 15 min entre les horaires d'ouverture pour une date donnée — sans heures
+   *  configurées (shop_open_at/close_at absents), toute la journée est proposée (aucune
+   *  restriction, même principe que App\Support\ShopOpeningHours côté API). Exclut les créneaux
+   *  déjà passés si `date` est aujourd'hui. */
+  private timesFor(date: Date): string[] {
+    const openAt = this.openAt() ?? '00:00';
+    const closeAt = this.closeAt() ?? '23:45';
+    const [openH, openM] = openAt.split(':').map(Number);
+    const [closeH, closeM] = closeAt.split(':').map(Number);
+
+    const start = new Date(date.getFullYear(), date.getMonth(), date.getDate(), openH, openM);
+    let end = new Date(date.getFullYear(), date.getMonth(), date.getDate(), closeH, closeM);
+    if (end <= start) end = new Date(end.getTime() + 24 * 60 * 60 * 1000); // fermeture après minuit
+
+    const now = new Date();
+    const isToday = toDateInputValue(date) === toDateInputValue(now);
+    const slots: string[] = [];
+
+    for (let t = new Date(start); t < end; t = new Date(t.getTime() + SLOT_MINUTES * 60_000)) {
+      if (isToday && t <= now) continue;
+      slots.push(`${t.getHours().toString().padStart(2, '0')}:${t.getMinutes().toString().padStart(2, '0')}`);
+    }
+
+    return slots;
   }
 
   submit(): void {
@@ -149,6 +291,8 @@ export class Checkout {
     this.shopService
       .checkout({
         fulfillment_type: this.fulfillmentType(),
+        fulfillment_timing: this.timing(),
+        scheduled_at: this.timing() === 'scheduled' ? `${this.scheduledDate()} ${this.scheduledTime()}:00` : null,
         customer_email: this.effectiveEmail() || null,
         customer_phone: this.customerSession.customer()?.phone ?? null,
         delivery_address: this.fulfillmentType() === 'delivery' ? this.deliveryAddress.result()?.formatted_address : null,

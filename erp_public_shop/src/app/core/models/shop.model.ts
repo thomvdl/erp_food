@@ -97,7 +97,23 @@ export interface ShopCatalog {
   /** Affiché dans le composant adresse de livraison (voir shared/delivery-address) — même valeur
    *  que celle réellement appliquée côté serveur (App\Support\DeliveryZone). */
   delivery_radius_km: number;
+  /** Réglage Paramètres > Réglages "shop_delivery_available" — masque l'option "Livraison"
+   *  (checkout.ts) et le badge adresse (shared/delivery-address) quand false. Revalidé de toute
+   *  façon côté serveur (ShopCheckoutController::store), jamais fait confiance ici seul. */
+  delivery_available: boolean;
   banners: ShopBanner[];
+  /** Voir App\Support\ShopOpeningHours côté API — le catalogue reste toujours renvoyé même à
+   *  false ("afficher le site quand même mais bloquer les commandes") : seul
+   *  ShopCheckoutController::store rejette réellement une commande hors horaires. */
+  is_open: boolean;
+  /** null quand is_open est true. */
+  closed_message: string | null;
+  /** Voir App\Support\ShopOpeningHours côté API — pour construire les créneaux "commande
+   *  différée" (checkout.ts). null = pas de restriction sur cette dimension. Toujours revalidé
+   *  côté serveur à la soumission (ShopCheckoutController::store), jamais fait confiance ici. */
+  open_days: string[] | null;
+  open_at: string | null;
+  close_at: string | null;
 }
 
 /** Résultat de vérification d'une adresse (voir ShopService::checkDeliveryAddress) — jamais la
@@ -120,8 +136,15 @@ export interface ShopLinePayload {
   menu_choices?: ShopMenuChoice[];
 }
 
+export type FulfillmentTiming = 'asap' | 'scheduled';
+
 export interface ShopCheckoutPayload {
   fulfillment_type: FulfillmentType;
+  /** "Dès que possible" ou "différé" — voir App\Support\ShopOpeningHours côté API. */
+  fulfillment_timing: FulfillmentTiming;
+  /** Requis si fulfillment_timing === 'scheduled' — "YYYY-MM-DD HH:mm:ss", revalidé côté serveur
+   *  (jour/heure d'ouverture, max J+5, multiple de 15 min — voir ShopCheckoutController::store). */
+  scheduled_at?: string | null;
   customer_email?: string | null;
   /** Résout un Client existant côté serveur (jamais de client_id brut envoyé par le front) — voir
    *  CustomerSessionService, ShopCheckoutController::store. */
@@ -152,6 +175,7 @@ export interface ShopCheckoutResponse {
 export interface ShopCheckoutStatus {
   status: 'pending' | 'paid' | 'failed' | 'expired';
   fulfillment_type: FulfillmentType;
+  scheduled_at: string | null;
   total: number | string;
   delivery_fee: number | string | null;
   delivery_address: string | null;

@@ -20,6 +20,8 @@ export class Footer {
   readonly year = new Date().getFullYear();
 
   constructor() {
-    this.companyService.get().subscribe({ next: (company) => this.company.set(company) });
+    // Échec réseau : le footer reste vide plutôt que d'afficher des coordonnées obsolètes — pas
+    // d'action utilisateur à débloquer ici, juste éviter l'erreur RxJS non gérée.
+    this.companyService.get().subscribe({ next: (company) => this.company.set(company), error: () => {} });
   }
 }

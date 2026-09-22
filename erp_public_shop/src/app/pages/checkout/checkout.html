@@ -10,6 +10,10 @@
     <button type="button" class="btn btn-ghost btn-sm" (click)="back()">‹ Retour au panier</button>
   </header>
 
+  @if (closedMessage(); as message) {
+    <div class="shop-closed-banner">🕘 {{ message }}</div>
+  }
+
   <div class="shop-checkout">
     <div class="card card-elevated">
       <div class="card-header">
@@ -20,26 +24,26 @@
           <button type="button" class="tab-pill" [class.is-active]="fulfillmentType() === 'pickup'" (click)="fulfillmentType.set('pickup')">
             🏬 À emporter
           </button>
-          <button type="button" class="tab-pill" [class.is-active]="fulfillmentType() === 'delivery'" (click)="fulfillmentType.set('delivery')">
-            🚚 Livraison
-          </button>
+          @if (deliveryAvailable()) {
+            <button type="button" class="tab-pill" [class.is-active]="fulfillmentType() === 'delivery'" (click)="fulfillmentType.set('delivery')">
+              🚚 Livraison
+            </button>
+          }
         </div>
 
-        @if (fulfillmentType() === 'pickup') {
-          <p class="text-muted text-sm" style="margin-top: var(--space-3)">
-            Votre commande sera prête dès que possible — vous serez prévenu par email.
-          </p>
-        } @else if (deliveryAddress.result()?.within_radius) {
-          <p class="text-sm" style="margin-top: var(--space-3)">
-            📍 Livraison à : <strong>{{ deliveryAddress.result()?.formatted_address }}</strong>
-            @if (deliveryFee() > 0) {
-              <br /><span class="text-muted">Frais de livraison : {{ formatMoney(deliveryFee()) }}.</span>
-            }
-          </p>
-        } @else {
-          <p class="error-text text-sm" style="margin-top: var(--space-3)">
-            Renseignez une adresse de livraison valide dans la barre du haut avant de continuer.
-          </p>
+        @if (fulfillmentType() === 'delivery') {
+          @if (deliveryAddress.result()?.within_radius) {
+            <p class="text-sm" style="margin-top: var(--space-3)">
+              📍 Livraison à : <strong>{{ deliveryAddress.result()?.formatted_address }}</strong>
+              @if (deliveryFee() > 0) {
+                <br /><span class="text-muted">Frais de livraison : {{ formatMoney(deliveryFee()) }}.</span>
+              }
+            </p>
+          } @else {
+            <p class="error-text text-sm" style="margin-top: var(--space-3)">
+              Renseignez une adresse de livraison valide dans la barre du haut avant de continuer.
+            </p>
+          }
         }
 
         @if (!customerSession.customer()) {
@@ -62,6 +66,56 @@
           <input class="input" type="text" placeholder="Ex : BIENVENUE10" [ngModel]="discountCode()" (ngModelChange)="discountCode.set($event)" />
           <span class="text-muted text-xs">Vérifié et appliqué au montant total lors du paiement.</span>
         </div>
+      </div>
+    </div>
+
+    <div class="card card-elevated">
+      <div class="card-header">
+        <h2 class="text-lg">Quand ?</h2>
+      </div>
+      <div class="card-body">
+        <div class="tab-group">
+          <button type="button" class="tab-pill" [class.is-active]="timing() === 'asap'" (click)="setTiming('asap')">
+            ⚡ Dès que possible
+          </button>
+          <button type="button" class="tab-pill" [class.is-active]="timing() === 'scheduled'" (click)="setTiming('scheduled')">
+            📅 Choisir un horaire
+          </button>
+        </div>
+
+        @if (timing() === 'asap') {
+          @if (closedMessage()) {
+            <p class="error-text text-sm" style="margin-top: var(--space-3)">
+              {{ closedMessage() }} Choisissez un horaire ci-dessus pour commander quand même.
+            </p>
+          } @else {
+            <p class="text-muted text-sm" style="margin-top: var(--space-3)">
+              Votre commande sera prête dès que possible — vous serez prévenu par email.
+            </p>
+          }
+        } @else if (availableDates().length === 0) {
+          <p class="error-text text-sm" style="margin-top: var(--space-3)">Aucun créneau disponible pour le moment.</p>
+        } @else {
+          <div class="field" style="margin-top: var(--space-3)">
+            <label>Jour (jusqu'à 5 jours à l'avance)</label>
+            <div class="tab-group">
+              @for (date of availableDates(); track date.value) {
+                <button type="button" class="tab-pill" [class.is-active]="scheduledDate() === date.value" (click)="selectDate(date.value)">
+                  {{ date.label }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="field" style="margin-top: var(--space-3)">
+            <label>Heure</label>
+            <select class="input" [ngModel]="scheduledTime()" (ngModelChange)="scheduledTime.set($event)">
+              @for (time of availableTimes(); track time) {
+                <option [value]="time">{{ time }}</option>
+              }
+            </select>
+          </div>
+        }
       </div>
     </div>
 

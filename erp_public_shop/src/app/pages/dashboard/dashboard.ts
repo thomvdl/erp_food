@@ -171,6 +171,7 @@ export class Dashboard {
 
     this.addressService.setDefault(address.id, customer.phone, customer.email).subscribe({
       next: () => this.loadAddresses(),
+      error: () => this.addressesError.set('Impossible de définir cette adresse par défaut.'),
     });
   }
 
@@ -180,6 +181,7 @@ export class Dashboard {
 
     this.addressService.remove(address.id, customer.phone, customer.email).subscribe({
       next: () => this.loadAddresses(),
+      error: () => this.addressesError.set('Impossible de supprimer cette adresse.'),
     });
   }
 

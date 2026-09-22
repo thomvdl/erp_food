@@ -38,7 +38,6 @@ export class Confirmation implements OnDestroy {
   readonly cancelled = signal(false);
   readonly status = signal<ShopCheckoutStatus | null>(null);
   readonly error = signal<string | null>(null);
-  private pollSub?: { unsubscribe(): void };
 
   constructor() {
     const params = this.route.snapshot.queryParamMap;
@@ -63,7 +62,8 @@ export class Confirmation implements OnDestroy {
     this.checkoutEcho.events.pipe(takeUntilDestroyed()).subscribe(() => this.fetchStatus());
 
     // Filet de secours si le websocket est coupé — même principe que kiosk-payment-echo.service.ts.
-    this.pollSub = interval(POLL_INTERVAL_MS)
+    // takeUntilDestroyed() suffit à nettoyer cet abonnement, pas besoin de le stocker.
+    interval(POLL_INTERVAL_MS)
       .pipe(takeUntilDestroyed())
       .subscribe(() => {
         if (this.status()?.status === 'pending') {
@@ -90,12 +90,20 @@ export class Confirmation implements OnDestroy {
     return Number(value).toFixed(2) + ' €';
   }
 
+  /** "Commande différée" (voir App\Support\ShopOpeningHours côté API) — même format que
+   *  ThermalReceipt.php/ticket-receipt.html côté erp-app, pour un vocabulaire cohérent partout
+   *  où ce créneau est montré. */
+  formatScheduledAt(value: string): string {
+    const d = new Date(value);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} à ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
   backToShop(): void {
     this.router.navigateByUrl('/');
   }
 
   ngOnDestroy(): void {
     this.checkoutEcho.stopListening();
-    this.pollSub?.unsubscribe();
   }
 }

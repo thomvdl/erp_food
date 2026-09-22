@@ -35,7 +35,13 @@
         <span class="shop-confirm__seal">✓</span>
         <h1>Commande confirmée !</h1>
         <p class="text-muted">
-          @if (status()?.fulfillment_type === 'delivery') {
+          @if (status()?.scheduled_at; as scheduledAt) {
+            @if (status()?.fulfillment_type === 'delivery') {
+              Votre commande sera livrée le {{ formatScheduledAt(scheduledAt) }}.
+            } @else {
+              Votre commande sera prête à emporter le {{ formatScheduledAt(scheduledAt) }}.
+            }
+          } @else if (status()?.fulfillment_type === 'delivery') {
             Votre commande sera livrée dès que possible.
           } @else {
             Votre commande sera prête à emporter dès que possible.

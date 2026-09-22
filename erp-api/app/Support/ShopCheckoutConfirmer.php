@@ -58,6 +58,7 @@ class ShopCheckoutConfirmer
             (int) ($shopCheckout->points_earned ?? 0),
             (int) ($shopCheckout->points_redeemed ?? 0),
             (float) ($shopCheckout->points_redeemed_amount ?? 0),
+            $shopCheckout->scheduled_at,
         );
 
         $shopCheckout->update([

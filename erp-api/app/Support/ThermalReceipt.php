@@ -78,6 +78,13 @@ class ThermalReceipt
         if ($ticket->table) {
             $printer->text('Table ' . $ticket->table->label . "\n");
         }
+        // "Commande différée" (boutique en ligne, voir App\Support\ShopOpeningHours) — mis en
+        // évidence (gras) pour ne pas être lu comme "à préparer tout de suite".
+        if ($ticket->scheduled_at) {
+            $printer->setEmphasis(true);
+            $printer->text('Prevu pour le ' . $ticket->scheduled_at->format('d/m/Y H:i') . "\n");
+            $printer->setEmphasis(false);
+        }
         $printer->text($ticket->client ? 'Client : ' . $ticket->client->firstname . ' ' . $ticket->client->lastname : 'CLIENT COMPTANT');
         $printer->text("\n");
 

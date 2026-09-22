@@ -139,6 +139,9 @@ export class CustomerSessionService {
           this.persist(result);
         }
       },
+      // Échec réseau : le solde de points affiché reste celui d'avant la commande plutôt que de
+      // planter — juste éviter l'erreur RxJS non gérée.
+      error: () => {},
     });
   }
 

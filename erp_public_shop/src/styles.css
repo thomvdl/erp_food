@@ -1105,6 +1105,18 @@ textarea.input {
   font-size: var(--font-size-sm);
 }
 
+/* Boutique fermée (voir App\Support\ShopOpeningHours côté API) : le site reste consultable, ce
+   bandeau informe juste que la commande sera bloquée à la soumission — voir catalog.html/
+   checkout.html. Ton "warning" (orange), pas "danger" (rouge) : ce n'est pas une erreur. */
+.shop-closed-banner {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-align: center;
+  padding: var(--space-3) var(--space-4);
+}
+
 .checkbox-group {
   display: flex;
   flex-wrap: wrap;

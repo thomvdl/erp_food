@@ -23,6 +23,9 @@ export class DeliveryAddress {
   readonly open = signal(false);
   readonly draft = signal('');
   readonly radiusKm = signal<number | null>(null);
+  /** Réglage Paramètres > Réglages "shop_delivery_available" — badge masqué entièrement quand
+   *  false (voir delivery-address.html), l'option n'a plus aucun sens à afficher. */
+  readonly available = signal(true);
 
   readonly label = computed(() => {
     const result = this.deliveryAddress.result();
@@ -32,7 +35,15 @@ export class DeliveryAddress {
   });
 
   constructor() {
-    this.shopService.getCatalog().subscribe({ next: (catalog) => this.radiusKm.set(catalog.delivery_radius_km) });
+    this.shopService.getCatalog().subscribe({
+      next: (catalog) => {
+        this.radiusKm.set(catalog.delivery_radius_km);
+        this.available.set(catalog.delivery_available);
+      },
+      // Échec réseau : on garde les valeurs par défaut (radiusKm null, available true) plutôt que
+      // de bloquer l'affichage du badge — juste éviter que l'erreur RxJS non gérée remonte.
+      error: () => {},
+    });
   }
 
   toggle(): void {

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'stripe_checkout_session_id', 'status', 'fulfillment_type', 'lines', 'total', 'delivery_fee',
+    'stripe_checkout_session_id', 'status', 'fulfillment_type', 'scheduled_at', 'lines', 'total', 'delivery_fee',
     'customer_name', 'customer_email', 'customer_phone', 'delivery_address', 'ticket_id',
     'discount_id', 'discount_amount', 'client_id', 'points_earned', 'points_redeemed', 'points_redeemed_amount',
 ])]
@@ -19,6 +19,7 @@ class ShopCheckout extends Model
             'lines' => 'array',
             'total' => 'decimal:2',
             'delivery_fee' => 'decimal:2',
+            'scheduled_at' => 'datetime',
             'discount_amount' => 'decimal:2',
             'points_earned' => 'integer',
             'points_redeemed' => 'integer',

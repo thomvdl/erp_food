@@ -34,6 +34,10 @@
       </button>
     </header>
 
+    @if (catalog()?.closed_message; as closedMessage) {
+      <div class="shop-closed-banner">🕘 {{ closedMessage }} Vous pouvez tout de même parcourir le catalogue.</div>
+    }
+
     @if (visibleBanners().length > 0) {
       <div class="shop-hero-carousel">
         <div class="shop-hero-carousel__track" [style.transform]="'translateX(-' + activeBannerIndex() * 100 + '%)'">
