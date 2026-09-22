@@ -1537,3 +1537,103 @@ l'event (`text-overflow: ellipsis` si trop long), `+N` si plus de 2 occurrences 
 Sélection (`.is-selected`) bascule les étiquettes sur un laiton plus soutenu plutôt que le point
 disparu. `min-height`/taille de police des étiquettes réduites sous 640px. Vérifié en Chromium
 headless : noms d'événements bien lisibles dans la grille, aucune erreur console.
+
+## POS - Vente directe : passe désormais en cuisine comme un vrai POS restaurant (2026-09-22)
+
+Demandé par l'utilisateur : "Tu sais faire passe la commande par kitchen display comme sur pos
+restaurent. C'est plus pour les commande à emporter. les clients passe au comptoir il comande
+paye. la commande est envoyer sur le bon poste." + numéro de commande bien visible sur le ticket
+pour associer la bonne commande au bon client. Jusqu'ici `TicketController::store` (vente directe)
+encaissait immédiatement **sans jamais créer d'`Order`** — comportement documenté comme volontaire
+plus haut dans ce fichier ("pas de flux Order/cuisine"), aujourd'hui explicitement remplacé par la
+demande utilisateur : la vente directe est un flux comptoir (commander + payer en un geste), pas
+un flux table, mais elle a bien besoin d'atteindre la cuisine.
+
+**Découverte avant d'implémenter** : le kiosque (`KioskOrderController`/`App\Support\
+KioskSaleRecorder`) résolvait déjà exactement ce même problème ("payer immédiatement ET être vu en
+cuisine") — Ticket + Order SANS table créés dans la même transaction, `orders.ticket_id` pour que
+kitchen display affiche le même numéro que celui imprimé au client, section directement en état
+`ask` (pas de `en_attente`/validation manuelle, la vente est déjà finalisée au moment du paiement).
+Repris à l'identique plutôt que réinventé.
+
+- **`App\Support\PosDirectSaleRecorder`** (nouveau, `app/Support/`) : copie assumée de
+  `KioskSaleRecorder` (même convention déjà en place dans ce projet — voir aussi
+  `ShopSaleRecorder`, "un Recorder par canal de vente", chacun avec sa propre forme de paramètres
+  plutôt qu'une seule classe paramétrée) — mêmes étapes (`StockManager::consume`, Ticket +
+  TicketSection + TicketLines + TicketPayments, Order + OrderSection('ask') + OrderLines,
+  `KitchenlessSectionCompleter::maybeAutoComplete`, `LoyaltyPoints::apply`), sans le paramètre
+  `table_number` (inexistant pour un comptoir — pas de plateau/tente de table à saisir). `source`
+  fixé à `'pos_vente_directe'` (déjà la valeur utilisée par `TicketController::store` avant ce
+  changement, donc aucune migration de données historiques nécessaire).
+- **`TicketController::store`** : la transaction manuelle (Ticket + TicketSection + lignes +
+  paiements + points fidélité) est remplacée par un appel à `PosDirectSaleRecorder::record()`,
+  suivi d'un `event(new OrderKitchenUpdated($order->id))` — même séquence que
+  `KioskOrderController::store`. Le contrôleur ne construit plus rien lui-même, il délègue.
+- **Reçu imprimable navigateur** (`erp-app/shared/ticket-receipt.html`) : le numéro de ticket,
+  jusqu'ici seulement visible en petit dans la ligne "Ticket n°X du ...", est maintenant AUSSI
+  affiché en gros au-dessus (`.ticket-receipt__order-number`, nouvelle classe dans `styles.css`,
+  copie conforme de celle déjà utilisée par `erp_kiosk` pour le même besoin) — pour tous les
+  tickets, pas seulement vente directe, par cohérence avec `ThermalReceipt.php` qui l'affichait
+  déjà en gros (x3) pour toutes les sources depuis la session kiosque : c'est ce dernier qui a
+  servi de référence, l'écart n'était que sur le reçu HTML/navigateur.
+- **`erp_kitchen_display/kitchen-board.ts`** : `orderSourceLabel()`/`orderSourceIcon()` ne
+  connaissaient que `'public_shop'` et un défaut `'Kiosque'`/🖥️ pour toute commande sans table —
+  une commande vente directe y serait tombée par erreur, affichée "Kiosque" en cuisine. Ajout
+  explicite du cas `'pos_vente_directe'` → "Vente directe" / 🛎️.
+- **Vérifié de bout en bout via curl** (pas de test navigateur/Playwright cette session) :
+  `POST /tickets` (produit "Café", station Bar) → Ticket #60 créé, `GET /orders` confirme l'Order
+  liée (même id que `ticket_id`), section `ask` avec la ligne `product.station_id` correcte ;
+  `POST /order-sections/{id}/marquer-fait` → `do` ; `POST /order-sections/{id}/envoyer` →
+  `{"deleted":true}`, `GET /orders/7` renvoie 404 ensuite (auto-suppression une fois servie, comme
+  le kiosque). `docker compose build api reverb && up -d` requis (pas de bind mount sur `erp-api`,
+  voir plus haut dans ce fichier) ; `erp-app`/`erp_kitchen_display` rechargés à chaud (bind mount,
+  logs de build propres des deux côtés).
+- **Résidu de ce test** : le Ticket #60 (1× Café, 2,00 €, espèces) reste en base — les tickets ne
+  sont jamais supprimables (voir Readme.md, "pas de modification et de suppression"), donc ce
+  ticket de test restera visible dans l'historique/les rapports de caisse comme une vraie vente.
+- **Pas fait / à évaluer plus tard** : pas de test réel en navigateur (paiement complet depuis
+  `/pos-vente`, impression réelle du reçu, affichage réel sur un poste `erp_kitchen_display`
+  ouvert) — seulement vérifié via l'API directement. `StripeWebhookController`/
+  `KioskCheckoutController` non concernés (vente directe = toujours un paiement synchrone au
+  comptoir, jamais de webhook asynchrone comme le variant QR du kiosque).
+
+## Kitchen display : écran de choix du poste/passe après connexion + barre de filtre masquable (2026-09-22)
+
+Demandé dans la foulée de la session précédente : "ajouter une page après la connexion avec le
+choix du poste ou de passe" + "la barre actuelle on va gérer l'affiche ou non depuis les
+paramètres" — un poste kitchen display physique dédié à une station de cuisine doit pouvoir être
+verrouillé sur son poste (ou son passe) dès la connexion, sans que quiconque puisse ensuite changer
+de filtre depuis l'écran lui-même. Le filtre par poste/passe existait déjà (voir plus haut,
+"Kitchen display : filtre à deux dimensions") mais uniquement comme rangée de pastilles toujours
+visible et toujours modifiable en haut du board — deux besoins distincts à couvrir séparément :
+**où** choisir (nouvel écran) et **si** on peut encore changer d'avis après (réglage global).
+
+- **`BoardFilter`** (le type à 5 états — Tout/Tous les postes/un poste/Tous les passes/un passe)
+  extrait de `kitchen-board.ts` vers `core/models/board-filter.model.ts`, pour être partagé avec
+  le nouvel écran plutôt que dupliqué.
+- **`ActiveKitchenFilterService`** (nouveau, `core/`) : persiste le filtre choisi en localStorage
+  (`erp-v2-kitchen-filter`) — même principe que `ActivePrinterService` côté erp-app/erp_kiosk, un
+  choix propre à CET appareil, pas un réglage serveur. `kitchen-board.ts` utilise directement le
+  signal de ce service comme filtre actif (plus de copie locale) : sélectionner un filtre depuis
+  sa propre barre, quand elle reste visible, persiste donc aussi le choix pour le prochain
+  rechargement de page.
+- **`pages/poste-select/`** (nouvelle page, route `/poste`) : affichée juste après la connexion
+  (`login.ts` redirige désormais vers `/poste` plutôt que `/`) — mêmes 5 choix que la barre de
+  filtre du board, présentés en grandes tuiles tactiles (`Tout` / groupe `Postes` / groupe
+  `Passes`, réutilise `StationService`/`PasseService` déjà existants). Choisir une tuile appelle
+  `ActiveKitchenFilterService.setFilter()` puis navigue vers `/` (le board). Bouton Déconnexion
+  disponible ici aussi, au cas où le mauvais compte se soit connecté.
+- **Réglage "kitchen_display_show_filter_bar"** (`Param`, Paramètres > Réglages côté erp-app,
+  même mécanisme que `kiosk_table_available`) : `true` par défaut (comportement historique
+  inchangé, la barre reste visible et modifiable). Exposé en lecture à tout utilisateur connecté à
+  `erp_kitchen_display` (pas réservé admin, voir `/kiosk-config` pour le même principe) via
+  `KitchenDisplayController::config` / `GET /kitchen-display-config`, consommé par
+  `KitchenDisplayConfigService` — `kitchen-board.ts` enveloppe désormais `.kitchen-board__filters`
+  dans `@if (filterBarVisible())`. À `false`, un poste ne peut plus changer de filtre qu'en se
+  reconnectant (retour par `/poste`) — aucune autre échappatoire ajoutée, volontairement, pour
+  rester fidèle à la demande ("on va gérer l'affiche ou non").
+- **Vérifié via l'API** : `GET /kitchen-display-config` → `{"filter_bar_visible":true}` par
+  défaut ; bascule à `false` puis retour à `true` via `PUT /params/{id}` confirmés, build Angular
+  propre côté `erp_kitchen_display` (chunk `poste-select` généré sans erreur, `docker compose
+  logs kitchen_display`) — pas de test réel en navigateur (choix d'un poste, effet du
+  masquage/affichage de la barre à l'œil) de ma part cette session.
