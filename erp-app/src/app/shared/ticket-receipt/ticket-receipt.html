@@ -14,7 +14,10 @@
   <p class="ticket-receipt__brand">ERP<span>v2</span></p>
 }
 
-<p class="ticket-receipt__center text-xs" style="margin-top: var(--space-4)">
+<!-- Numéro de commande en gros, même règle que ThermalReceipt.php/erp_kiosk (voir styles.css) :
+     repéré au comptoir de loin, pas juste dans la ligne de détail en taille normale en dessous. -->
+<p class="ticket-receipt__order-number">N° {{ ticket.id }}</p>
+<p class="ticket-receipt__center text-xs" style="margin-top: var(--space-2)">
   Ticket n°{{ ticket.id }} du {{ formatTicketDate(ticket.paid_at) }}
 </p>
 @if (ticket.table) {

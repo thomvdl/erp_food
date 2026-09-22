@@ -1974,6 +1974,19 @@ textarea.input {
   color: var(--color-accent-500);
 }
 
+/* Numéro de commande en gros sur le ticket imprimé (POS - Vente directe, voir pos-vente.ts) — le
+   client repère sa commande au comptoir sur ce numéro, il doit rester lisible même de loin sur un
+   petit reçu thermique, pas seulement dans la ligne de détail "Ticket n°... du ..." en dessous.
+   Même règle que erp_kiosk/src/styles.css (dont ce bloc est la copie conforme) : un ticket sans
+   table (vente directe, kiosque...) n'a que ce numéro pour retrouver le bon client. */
+.ticket-receipt__order-number {
+  text-align: center;
+  font-size: 2.5rem;
+  font-weight: 800;
+  line-height: 1;
+  margin: var(--space-2) 0 0;
+}
+
 .ticket-receipt__center {
   text-align: center;
   margin: 2px 0;

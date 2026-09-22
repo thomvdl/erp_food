@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\OrderKitchenUpdated;
 use App\Http\Controllers\Controller;
 use App\Mail\TicketMail;
 use App\Models\CashSession;
@@ -9,15 +10,12 @@ use App\Models\Client;
 use App\Models\Printer;
 use App\Models\Product;
 use App\Models\Ticket;
-use App\Models\TicketPayment;
-use App\Models\TicketSection;
 use App\Support\DiscountCalculator;
 use App\Support\LoyaltyPoints;
 use App\Support\MenuResolver;
-use App\Support\StockManager;
+use App\Support\PosDirectSaleRecorder;
 use App\Support\ThermalReceipt;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -47,7 +45,9 @@ class TicketController extends Controller
     }
 
     /**
-     * Vente directe : encaisse immédiatement (pas de flux Order/cuisine, voir CONTEXT.md).
+     * Vente directe : le client commande et paie au comptoir en une seule fois, puis la commande
+     * part en cuisine comme un POS Restaurant (voir App\Support\PosDirectSaleRecorder — Ticket ET
+     * Order créés dans la même transaction, même principe que le kiosque).
      * Le prix de chaque ligne est toujours recalculé depuis Product::price côté serveur (jamais
      * fait confiance au front) puis figé dans ticket_lines.unit_price. Paiement multi-moyens :
      * la somme des `payments` doit correspondre exactement au total, sinon 422.
@@ -136,57 +136,26 @@ class TicketController extends Controller
             ]);
         }
 
-        $ticket = DB::transaction(function () use ($data, $lines, $cashSession, $discount, $discountAmount, $client, $pointsRedeemed, $pointsRedeemedAmount, $total) {
-            // Voir App\Support\StockManager — rejette (422) si un produit à stock suivi n'a plus
-            // assez d'unités, avant toute écriture.
-            StockManager::consume($lines);
+        // Gagnés sur le montant net final (après promo ET points) — jamais de gain sur la part
+        // payée en points (voir App\Support\LoyaltyPoints::earned).
+        $pointsEarned = $client ? LoyaltyPoints::earned($total) : 0;
 
-            // Gagnés sur le montant net final (après promo ET points) — jamais de gain sur la
-            // part payée en points (voir App\Support\LoyaltyPoints::earned).
-            $pointsEarned = $client ? LoyaltyPoints::earned($total) : 0;
+        // Le client commande et paie au comptoir, la commande part ensuite au bon poste comme un
+        // POS Restaurant (voir App\Support\PosDirectSaleRecorder, qui matérialise Ticket ET Order
+        // dans la même transaction — même principe que le kiosque).
+        [$ticket, $order] = PosDirectSaleRecorder::record(
+            $lines,
+            $cashSession,
+            $discount,
+            $discountAmount,
+            $client,
+            $data['payments'],
+            $pointsEarned,
+            $pointsRedeemed,
+            $pointsRedeemedAmount,
+        );
 
-            $ticket = Ticket::query()->create([
-                'paid_at' => now(),
-                'client_id' => $data['client_id'] ?? null,
-                'source' => 'pos_vente_directe',
-                'discount_id' => $discount?->id,
-                'discount_amount' => $discount ? round($discountAmount, 2) : null,
-                'points_earned' => $client ? $pointsEarned : null,
-                'points_redeemed' => $pointsRedeemed > 0 ? $pointsRedeemed : null,
-                'points_redeemed_amount' => $pointsRedeemed > 0 ? round($pointsRedeemedAmount, 2) : null,
-            ]);
-
-            $section = TicketSection::query()->create([
-                'name' => 'Vente directe',
-                'ticket_id' => $ticket->id,
-            ]);
-
-            foreach ($lines as $line) {
-                $section->lines()->create([
-                    'quantity' => $line['quantity'],
-                    'unit_price' => $line['unit_price'],
-                    'product_id' => $line['product_id'],
-                    'note' => $line['note'] ?? null,
-                    'menu_id' => $line['menu_id'] ?? null,
-                ]);
-            }
-
-            foreach ($data['payments'] as $payment) {
-                TicketPayment::query()->create([
-                    'value' => $payment['value'],
-                    'payment_method_id' => $payment['payment_method_id'],
-                    'ticket_id' => $ticket->id,
-                    'user_id' => $cashSession->user_id,
-                    'cash_session_id' => $cashSession->id,
-                ]);
-            }
-
-            if ($client) {
-                LoyaltyPoints::apply($client, $pointsEarned, $pointsRedeemed, $ticket->id);
-            }
-
-            return $ticket;
-        });
+        event(new OrderKitchenUpdated($order->id));
 
         return response()->json($ticket->load(self::WITH), 201);
     }
