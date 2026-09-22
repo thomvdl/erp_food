@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\IngredientController;
 use App\Http\Controllers\Api\KioskBannerController;
 use App\Http\Controllers\Api\KioskCheckoutController;
 use App\Http\Controllers\Api\KioskOrderController;
+use App\Http\Controllers\Api\KitchenDisplayController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderLineController;
 use App\Http\Controllers\Api\OrderSectionController;
@@ -159,6 +160,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Réglage "kiosk_table_available" exposé sous forme calculée (voir
     // KioskOrderController::config) — jamais les réglages bruts de /params, réservé à admin.
     Route::get('kiosk-config', [KioskOrderController::class, 'config']);
+    // Réglage "kitchen_display_show_filter_bar" (voir KitchenDisplayController::config) — même
+    // principe, lecture ouverte à tout utilisateur connecté à erp_kitchen_display.
+    Route::get('kitchen-display-config', [KitchenDisplayController::class, 'config']);
     // Carrousel hero du kiosque (voir kiosk-order.ts) — lecture ouverte à tous comme
     // product-categories/product-catalogs ci-dessus, le kiosque filtre lui-même sur `active`.
     Route::get('kiosk-banners', [KioskBannerController::class, 'index']);

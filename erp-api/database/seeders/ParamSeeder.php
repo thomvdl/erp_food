@@ -25,6 +25,11 @@ class ParamSeeder extends Seeder
             'self_order_close_at' => '22:00',
             // Écran "sur place / à emporter" du kiosque (voir KioskOrderController::config).
             'kiosk_table_available' => 'true',
+            // Barre de filtre Postes/Passes du kitchen display (voir
+            // KitchenDisplayController::config) — true par défaut : comportement historique
+            // inchangé, un poste dédié qui doit rester verrouillé sur son poste/passe (choisi à
+            // la connexion, voir erp_kitchen_display/poste-select.ts) se désactive explicitement.
+            'kitchen_display_show_filter_bar' => 'true',
             // Boutique en ligne (voir ShopCheckoutController::store et App\Support\DeliveryZone).
             'shop_delivery_fee' => '5.00',
             'shop_delivery_radius_km' => '5',

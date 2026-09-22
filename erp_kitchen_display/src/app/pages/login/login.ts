@@ -100,7 +100,7 @@ export class Login implements OnDestroy {
     this.submitting.set(true);
 
     this.authService.loginWithPassword(this.username().trim(), this.password()).subscribe({
-      next: () => this.router.navigateByUrl('/'),
+      next: () => this.router.navigateByUrl('/poste'),
       error: (err) => {
         this.submitting.set(false);
         const messages = err.error?.errors ? Object.values(err.error.errors).flat() : null;
@@ -179,7 +179,7 @@ export class Login implements OnDestroy {
     this.authService.loginWithBarcode(barcode).subscribe({
       next: () => {
         this.stopScan();
-        this.router.navigateByUrl('/');
+        this.router.navigateByUrl('/poste');
       },
       error: (err) => {
         this.submitting.set(false);

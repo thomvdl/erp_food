@@ -14,31 +14,33 @@
 
   <div class="kitchen-board__layout">
     <div class="kitchen-board__main">
-      <div class="kitchen-board__filters">
-        <div class="tab-group kitchen-board__stations">
-          <button type="button" class="tab-pill" [class.is-active]="isAllActive()" (click)="selectAll()">Tout</button>
-        </div>
+      @if (filterBarVisible()) {
+        <div class="kitchen-board__filters">
+          <div class="tab-group kitchen-board__stations">
+            <button type="button" class="tab-pill" [class.is-active]="isAllActive()" (click)="selectAll()">Tout</button>
+          </div>
 
-        <div class="tab-group kitchen-board__stations">
-          <span class="text-muted text-xs kitchen-board__filter-label">Postes</span>
-          <button type="button" class="tab-pill" [class.is-active]="isAllStationsActive()" (click)="selectAllStations()">Tous les postes</button>
-          @for (station of stations(); track station.id) {
-            <button type="button" class="tab-pill" [class.is-active]="isStationActive(station.id)" (click)="selectStation(station.id)">
-              {{ station.name }}
-            </button>
-          }
-        </div>
+          <div class="tab-group kitchen-board__stations">
+            <span class="text-muted text-xs kitchen-board__filter-label">Postes</span>
+            <button type="button" class="tab-pill" [class.is-active]="isAllStationsActive()" (click)="selectAllStations()">Tous les postes</button>
+            @for (station of stations(); track station.id) {
+              <button type="button" class="tab-pill" [class.is-active]="isStationActive(station.id)" (click)="selectStation(station.id)">
+                {{ station.name }}
+              </button>
+            }
+          </div>
 
-        <div class="tab-group kitchen-board__stations">
-          <span class="text-muted text-xs kitchen-board__filter-label">Passes</span>
-          <button type="button" class="tab-pill" [class.is-active]="isAllPassesActive()" (click)="selectAllPasses()">Tous les passes</button>
-          @for (passe of passes(); track passe.id) {
-            <button type="button" class="tab-pill" [class.is-active]="isPasseActive(passe.id)" (click)="selectPasse(passe.id)">
-              {{ passe.name }}
-            </button>
-          }
+          <div class="tab-group kitchen-board__stations">
+            <span class="text-muted text-xs kitchen-board__filter-label">Passes</span>
+            <button type="button" class="tab-pill" [class.is-active]="isAllPassesActive()" (click)="selectAllPasses()">Tous les passes</button>
+            @for (passe of passes(); track passe.id) {
+              <button type="button" class="tab-pill" [class.is-active]="isPasseActive(passe.id)" (click)="selectPasse(passe.id)">
+                {{ passe.name }}
+              </button>
+            }
+          </div>
         </div>
-      </div>
+      }
 
       @if (error()) {
         <p class="error-text">{{ error() }}</p>

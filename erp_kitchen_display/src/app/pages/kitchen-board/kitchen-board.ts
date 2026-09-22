@@ -8,27 +8,10 @@ import { OrderSectionService } from '../../core/order-section.service';
 import { StationService } from '../../core/station.service';
 import { PasseService } from '../../core/passe.service';
 import { KitchenEchoService } from '../../core/kitchen-echo.service';
+import { ActiveKitchenFilterService } from '../../core/active-kitchen-filter.service';
+import { KitchenDisplayConfigService } from '../../core/kitchen-display-config.service';
 import { Order, OrderSection, Passe, Station } from '../../core/models/order.model';
-
-/**
- * Un seul filtre actif à la fois, parmi 5 choix mutuellement exclusifs (voir Readme.md : "on
- * doit pouvoir sélectionner Tout ou tous les postes ou toutes les stations") :
- * - null              : "Tout" — aucune restriction.
- * - all-stations       : "Tous les postes" — aucune restriction non plus, mais reste dans le
- *   groupe "Postes" (déclenche quand même la règle "section prête retirée de la vue Poste").
- * - { station, id }    : un poste précis.
- * - all-passes         : "Tous les passes" — aucune restriction, groupe "Passes".
- * - { passe, id }      : un passe précis.
- * Distinguer explicitement ces 5 états (plutôt que de tout confondre sous `null`) évite que
- * plusieurs pastilles de reset s'affichent actives en même temps pour le même état réel —
- * source de confusion signalée par l'utilisateur ("les sélecteurs ne fonctionnent pas bien").
- */
-type BoardFilter =
-  | null
-  | { kind: 'all-stations' }
-  | { kind: 'station'; id: number }
-  | { kind: 'all-passes' }
-  | { kind: 'passe'; id: number };
+import { BoardFilter } from '../../core/models/board-filter.model';
 
 /** Une section filtrée sur le filtre actif — ne garde que les lignes correspondantes. */
 interface DisplaySection {
@@ -91,13 +74,22 @@ export class KitchenBoard implements OnDestroy {
   private readonly stationService = inject(StationService);
   private readonly passeService = inject(PasseService);
   private readonly kitchenEcho = inject(KitchenEchoService);
+  private readonly activeKitchenFilter = inject(ActiveKitchenFilterService);
+  private readonly kitchenDisplayConfig = inject(KitchenDisplayConfigService);
 
   readonly isDark = this.themeService.isDark;
 
   readonly orders = signal<Order[]>([]);
   readonly stations = signal<Station[]>([]);
   readonly passes = signal<Passe[]>([]);
-  readonly filter = signal<BoardFilter>(null);
+  /** Choix fait sur l'écran poste-select après connexion (persisté, voir
+   *  ActiveKitchenFilterService) — source de vérité unique, pas de copie locale : sélectionner
+   *  un filtre depuis la barre ci-dessous (quand elle est visible) persiste donc aussi le choix. */
+  readonly filter = this.activeKitchenFilter.filter;
+  /** Réglage "kitchen_display_show_filter_bar" (Paramètres > Réglages, voir
+   *  KitchenDisplayConfigService) — true par défaut le temps du chargement, pour ne pas faire
+   *  disparaître la barre une fraction de seconde sur un poste où elle doit rester affichée. */
+  readonly filterBarVisible = signal(true);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
 
@@ -235,29 +227,30 @@ export class KitchenBoard implements OnDestroy {
     this.refresh();
     this.stationService.list().subscribe((stations) => this.stations.set(stations));
     this.passeService.list().subscribe((passes) => this.passes.set(passes));
+    this.kitchenDisplayConfig.get().subscribe((config) => this.filterBarVisible.set(config.filter_bar_visible));
 
     this.kitchenEcho.listen();
     this.kitchenEcho.updated.pipe(takeUntilDestroyed()).subscribe(() => this.refresh());
   }
 
   selectAll(): void {
-    this.filter.set(null);
+    this.activeKitchenFilter.setFilter(null);
   }
 
   selectAllStations(): void {
-    this.filter.set({ kind: 'all-stations' });
+    this.activeKitchenFilter.setFilter({ kind: 'all-stations' });
   }
 
   selectAllPasses(): void {
-    this.filter.set({ kind: 'all-passes' });
+    this.activeKitchenFilter.setFilter({ kind: 'all-passes' });
   }
 
   selectStation(id: number): void {
-    this.filter.set({ kind: 'station', id });
+    this.activeKitchenFilter.setFilter({ kind: 'station', id });
   }
 
   selectPasse(id: number): void {
-    this.filter.set({ kind: 'passe', id });
+    this.activeKitchenFilter.setFilter({ kind: 'passe', id });
   }
 
   isAllActive(): boolean {
@@ -293,6 +286,8 @@ export class KitchenBoard implements OnDestroy {
     switch (source) {
       case 'public_shop':
         return 'Boutique en ligne';
+      case 'pos_vente_directe':
+        return 'Vente directe';
       case 'kiosk':
       default:
         return 'Kiosque';
@@ -300,7 +295,14 @@ export class KitchenBoard implements OnDestroy {
   }
 
   orderSourceIcon(source: string | null): string {
-    return source === 'public_shop' ? '🛍️' : '🖥️';
+    switch (source) {
+      case 'public_shop':
+        return '🛍️';
+      case 'pos_vente_directe':
+        return '🛎️';
+      default:
+        return '🖥️';
+    }
   }
 
   /** Uniquement pertinent pour la boutique en ligne (voir Order.fulfillment_type) — le kiosque et

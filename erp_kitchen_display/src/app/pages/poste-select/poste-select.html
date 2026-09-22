@@ -1,0 +1,41 @@
+<div class="poste-select">
+  <header class="app-topbar">
+    <h1 class="text-2xl">Choisir un poste</h1>
+    <button type="button" class="btn btn-outline" (click)="logout()">Déconnexion</button>
+  </header>
+
+  <div class="poste-select__group">
+    <button type="button" class="poste-select__tile poste-select__tile--all" (click)="choose(null)">
+      <span class="poste-select__tile-title">Tout</span>
+      <span class="text-muted text-sm">Toutes les commandes, tous postes et passes confondus</span>
+    </button>
+  </div>
+
+  <div class="poste-select__group">
+    <span class="text-muted text-xs poste-select__label">Postes</span>
+    <div class="poste-select__grid">
+      <button type="button" class="poste-select__tile" (click)="choose({ kind: 'all-stations' })">
+        <span class="poste-select__tile-title">Tous les postes</span>
+      </button>
+      @for (station of stations(); track station.id) {
+        <button type="button" class="poste-select__tile" (click)="choose({ kind: 'station', id: station.id })">
+          <span class="poste-select__tile-title">{{ station.name }}</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="poste-select__group">
+    <span class="text-muted text-xs poste-select__label">Passes</span>
+    <div class="poste-select__grid">
+      <button type="button" class="poste-select__tile" (click)="choose({ kind: 'all-passes' })">
+        <span class="poste-select__tile-title">Tous les passes</span>
+      </button>
+      @for (passe of passes(); track passe.id) {
+        <button type="button" class="poste-select__tile" (click)="choose({ kind: 'passe', id: passe.id })">
+          <span class="poste-select__tile-title">{{ passe.name }}</span>
+        </button>
+      }
+    </div>
+  </div>
+</div>
