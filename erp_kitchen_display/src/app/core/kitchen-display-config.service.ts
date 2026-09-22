@@ -5,6 +5,7 @@ import { API_URL } from './api-config';
 
 export interface KitchenDisplayConfig {
   filter_bar_visible: boolean;
+  skip_passe: boolean;
 }
 
 /** Réglage "kitchen_display_show_filter_bar" (Paramètres > Réglages côté erp-app), voir

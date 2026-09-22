@@ -25,17 +25,19 @@
     </div>
   </div>
 
-  <div class="poste-select__group">
-    <span class="text-muted text-xs poste-select__label">Passes</span>
-    <div class="poste-select__grid">
-      <button type="button" class="poste-select__tile" (click)="choose({ kind: 'all-passes' })">
-        <span class="poste-select__tile-title">Tous les passes</span>
-      </button>
-      @for (passe of passes(); track passe.id) {
-        <button type="button" class="poste-select__tile" (click)="choose({ kind: 'passe', id: passe.id })">
-          <span class="poste-select__tile-title">{{ passe.name }}</span>
+  @if (!skipPasse()) {
+    <div class="poste-select__group">
+      <span class="text-muted text-xs poste-select__label">Passes</span>
+      <div class="poste-select__grid">
+        <button type="button" class="poste-select__tile" (click)="choose({ kind: 'all-passes' })">
+          <span class="poste-select__tile-title">Tous les passes</span>
         </button>
-      }
+        @for (passe of passes(); track passe.id) {
+          <button type="button" class="poste-select__tile" (click)="choose({ kind: 'passe', id: passe.id })">
+            <span class="poste-select__tile-title">{{ passe.name }}</span>
+          </button>
+        }
+      </div>
     </div>
-  </div>
+  }
 </div>

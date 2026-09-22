@@ -11,7 +11,10 @@ import { KitchenEchoService } from '../../core/kitchen-echo.service';
 import { ActiveKitchenFilterService } from '../../core/active-kitchen-filter.service';
 import { KitchenDisplayConfigService } from '../../core/kitchen-display-config.service';
 import { Order, OrderSection, Passe, Station } from '../../core/models/order.model';
-import { BoardFilter } from '../../core/models/board-filter.model';
+
+/** Voir showSoonOnly()/isDueSoon() — "n'afficher que les commandes à préparer dans les 15
+ *  prochaines minutes" (demande explicite). */
+const DUE_SOON_MINUTES = 15;
 
 /** Une section filtrée sur le filtre actif — ne garde que les lignes correspondantes. */
 interface DisplaySection {
@@ -33,6 +36,14 @@ interface PrepListItem {
   productId: number;
   productName: string;
   quantity: number;
+}
+
+/** Action en attente de confirmation dans la modale (voir requestMarkDone()/requestSend()) —
+ *  "kind" détermine à la fois le libellé de la modale et l'appel API déclenché par confirmAction(). */
+interface PendingAction {
+  order: Order;
+  displaySection: DisplaySection;
+  kind: 'done' | 'sent';
 }
 
 /**
@@ -90,8 +101,24 @@ export class KitchenBoard implements OnDestroy {
    *  KitchenDisplayConfigService) — true par défaut le temps du chargement, pour ne pas faire
    *  disparaître la barre une fraction de seconde sur un poste où elle doit rester affichée. */
   readonly filterBarVisible = signal(true);
+  /** Réglage "kitchen_display_skip_passe" (voir KitchenDisplayConfigService) — petits
+   *  établissements sans passe dédié : "marquer prête" envoie directement (voir
+   *  OrderSectionController::marquerFait côté API), la colonne "Passes" n'a alors plus lieu
+   *  d'être proposée (aucune section n'atteint jamais l'état 'do'). false le temps du chargement,
+   *  comportement historique inchangé par défaut. */
+  readonly skipPasse = signal(false);
+  /** "N'afficher que les commandes à préparer dans les 15 prochaines minutes" — option d'affichage
+   *  locale (pas persistée, pas un réglage Paramètres : bascule libre en cours de service, voir
+   *  isDueSoon()). Toujours proposée, même quand la barre de filtre Postes/Passes ci-dessus est
+   *  masquée (voir filterBarVisible) — dimension indépendante, pas liée au choix de poste/passe. */
+  readonly showSoonOnly = signal(false);
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
+
+  /** Modale de confirmation ("demande explicite") avant "Marquer prête"/"Envoyer" — null = fermée.
+   *  Voir requestMarkDone()/requestSend()/confirmAction()/cancelAction(). */
+  readonly pendingAction = signal<PendingAction | null>(null);
+  readonly confirmingAction = signal(false);
 
   /** Tick chaque seconde pour recalculer les minuteurs affichés (voir sectionTimer()) — les
    *  commandes elles-mêmes ne se rechargent que sur événement Echo, pas chaque seconde. */
@@ -185,7 +212,8 @@ export class KitchenBoard implements OnDestroy {
 
         return { order, sections };
       })
-      .filter((displayOrder) => displayOrder.sections.length > 0);
+      .filter((displayOrder) => displayOrder.sections.length > 0)
+      .filter((displayOrder) => !this.showSoonOnly() || this.isDueSoon(displayOrder.order));
   });
 
   /**
@@ -227,7 +255,10 @@ export class KitchenBoard implements OnDestroy {
     this.refresh();
     this.stationService.list().subscribe((stations) => this.stations.set(stations));
     this.passeService.list().subscribe((passes) => this.passes.set(passes));
-    this.kitchenDisplayConfig.get().subscribe((config) => this.filterBarVisible.set(config.filter_bar_visible));
+    this.kitchenDisplayConfig.get().subscribe((config) => {
+      this.filterBarVisible.set(config.filter_bar_visible);
+      this.skipPasse.set(config.skip_passe);
+    });
 
     this.kitchenEcho.listen();
     this.kitchenEcho.updated.pipe(takeUntilDestroyed()).subscribe(() => this.refresh());
@@ -312,6 +343,36 @@ export class KitchenBoard implements OnDestroy {
     return order.fulfillment_type === 'delivery' ? '🚚 Livraison' : '🏬 À emporter';
   }
 
+  /** "Commande différée" (boutique en ligne, voir App\Support\ShopOpeningHours côté API) — la
+   *  commande apparaît quand même tout de suite ici (pas de report d'affichage), donc affichée en
+   *  évidence pour ne pas la confondre avec une commande à préparer immédiatement. Date incluse
+   *  seulement si ce n'est pas aujourd'hui (jusqu'à J+5, voir ShopCheckoutController::store). */
+  scheduledLabel(order: DisplayOrder['order']): string | null {
+    if (!order.scheduled_at) return null;
+
+    const date = new Date(order.scheduled_at);
+    const time = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    const isToday = date.toDateString() === new Date().toDateString();
+
+    if (isToday) return `⏰ Prévu à ${time}`;
+
+    const day = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+    return `⏰ Prévu le ${day} à ${time}`;
+  }
+
+  /** Voir showSoonOnly() — une commande "dès que possible" (scheduled_at null, toutes les
+   *  sources sauf boutique en ligne différée) est par nature toujours "à préparer maintenant",
+   *  donc toujours incluse. Une commande différée déjà en retard (scheduled_at dépassé) reste
+   *  incluse aussi — la sortir du board serait pire qu'une commande en avance qu'on masque. Lit
+   *  `this.now()` (tick chaque seconde) pour que le filtre se réévalue tout seul avec le temps,
+   *  sans attendre un nouvel événement Echo. */
+  private isDueSoon(order: DisplayOrder['order']): boolean {
+    if (!order.scheduled_at) return true;
+
+    const minutesUntilDue = (new Date(order.scheduled_at).getTime() - this.now()) / 60_000;
+    return minutesUntilDue <= DUE_SOON_MINUTES;
+  }
+
   /**
    * Minuteur de préparation — "afficher un timer quand c'est demandé, avec le temps de
    * préparation" (retour utilisateur). N'a de sens que pendant 'ask' (en cours de préparation,
@@ -367,14 +428,14 @@ export class KitchenBoard implements OnDestroy {
     return displaySection.section.lines.some((line) => displaySection.lineIds.has(line.id) && !line.done);
   }
 
-  markDone(displaySection: DisplaySection): void {
+  /** Ouvre la modale de confirmation — voir confirmAction() pour l'appel API réel, déclenché
+   *  seulement après validation ("demande explicite" : éviter un marquage accidentel sur un écran
+   *  tactile partagé entre plusieurs commandes affichées côte à côte). */
+  requestMarkDone(order: Order, displaySection: DisplaySection): void {
     if (!this.canMarkDone(displaySection)) {
       return;
     }
-    this.orderSectionService.marquerFait(displaySection.section.id, Array.from(displaySection.lineIds)).subscribe({
-      next: () => this.refresh(),
-      error: () => this.error.set('Impossible de marquer ces produits comme faits.'),
-    });
+    this.pendingAction.set({ order, displaySection, kind: 'done' });
   }
 
   /**
@@ -394,13 +455,63 @@ export class KitchenBoard implements OnDestroy {
     return displaySection.section.lines.some((line) => displaySection.lineIds.has(line.id) && !line.sent);
   }
 
-  send(displaySection: DisplaySection): void {
+  /** Voir requestMarkDone() — même principe pour "Envoyer". */
+  requestSend(order: Order, displaySection: DisplaySection): void {
     if (!this.canSend(displaySection)) {
       return;
     }
-    this.orderSectionService.envoyer(displaySection.section.id, Array.from(displaySection.lineIds)).subscribe({
-      next: () => this.refresh(),
-      error: () => this.error.set('Impossible de marquer ces produits comme envoyés.'),
+    this.pendingAction.set({ order, displaySection, kind: 'sent' });
+  }
+
+  /** Libellé affiché dans la modale de confirmation pour identifier la commande concernée — même
+   *  logique que le badge de la carte (table sinon N° de commande). */
+  pendingOrderLabel(order: Order): string {
+    return order.table ? `Table ${order.table.label}` : `N° ${order.ticket_id}`;
+  }
+
+  /** Lignes réellement affectées par l'action en attente — seulement celles visibles dans le
+   *  poste/passe actif (displaySection.lineIds) et pas déjà faites/envoyées, pour lister
+   *  précisément ce que la confirmation va valider. */
+  pendingLines(action: PendingAction): OrderSection['lines'] {
+    const doneField = action.kind === 'done' ? 'done' : 'sent';
+    return action.displaySection.section.lines.filter(
+      (line) => action.displaySection.lineIds.has(line.id) && !line[doneField],
+    );
+  }
+
+  cancelAction(): void {
+    if (this.confirmingAction()) {
+      return;
+    }
+    this.pendingAction.set(null);
+  }
+
+  confirmAction(): void {
+    const action = this.pendingAction();
+    if (!action || this.confirmingAction()) {
+      return;
+    }
+
+    this.confirmingAction.set(true);
+    const lineIds = Array.from(action.displaySection.lineIds);
+    const request =
+      action.kind === 'done'
+        ? this.orderSectionService.marquerFait(action.displaySection.section.id, lineIds)
+        : this.orderSectionService.envoyer(action.displaySection.section.id, lineIds);
+
+    request.subscribe({
+      next: () => {
+        this.confirmingAction.set(false);
+        this.pendingAction.set(null);
+        this.refresh();
+      },
+      error: () => {
+        this.confirmingAction.set(false);
+        this.pendingAction.set(null);
+        this.error.set(
+          action.kind === 'done' ? 'Impossible de marquer ces produits comme faits.' : 'Impossible de marquer ces produits comme envoyés.',
+        );
+      },
     });
   }
 

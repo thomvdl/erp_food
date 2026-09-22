@@ -6,6 +6,7 @@ use App\Events\OrderKitchenUpdated;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderSection;
+use App\Models\Param;
 use App\Support\StockManager;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -190,9 +191,40 @@ class OrderSectionController extends Controller
             $order->update(['state' => 'do']);
         }
 
+        // Petits établissements sans passe dédié (voir Param 'kitchen_display_skip_passe',
+        // ParamSeeder) : le poste fait aussi office de passe — "marquer prête" envoie directement,
+        // la section saute 'do' pour 'seed' sans jamais passer par ::envoyer. Même logique de
+        // clôture de commande que ::envoyer ci-dessous (dupliquée plutôt qu'extraite, même
+        // convention que les lookups Param de ce contrôleur).
+        if ($sectionFullyDone && self::skipPasseEnabled()) {
+            $orderSection->lines()->whereHas('product', fn ($query) => $query->whereNotNull('station_id'))->update(['sent' => true]);
+            $orderSection->update(['state' => 'seed']);
+
+            $allSent = $order->sections()->where('state', '!=', 'seed')->doesntExist();
+            if ($allSent) {
+                $order->update(['state' => 'seed']);
+
+                if ($order->table_id === null && $order->fulfillment_type !== 'delivery') {
+                    $orderId = $order->id;
+                    $order->delete();
+
+                    event(new OrderKitchenUpdated($orderId));
+
+                    return response()->json(['deleted' => true]);
+                }
+            }
+        }
+
         event(new OrderKitchenUpdated($order->id));
 
         return $orderSection->load('lines.product');
+    }
+
+    private static function skipPasseEnabled(): bool
+    {
+        $value = Param::query()->where('name', 'kitchen_display_skip_passe')->value('value');
+
+        return in_array(strtolower(trim((string) $value)), ['1', 'true'], true);
     }
 
     /**

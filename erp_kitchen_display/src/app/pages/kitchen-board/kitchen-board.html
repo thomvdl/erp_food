@@ -5,6 +5,15 @@
       <p class="text-muted text-sm">{{ displayOrders().length }} commande(s) en cours</p>
     </div>
     <div style="display: flex; gap: var(--space-3); align-items: center">
+      <button
+        type="button"
+        class="btn btn-outline btn-sm"
+        [class.is-active]="showSoonOnly()"
+        title="N'afficher que les commandes à préparer dans les 15 prochaines minutes"
+        (click)="showSoonOnly.set(!showSoonOnly())"
+      >
+        {{ showSoonOnly() ? '⏰ Dans les 15 min' : '📋 Toutes les commandes' }}
+      </button>
       <button type="button" class="btn btn-ghost btn-icon" (click)="toggleTheme()" [title]="isDark() ? 'Thème clair' : 'Thème sombre'">
         {{ isDark() ? '☀️' : '🌙' }}
       </button>
@@ -30,15 +39,17 @@
             }
           </div>
 
-          <div class="tab-group kitchen-board__stations">
-            <span class="text-muted text-xs kitchen-board__filter-label">Passes</span>
-            <button type="button" class="tab-pill" [class.is-active]="isAllPassesActive()" (click)="selectAllPasses()">Tous les passes</button>
-            @for (passe of passes(); track passe.id) {
-              <button type="button" class="tab-pill" [class.is-active]="isPasseActive(passe.id)" (click)="selectPasse(passe.id)">
-                {{ passe.name }}
-              </button>
-            }
-          </div>
+          @if (!skipPasse()) {
+            <div class="tab-group kitchen-board__stations">
+              <span class="text-muted text-xs kitchen-board__filter-label">Passes</span>
+              <button type="button" class="tab-pill" [class.is-active]="isAllPassesActive()" (click)="selectAllPasses()">Tous les passes</button>
+              @for (passe of passes(); track passe.id) {
+                <button type="button" class="tab-pill" [class.is-active]="isPasseActive(passe.id)" (click)="selectPasse(passe.id)">
+                  {{ passe.name }}
+                </button>
+              }
+            </div>
+          }
         </div>
       }
 
@@ -74,6 +85,9 @@
                         — {{ fulfillmentLabel }}
                       }
                     </span>
+                    @if (scheduledLabel(displayOrder.order); as scheduled) {
+                      <span class="kitchen-card__scheduled">{{ scheduled }}</span>
+                    }
                   </div>
                 }
               </div>
@@ -99,7 +113,7 @@
                       </span>
                     </div>
 
-                    @if (displaySection.passe) {
+                    @if (!skipPasse() && displaySection.passe) {
                       <span class="text-muted text-xs">→ {{ displaySection.passe.name }}</span>
                     }
 
@@ -131,12 +145,12 @@
                     @if (canMarkDone(displaySection) || canSend(displaySection)) {
                       <div class="kitchen-card__actions">
                         @if (canMarkDone(displaySection)) {
-                          <button type="button" class="btn btn-outline" (click)="markDone(displaySection)">
+                          <button type="button" class="btn btn-outline" (click)="requestMarkDone(displayOrder.order, displaySection)">
                             👨‍🍳 Marquer prête
                           </button>
                         }
                         @if (canSend(displaySection)) {
-                          <button type="button" class="btn btn-accent" (click)="send(displaySection)">✅ Envoyer</button>
+                          <button type="button" class="btn btn-accent" (click)="requestSend(displayOrder.order, displaySection)">✅ Envoyer</button>
                         }
                       </div>
                     }
@@ -188,3 +202,30 @@
     }
   </div>
 </div>
+
+@if (pendingAction(); as action) {
+  <div class="modal-overlay" (click)="cancelAction()">
+    <div class="modal-panel" (click)="$event.stopPropagation()">
+      <div class="card-header">
+        <h2 class="text-lg">{{ action.kind === 'done' ? 'Marquer prête ?' : 'Envoyer ?' }}</h2>
+      </div>
+      <div class="card-body">
+        <p>
+          {{ action.kind === 'done' ? 'Marquer comme prêt' : 'Envoyer' }} pour
+          <strong>{{ pendingOrderLabel(action.order) }}</strong> — {{ action.displaySection.section.name }} :
+        </p>
+        <ul class="kitchen-board__prep-items">
+          @for (line of pendingLines(action); track line.id) {
+            <li>{{ line.quantity }}× {{ line.product?.name }}</li>
+          }
+        </ul>
+      </div>
+      <div class="card-footer form-actions">
+        <button type="button" class="btn btn-primary" [disabled]="confirmingAction()" (click)="confirmAction()">
+          {{ confirmingAction() ? 'Envoi...' : 'Confirmer' }}
+        </button>
+        <button type="button" class="btn btn-outline" [disabled]="confirmingAction()" (click)="cancelAction()">Annuler</button>
+      </div>
+    </div>
+  </div>
+}

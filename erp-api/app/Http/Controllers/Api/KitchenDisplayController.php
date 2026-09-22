@@ -17,10 +17,14 @@ class KitchenDisplayController extends Controller
      */
     public function config()
     {
-        $value = Param::query()->where('name', 'kitchen_display_show_filter_bar')->value('value');
+        $filterBarValue = Param::query()->where('name', 'kitchen_display_show_filter_bar')->value('value');
+        $skipPasseValue = Param::query()->where('name', 'kitchen_display_skip_passe')->value('value');
 
         return response()->json([
-            'filter_bar_visible' => $value === null || in_array(strtolower(trim((string) $value)), ['1', 'true'], true),
+            'filter_bar_visible' => $filterBarValue === null || in_array(strtolower(trim((string) $filterBarValue)), ['1', 'true'], true),
+            // "kitchen_display_skip_passe" (voir OrderSectionController::marquerFait) — false si
+            // absent : comportement historique inchangé (poste puis passe).
+            'skip_passe' => in_array(strtolower(trim((string) $skipPasseValue)), ['1', 'true'], true),
         ]);
     }
 }

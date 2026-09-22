@@ -130,6 +130,14 @@
   min-width: 0;
 }
 
+/* "Commande différée" (boutique en ligne) — la commande apparaît quand même tout de suite sur le
+   board (pas de report d'affichage), ce badge évite de la confondre avec une commande urgente. */
+.kitchen-card__scheduled {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-primary-500);
+}
+
 /* Minuteur de préparation (voir Readme.md : "afficher un timer quand c'est demandé, avec le
  *  temps de préparation") — vert tant qu'il reste du temps, rouge clignotant une fois dépassé
  *  pour attirer l'œil sur un plat qui traîne. */

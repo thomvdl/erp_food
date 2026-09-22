@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { ActiveKitchenFilterService } from '../../core/active-kitchen-filter.service';
+import { KitchenDisplayConfigService } from '../../core/kitchen-display-config.service';
 import { StationService } from '../../core/station.service';
 import { PasseService } from '../../core/passe.service';
 import { Passe, Station } from '../../core/models/order.model';
@@ -28,15 +29,20 @@ export class PosteSelect {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
   private readonly activeKitchenFilter = inject(ActiveKitchenFilterService);
+  private readonly kitchenDisplayConfig = inject(KitchenDisplayConfigService);
   private readonly stationService = inject(StationService);
   private readonly passeService = inject(PasseService);
 
   readonly stations = signal<Station[]>([]);
   readonly passes = signal<Passe[]>([]);
+  /** Voir kitchen-board.ts skipPasse() — masque la colonne "Passes" pour les petits
+   *  établissements qui n'utilisent que des postes. */
+  readonly skipPasse = signal(false);
 
   constructor() {
     this.stationService.list().subscribe((stations) => this.stations.set(stations));
     this.passeService.list().subscribe((passes) => this.passes.set(passes));
+    this.kitchenDisplayConfig.get().subscribe((config) => this.skipPasse.set(config.skip_passe));
   }
 
   choose(filter: BoardFilter): void {

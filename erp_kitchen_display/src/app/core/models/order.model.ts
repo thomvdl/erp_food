@@ -74,6 +74,12 @@ export interface Order {
   /** Boutique en ligne uniquement (voir kitchen-board.ts::orderFulfillmentLabel) — 'pickup' ou
    *  'delivery' ; null pour toutes les autres sources (kiosque, POS Restaurant). */
   fulfillment_type?: 'pickup' | 'delivery' | null;
+  /** Boutique en ligne uniquement (voir App\Support\ShopOpeningHours côté API, "commande
+   *  différée") — null = "dès que possible" (comportement de toutes les autres sources). La
+   *  commande apparaît quand même immédiatement ici dès son paiement (pas de report d'affichage,
+   *  voir kitchen-board.ts::scheduledLabel) : ce champ sert juste à ne pas la confondre avec une
+   *  commande urgente à préparer tout de suite. */
+  scheduled_at?: string | null;
   number_of_guests: number | null;
   table?: TableElement | null;
   sections: OrderSection[];
