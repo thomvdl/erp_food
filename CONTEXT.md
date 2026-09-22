@@ -1637,3 +1637,282 @@ visible et toujours modifiable en haut du board — deux besoins distincts à co
   propre côté `erp_kitchen_display` (chunk `poste-select` généré sans erreur, `docker compose
   logs kitchen_display`) — pas de test réel en navigateur (choix d'un poste, effet du
   masquage/affichage de la barre à l'œil) de ma part cette session.
+
+## Horaires ET jours d'ouverture de la boutique en ligne — site consultable, commande bloquée (2026-09-22)
+
+Demandé : "ajouter des heures et des jours d'ouverture/fermeture pour [le] public site dans les
+paramètres et répercuter ces heures/jours pour [qu'il] affiche le site quand même mais bloque les
+commandes." Le seul vrai "site public" actuellement dans `docker-compose.yml` est
+`erp_public_shop` (`erp_public_site_event/` existe encore sur le disque mais sans service Docker —
+retiré de la stack, voir commit "Remove erp_public_site_event app and ses références restantes").
+`App\Support\OpeningHours` existait déjà mais uniquement pour le self-order, avec un comportement
+inverse à ce qui est demandé ici : fermé = `SelfOrderController::show` masque tout le catalogue.
+Pour la boutique, l'exigence explicite est l'inverse — le site reste parcourable, seule la
+commande doit être bloquée — donc pas de réutilisation telle quelle de cette classe.
+
+- **`App\Support\ShopOpeningHours`** (nouveau, sur le modèle de `OpeningHours` mais gardé séparé —
+  même convention que `KioskSaleRecorder`/`ShopSaleRecorder`, un besoin ≈ similaire mais un
+  comportement différent = sa propre classe plutôt qu'un flag conditionnel dans l'existante).
+  Ajoute une dimension **jours** en plus des heures (`OpeningHours` n'avait que les heures) :
+  `shop_open_days` (CSV parmi `mon,tue,wed,thu,fri,sat,sun`, ex. retirer `sun` pour fermer le
+  dimanche) + `shop_open_at`/`shop_close_at` (même logique "fermeture après minuit" que
+  `OpeningHours::isOpen`). Chaque réglage manquant/vide désactive sa propre restriction
+  indépendamment (jours seuls, heures seules, les deux, ou aucun).
+- **`ShopCatalogController::index`** : `is_open`/`closed_message` ajoutés à la réponse — jamais de
+  filtrage du catalogue lui-même (contrairement à `SelfOrderController::show`), juste de quoi
+  afficher un bandeau côté front.
+- **`ShopCheckoutController::store`** : rejette (422, même style que
+  `SelfOrderController::store`) si `!ShopOpeningHours::isOpen()`, avant toute autre validation
+  métier — c'est le seul endroit qui bloque réellement quelque chose.
+- **`erp_public_shop`** : `ShopCatalog.is_open`/`closed_message` ajoutés au modèle TS. Bandeau
+  `.shop-closed-banner` (ton "warning", pas "danger" — ce n'est pas une erreur) affiché sur
+  `catalog.html` (site consultable, juste informatif) et `checkout.html` (bloquant : `canSubmit`
+  passe à `false` tant que `closedMessage()` n'est pas `null`, désactive "Payer"/"Simuler").
+- **Réglages par défaut** (`ParamSeeder`) : `shop_open_at=10:00`, `shop_close_at=22:00`,
+  `shop_open_days=mon,tue,wed,thu,fri,sat,sun` (tous les jours présents = pas de restriction de
+  jour par défaut, à éditer depuis Paramètres > Réglages pour fermer un jour donné).
+- **Vérifié via l'API** (heure serveur réelle 22:49 Europe/Bruxelles au moment du test — la
+  boutique de démo est donc *réellement* fermée avec les horaires par défaut) : `GET
+  /shop/catalog` renvoie `is_open:false` + le catalogue complet (46 produits) quand même ; `POST
+  /shop/checkout` (avec `simulate:true`) renvoie 422 avec le message de fermeture ; élargir
+  `shop_close_at` à `23:59` fait passer `is_open` à `true` ; retirer `tue` de `shop_open_days`
+  ferme la boutique pour la journée entière indépendamment de l'heure, avec le bon message
+  ("Jours d'ouverture : lundi, mercredi, ..."). Réglages remis à leurs valeurs par défaut après
+  test. Build Angular propre côté `erp_public_shop` (`docker compose logs public_shop`) — pas de
+  test réel en navigateur (bandeau visible à l'écran, bouton payer visuellement désactivé) de ma
+  part cette session.
+
+## Commande différée sur la boutique en ligne — "dès que possible" ou créneau choisi (2026-09-22)
+
+Suite directe de la session précédente (horaires/jours d'ouverture) : "au moment de la commande,
+choisir si dès que possible ou différé, pour aujourd'hui ou un autre jour max J+5 dans la limite
+des jours d'ouverture, et si différé ajouter l'heure par créneau de 15 min dans la limite des
+horaires d'ouverture/fermeture." Couvre le cas "je veux commander maintenant pour venir chercher
+demain midi" — jusqu'ici impossible, une commande boutique en ligne payée = toujours "maintenant"
+implicitement.
+
+- **`scheduled_at`** (nullable datetime) ajouté à 3 tables dans une seule migration
+  (`add_scheduled_at_to_shop_checkouts_orders_and_tickets`) : `shop_checkouts` (figé à la
+  commande), `orders` (le kitchen display doit savoir POUR QUAND préparer), `tickets` (affiché sur
+  le reçu). `null` = "dès que possible", comportement historique inchangé pour tous les autres
+  canaux (kiosque/vente directe/self-order/restaurant, qui n'exposent jamais ce choix — toujours
+  "maintenant" par nature, aucune modification de leur côté).
+- **`App\Support\ShopOpeningHours`** généralisée : `isOpen()`/`closedMessage()` (toujours
+  "maintenant") délèguent maintenant à `isOpenAt(Carbon $at)`/`closedMessageAt(Carbon $at)`, pour
+  valider un créneau ARBITRAIRE avec exactement les mêmes règles jour/heure que "la boutique
+  est-elle ouverte là, tout de suite" — pas de logique dupliquée. `openDaysList()`/`hoursWindow()`
+  ajoutées (accesseurs publics) pour que `ShopCatalogController::index` expose la config brute
+  (`open_days`/`open_at`/`close_at`) au front, qui construit ses propres listes de créneaux sans
+  deviner les règles — revalidé de toute façon côté serveur à la soumission.
+- **`ShopCheckoutController::store`** : nouveaux champs `fulfillment_timing`
+  (`asap`|`scheduled`)/`scheduled_at`. Si `scheduled`, 4 validations serveur successives (jamais
+  fait confiance aux listes déjà filtrées côté front) : dans le futur, max J+5 (fin de journée),
+  multiple de 15 min exact, et `ShopOpeningHours::isOpenAt()` — chacune avec son propre message
+  d'erreur. Si `asap`, l'ancien comportement s'applique tel quel (`ShopOpeningHours::isOpen()`
+  bloque si fermé maintenant) — **mutuellement exclusif** : un `asap` ne vérifie plus jamais
+  "est-ce que MAINTENANT tombe dans un jour/heure valide" en passant par le chemin `scheduled`, et
+  inversement un `scheduled` pour un jour futur n'est plus bloqué par "la boutique est fermée à
+  l'instant présent" (bug qu'aurait introduit un simple `if (!isOpen())` unique en tête de
+  méthode — piégé avant d'écrire le code, pas trouvé en testant).
+- **Propagation** : `ShopCheckoutConfirmer::confirm()` lit `$shopCheckout->scheduled_at` et le
+  passe à `ShopSaleRecorder::record()` (nouveau paramètre optionnel, dernier de la liste — les
+  autres canaux qui n'appellent jamais ce Recorder ne sont pas concernés), qui le fige sur le
+  Ticket ET l'Order créés.
+- **Kitchen display** : la commande apparaît **immédiatement** sur le board dès son paiement,
+  même différée pour dans 5 jours — choix délibéré de ne PAS différer l'affichage (aurait exigé un
+  job planifié/une notion de "commande invisible jusqu'à") pour rester dans le périmètre demandé.
+  Pour éviter qu'une commande de la semaine prochaine soit lue comme urgente,
+  `kitchen-board.ts::scheduledLabel()` affiche un badge dédié ("⏰ Prévu à 14:00" ou "⏰ Prévu le
+  23/09 à 14:00" si pas aujourd'hui) à côté du numéro de ticket.
+- **Reçus** : `ticket-receipt.html` (erp-app, navigateur) et `ThermalReceipt.php` (imprimante
+  thermique) affichent "Prévu pour le .../à ..." en gras quand `scheduled_at` est renseigné.
+  `erp_public_shop` : page de confirmation ("votre commande sera prête/livrée le ...").
+- **`checkout.ts`/`checkout.html`** (erp_public_shop) : nouvelle carte "Quand ?" entre "Mode de
+  retrait" et "Votre commande" — onglets "⚡ Dès que possible" / "📅 Choisir un horaire". Si la
+  boutique est fermée à l'arrivée sur la page, bascule automatiquement sur "différé" (sinon le
+  client resterait face à un bouton payer désactivé sans comprendre pourquoi). Les listes de
+  jours (aujourd'hui/demain/jour de semaine, jusqu'à J+5) et de créneaux de 15 min sont calculées
+  côté client à partir de `open_days`/`open_at`/`close_at` (catalogue), en excluant les créneaux
+  déjà passés si le jour choisi est aujourd'hui — resélectionne automatiquement la 1ʳᵉ date/heure
+  disponible au changement d'onglet ou de jour, jamais de select vide.
+- **Vérifié via l'API** (curl, heure serveur réelle ~23h locale) : créneau valide (demain 14h)
+  accepté (201) puis payé (`simulate`) → `ShopCheckout`/`Order`/`Ticket` portent tous les trois le
+  même `scheduled_at` (vérifié `GET /orders`) ; les 4 rejets testés individuellement (passé, J+10,
+  14:07 refusé/pas multiple de 15, 09:00 refusé/hors horaires) renvoient chacun 422 avec un message
+  distinct ; fermeture du jour ciblé (retrait de `shop_open_days`) fait aussi rejeter le même
+  créneau, avec le message "jours d'ouverture" cette fois. Build Angular propre sur les 3 apps
+  front touchées (`erp_public_shop`, `erp-app`, `erp_kitchen_display`) — pas de test réel en
+  navigateur (carte "Quand ?" à l'écran, sélection réelle d'un créneau, bascule automatique quand
+  fermé) de ma part cette session.
+
+## Réglage "Livraison disponible" pour la boutique en ligne (2026-09-22)
+
+Demandé : "ajoute un paramètre delivery available dans paramètres et répercute si les livraisons
+sont disponibles ou non dans public site." Même mécanisme que `kiosk_table_available`/
+`kitchen_display_show_filter_bar` : un Param booléen (`shop_delivery_available`, `true` par
+défaut) exposé en lecture via `ShopCatalogController::index` (`delivery_available`), et vraiment
+appliqué à l'écriture par `ShopCheckoutController::store`.
+
+- **Chaque contrôleur relit le Param lui-même** (`deliveryAvailableValue()`/`deliveryAvailable()`,
+  méthodes privées quasi identiques) plutôt qu'un Support partagé — même choix que pour
+  `shop_delivery_fee`, déjà relu indépendamment aux deux endroits.
+- **`ShopCheckoutController::store`** : rejette (422, `fulfillment_type`) toute commande
+  `fulfillment_type: 'delivery'` si le réglage est à `false`, même envoyée directement à l'API en
+  contournant le front.
+- **Front (`erp_public_shop`)** : `ShopCatalog.delivery_available` ajouté au modèle. Deux endroits
+  masquent l'option quand `false` : `shared/delivery-address` (le badge topbar entier disparaît,
+  plus de sens à vérifier une adresse si la livraison n'existe pas) et `checkout.ts`/`.html`
+  (onglet "🚚 Livraison" masqué ; si "Livraison" était déjà sélectionné au moment où la donnée
+  arrive — ex. onglet resté ouvert entre deux visites — retombe automatiquement sur "à emporter").
+- **Vérifié via l'API** : `GET /shop/catalog` reflète bien le Param (`true`/`false` selon sa
+  valeur) ; `POST /shop/checkout` avec `fulfillment_type: delivery` accepté quand activé, rejeté
+  (422, message explicite) une fois désactivé ; réglage remis à `true` après test. Build Angular
+  propre côté `erp_public_shop`. Pas de test réel en navigateur (badge/onglet qui disparaît à
+  l'écran) de ma part cette session.
+
+## Kitchen display : option "n'afficher que les commandes à préparer dans les 15 min" (2026-09-22)
+
+Suite directe de "commande différée" (session précédente) : une commande boutique en ligne
+programmée pour dans 3 jours apparaissait déjà sur le board (avec le badge "⏰ Prévu à ..."), ce
+qui peut encombrer la vue en période chargée. Demandé : un bouton pour ne garder que ce qui est
+réellement à préparer bientôt.
+
+- **`showSoonOnly`** (nouveau signal, `kitchen-board.ts`) — option d'affichage locale, PAS
+  persistée et PAS un réglage Paramètres (contrairement à `filterBarVisible`/le choix de
+  poste-passe) : une bascule libre en cours de service, remise à zéro à chaque rechargement.
+  Toujours proposée dans le header, y compris quand la barre de filtre Postes/Passes est masquée
+  (réglage `kitchen_display_show_filter_bar`) — dimension indépendante du choix de poste/passe.
+- **`isDueSoon(order)`** : une commande sans `scheduled_at` ("dès que possible", toutes les
+  sources sauf boutique en ligne différée) est par nature toujours "à préparer maintenant" →
+  toujours incluse. Une commande différée déjà en retard (créneau dépassé) reste incluse aussi —
+  la faire disparaître serait pire qu'une commande en avance masquée à tort. Lit le signal `now`
+  déjà présent (tick chaque seconde, utilisé par le minuteur de préparation) plutôt que
+  `new Date()` : le filtre se réévalue tout seul avec le temps qui passe, une commande programmée
+  dans 20 minutes apparaît automatiquement sur le board 5 minutes plus tard sans attendre un
+  nouvel événement Echo.
+- Filtre ajouté en dernière étape de `displayOrders` (après le filtrage poste/passe existant) :
+  `!showSoonOnly() || isDueSoon(order)`.
+- Vérifié par compilation (`docker compose logs kitchen_display`, chunk `kitchen-board` généré
+  sans erreur) — logique de filtrage pure côté client, pas de test réel en navigateur (bouton
+  cliqué, commandes qui apparaissent/disparaissent à l'écran) de ma part cette session.
+
+## Champ "Différé" dans Gestion > Commandes et Gestion > Livraison (2026-09-22)
+
+Suite directe de "commande différée" : le badge "⏰ Prévu à ..." n'existait jusqu'ici que sur le
+kitchen display — demandé aussi côté back-office (`erp-app`), pour qu'un manager consultant
+Gestion des commandes/Livraison sans avoir l'écran cuisine ouvert voie quand même qu'une commande
+n'est pas pour "maintenant".
+
+- **`Order.scheduled_at`** ajouté au modèle TS `erp-app` (existait déjà côté API depuis la session
+  "commande différée" — seul le modèle front de CETTE app n'avait pas encore été mis à jour,
+  `erp_kitchen_display` l'avait déjà).
+- **`scheduledLabel()`** extrait dans `core/ticket-print.util.ts` (à côté de `sourceLabel`, même
+  genre de fonction pure prenant la valeur brute plutôt qu'un objet complet) — réutilisée par les
+  3 écrans concernés plutôt que dupliquée : `order-list.ts` (Gestion des commandes, badge sous le
+  badge source), `delivery-list.ts` (Gestion > Livraison, badge sous le N° de ticket) et
+  `delivery-detail.ts` (nouveau champ "Différé" dans la grille d'infos + affiché en gras sur le
+  bon de livraison imprimable destiné au livreur — c'est lui qui a le plus besoin de cette
+  info : livrer à l'heure demandée, pas dès que possible).
+- **Résidu de vérification** : en testant le flux de bout en bout (créer + payer une commande
+  différée boutique en ligne, confirmer qu'elle apparaît bien avec `scheduled_at` via `GET
+  /orders`), j'ai découvert que 2 réglages issus de sessions précédentes étaient restés dans un
+  état de test au lieu de leur valeur par défaut documentée (`shop_delivery_available` à `false`,
+  `shop_close_at` à `14:00`, `kitchen_display_show_filter_bar` à `false`) — remis à leurs valeurs
+  par défaut (`true`/`22:00`/`true`) après coup. La commande de test elle-même (Order #14, Ticket
+  #67) a été avancée jusqu'à "livrée" via l'API pour la nettoyer normalement (même mécanisme que
+  toute commande livrée réelle — supprime l'Order, garde le Ticket dans l'historique).
+- Build Angular propre (`docker compose logs app`) — pas de test réel en navigateur (badges
+  visibles à l'écran dans les 3 pages) de ma part cette session.
+
+## Paramètre "sans passe" pour les petits établissements (2026-09-22)
+
+Demande : certains établissements n'ont pas besoin de la séparation poste/passe (un seul cuisinier,
+pas d'expo dédiée) — leur permettre de fonctionner uniquement avec des postes, "marquer prête"
+envoyant alors directement la commande.
+
+- **`Param` `kitchen_display_skip_passe`** (bool, `'false'` par défaut — comportement historique
+  inchangé) ajouté à `ParamSeeder.php`, exposé calculé via `KitchenDisplayController::config()`
+  (même principe que `filter_bar_visible`, déjà existant) sous la clé `skip_passe`.
+- **`OrderSectionController::marquerFait()`** : quand le paramètre est actif et que la section
+  vient de passer entièrement à `do`, elle continue immédiatement vers `seed` (lignes `sent=true`
+  en plus de `done=true`, roll-up de la commande, suppression de la commande si kiosque/boutique
+  non-livraison) — même logique de clôture que `::envoyer()`, dupliquée plutôt qu'extraite dans
+  une méthode partagée (convention déjà en place dans ce contrôleur pour les lookups `Param`).
+  `::envoyer()` elle-même n'est pas modifiée : avec le paramètre actif, une section n'atteint
+  simplement plus jamais l'état `do` vu de l'extérieur, donc son endpoint dédié au passe n'est
+  jamais appelé.
+- **`erp_kitchen_display`** : `KitchenDisplayConfigService`/`kitchen-board.ts`/`poste-select.ts`
+  lisent `skip_passe` et masquent la colonne "Passes" (barre de filtre du board + écran de choix
+  après connexion) ainsi que l'indicateur "→ passe" par section — il n'y a alors plus jamais rien
+  à y voir, une section sautant directement de `ask` à `seed`.
+- **Vérifié en profondeur côté API** : après rebuild+recreate des conteneurs `api`/`reverb` (image
+  sans bind-mount, obligatoire pour tout changement PHP) et un nouveau `db:seed --class=ParamSeeder`,
+  testé directement via `artisan tinker` (pas de commande réelle créée par API faute d'un flux de
+  création de table simple en une requête) : avec le paramètre à `true`, une section `ask` avec
+  une ligne liée à un poste passe bien direct à `seed` (lignes `done`+`sent` à `true`, commande
+  liée à une table state `seed` mais toujours vivante) en un seul appel à `marquerFait()` ; avec le
+  paramètre à `false`, la même section s'arrête bien à `do` comme avant. Remis à `false` après le
+  test. Pas de test réel en navigateur (bouton "Marquer prête" cliqué à l'écran, colonne "Passes"
+  qui disparaît) de ma part cette session.
+
+## Modale de confirmation "Marquer prête" / "Envoyer" (2026-09-22)
+
+Demande : éviter un marquage accidentel sur un écran tactile de cuisine partagé entre plusieurs
+commandes affichées côte à côte — confirmation explicite avant "Marquer prête" (poste) et
+"Envoyer" (passe).
+
+- `kitchen-board.ts` : `requestMarkDone()`/`requestSend()` remplacent les anciens
+  `markDone()`/`send()` — ouvrent une modale (`pendingAction` signal, `{order, displaySection,
+  kind: 'done'|'sent'}`) au lieu d'appeler directement l'API. `confirmAction()` déclenche l'appel
+  réel ; `cancelAction()` referme sans rien faire. La modale liste les articles concernés
+  (`pendingLines()`) et identifie la commande (`pendingOrderLabel()` : table ou N°).
+- Même pattern de modale que `booking-list.html` (erp-app, déjà en place dans ce monorepo) —
+  `.modal-overlay`/`.modal-panel` du design system partagé, pas de nouveau composant.
+- Build Angular propre — pas de test réel au clic dans le navigateur de ma part cette session.
+
+## Audit "nettoyage" du projet (2026-09-23)
+
+Demande explicite : auditer tout le monorepo (API + 7 apps Angular) à la recherche d'améliorations
+— pas une feature, un ménage. Deux audits en parallèle (backend/frontend), puis correction des
+points sûrs et à faible risque ; les points plus lourds ou sensibles sont remontés sans y toucher.
+
+**Corrigé :**
+- **Index manquant sur `tickets.paid_at`** (migration `2026_09_23_000000_add_index_to_tickets_paid_at.php`)
+  — colonne de filtre/tri de Gestion des tickets, Rapports et l'export comptable, sur une table
+  jamais purgée (contrairement à `orders`) : scan complet de plus en plus coûteux avec le temps.
+  Migrée et vérifiée (`SHOW INDEX FROM tickets`).
+- **`.env.example`** ne documentait que le template Laravel brut — ajouté toutes les vraies
+  variables lues via `config()` dans cette app (`COMPANY_*`, `PRINTER_*`, `GOOGLE_CLIENT_*`,
+  `SELF_ORDER_URL`, `SHOP_URL`, `CORS_ALLOWED_ORIGINS`, `STRIPE_*`, `REVERB_*`) — un nouvel
+  environnement n'avait aucune liste pour savoir quoi configurer.
+- **`erp_public_shop/dashboard.ts`** : `setDefault()`/`removeAddress()` n'avaient pas de handler
+  `error`, contrairement aux méthodes sœurs du même fichier (`addAddress`/`saveEdit`) — un échec
+  réseau laissait l'écran figé sans feedback. Ajouté `addressesError.set(...)` dans les deux, même
+  principe que le reste du fichier.
+- Même trou (moins grave, rafraîchissements en lecture seule) sur
+  `customer-session.service.ts::refresh()`, `shared/footer/footer.ts`,
+  `shared/delivery-address/delivery-address.ts` — `error: () => {}` ajouté pour éviter l'erreur
+  RxJS non gérée, pas de nouvelle UI d'erreur (l'état par défaut/précédent reste affiché).
+- **`erp_public_shop/confirmation.ts`** : `pollSub`/`unsubscribe()` manuel supprimé — mort depuis
+  le passage à `takeUntilDestroyed()`, qui nettoie déjà cet abonnement tout seul.
+- **`noUnusedLocals`/`noUnusedParameters`** activés dans les 6 `tsconfig.json` qui ont un
+  `compilerOptions` (`erp-app`, `erp_kitchen_display`, `erp_public_shop`, `erp_kiosk`,
+  `erp_self_order`, `erp_validate_event` — `erp_public_site_event` n'a pas de `tsconfig.json`,
+  hors scope). A immédiatement révélé du vrai code mort, supprimé dans la foulée : import
+  `BoardFilter` inutilisé dans `kitchen-board.ts` (ne servait plus qu'un commentaire), et
+  `DAY_LABELS` inutilisé dans `checkout.ts` (résidu d'une itération antérieure — les labels de
+  date utilisent en réalité `toLocaleDateString('fr-FR', ...)`).
+- Toutes les apps concernées (api/reverb rebuild+recreate, 6 apps Angular redémarrées) vérifiées
+  sans erreur de compilation après coup.
+
+**Signalé, non corrigé (décision à prendre consciemment, pas un nettoyage automatique) :**
+- `ShopCustomerAddressController`/`ShopCustomerController::orders` : accès aux adresses de
+  livraison et à l'historique d'un client via simple email/téléphone en POST, sans token — déjà un
+  tradeoff assumé (documenté en commentaire dans le code), mais remonté à nouveau vu qu'il s'agit
+  de vraies données personnelles (adresses, téléphone).
+- `erp-app` tourne en Angular 21.2/TS 5.9 alors que les 6 autres apps sont en Angular 22.0/TS 6.0
+  — c'est la plus grosse app du monorepo, à planifier plutôt qu'à faire à la volée.
+- Rien d'autre trouvé de significatif : pas de requêtes N+1, pas de code mort côté backend, pas de
+  `dd()`/`console.log` oubliés, pas de fuite mémoire (`takeUntilDestroyed()`/`clearInterval`
+  correctement posés partout), zéro `any`, seulement 3 assertions non-null (`!`) toutes vérifiées
+  sûres.
