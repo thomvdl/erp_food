@@ -47,6 +47,9 @@ export interface Order {
   /** Boutique en ligne uniquement (erp_public_shop, voir App\Support\ShopSaleRecorder côté API)
    *  — absent/null pour toutes les autres sources. */
   fulfillment_type?: 'pickup' | 'delivery' | null;
+  /** Boutique en ligne uniquement (voir App\Support\ShopOpeningHours côté API, "commande
+   *  différée") — null = "dès que possible", pour toutes les autres sources tout le temps. */
+  scheduled_at?: string | null;
   delivery_address?: string | null;
   /** Coordonnées client collectées par Stripe Checkout — boutique en ligne uniquement, comme
    *  fulfillment_type/delivery_address ci-dessus. */

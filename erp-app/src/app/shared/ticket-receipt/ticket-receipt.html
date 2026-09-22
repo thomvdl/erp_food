@@ -25,6 +25,9 @@
 } @else if (ticket.table_number) {
   <p class="ticket-receipt__center text-xs">Table {{ ticket.table_number }}</p>
 }
+@if (ticket.scheduled_at) {
+  <p class="ticket-receipt__center text-sm" style="font-weight: 700">⏰ Prévu pour le {{ formatTicketDate(ticket.scheduled_at) }}</p>
+}
 <p class="ticket-receipt__center text-xs">
   @if (ticket.client) {
     CLIENT : {{ ticket.client.firstname }} {{ ticket.client.lastname }}

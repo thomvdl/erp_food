@@ -26,6 +26,12 @@
           </span>
         </p>
       </div>
+      @if (scheduledLabel(order.scheduled_at); as scheduled) {
+        <div style="flex: 1 1 200px">
+          <p class="text-muted text-xs">Différé</p>
+          <p class="font-medium">{{ scheduled }}</p>
+        </div>
+      }
       <div style="flex: 1 1 200px">
         <p class="text-muted text-xs">Client</p>
         <p class="font-medium">{{ order.customer_name ?? '—' }}</p>
@@ -84,6 +90,9 @@
   <div class="card card-body ticket-print" style="max-width: 380px; margin-top: var(--space-4)">
     <p class="ticket-receipt__brand">🚚 Livraison N° {{ order.ticket_id }}</p>
     <p class="ticket-receipt__center text-muted text-sm">Commande déjà payée en ligne</p>
+    @if (scheduledLabel(order.scheduled_at); as scheduled) {
+      <p class="ticket-receipt__center text-sm font-semibold">{{ scheduled }}</p>
+    }
     <hr class="divider" />
     <p class="font-semibold text-lg">{{ order.customer_name ?? 'Client' }}</p>
     @if (order.customer_phone) {

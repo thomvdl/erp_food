@@ -66,6 +66,9 @@ export interface Ticket {
    *  ci-dessus (plan de salle, POS Restaurant/QR à table). Null hors kiosque ou "à emporter". */
   table_number?: string | null;
   source: TicketSource | null;
+  /** Boutique en ligne uniquement (voir App\Support\ShopOpeningHours côté API, "commande
+   *  différée") — null = "dès que possible", pour toutes les autres sources tout le temps. */
+  scheduled_at?: string | null;
   client?: Client | null;
   table?: TableElement | null;
   sections: TicketSection[];

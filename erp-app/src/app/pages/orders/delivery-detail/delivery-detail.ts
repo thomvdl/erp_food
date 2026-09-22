@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { OrderService } from '../../../core/order.service';
 import { Order } from '../../../core/models/order.model';
 import { KitchenEchoService } from '../../../core/kitchen-echo.service';
-import { formatMoney } from '../../../core/ticket-print.util';
+import { formatMoney, scheduledLabel } from '../../../core/ticket-print.util';
 
 /**
  * Détail d'une commande à livrer (voir delivery-list.ts, dont le bouton "Voir" mène ici plutôt
@@ -32,6 +32,7 @@ export class DeliveryDetail {
   readonly error = signal<string | null>(null);
 
   readonly formatMoney = formatMoney;
+  readonly scheduledLabel = scheduledLabel;
 
   constructor() {
     this.refresh();

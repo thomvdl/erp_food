@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { OrderService } from '../../../core/order.service';
 import { Order } from '../../../core/models/order.model';
 import { KitchenEchoService } from '../../../core/kitchen-echo.service';
-import { formatMoney } from '../../../core/ticket-print.util';
+import { formatMoney, scheduledLabel } from '../../../core/ticket-print.util';
 
 /**
  * "Livraison" (voir gestion-home.ts) : vue filtrée de la même liste que "Gestion des commandes"
@@ -33,6 +33,7 @@ export class DeliveryList {
   readonly error = signal<string | null>(null);
 
   readonly formatMoney = formatMoney;
+  readonly scheduledLabel = scheduledLabel;
 
   /** 'all' = pas de filtre — les commandes 'delivered' ne sont de toute façon jamais listées ici
    *  (voir docblock de classe : ce statut supprime l'Order), donc pas d'onglet dédié pour lui. */

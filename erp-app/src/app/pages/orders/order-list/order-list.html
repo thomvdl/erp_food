@@ -51,6 +51,9 @@
                   @if (fulfillmentLabel(order); as label) {
                     <div class="text-muted text-xs" [title]="order.delivery_address ?? ''" style="margin-top: 2px">{{ label }}</div>
                   }
+                  @if (scheduledLabel(order.scheduled_at); as scheduled) {
+                    <div class="badge badge-warning" style="margin-top: 4px">{{ scheduled }}</div>
+                  }
                 </td>
               } @else {
                 <td class="font-semibold">—</td>

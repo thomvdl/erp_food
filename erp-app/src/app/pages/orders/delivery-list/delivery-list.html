@@ -46,7 +46,12 @@
         <tbody>
           @for (order of deliveries(); track order.id) {
             <tr>
-              <td class="font-semibold">🚚 N° {{ order.ticket_id }}</td>
+              <td class="font-semibold">
+                🚚 N° {{ order.ticket_id }}
+                @if (scheduledLabel(order.scheduled_at); as scheduled) {
+                  <div class="badge badge-warning" style="margin-top: 4px; font-weight: 400">{{ scheduled }}</div>
+                }
+              </td>
               <td class="text-muted">
                 {{ order.customer_name ?? '—' }}
                 @if (order.customer_phone) {

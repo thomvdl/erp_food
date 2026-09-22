@@ -91,3 +91,19 @@ export function sourceLabel(source: string | null | undefined): string {
 export function ticketSourceLabel(ticket: Ticket): string {
   return sourceLabel(ticket.source);
 }
+
+/** "Commande différée" (boutique en ligne uniquement, voir App\Support\ShopOpeningHours côté
+ *  API) — null/absent = "dès que possible", rien à afficher (comportement de toutes les autres
+ *  sources). Prend la valeur brute (`Order.scheduled_at`/`Ticket.scheduled_at`, même vocabulaire
+ *  que sourceLabel ci-dessus) pour rester réutilisable par order-list.ts/delivery-list.ts/
+ *  delivery-detail.ts/ticket-detail.ts, pas seulement un Ticket complet. */
+export function scheduledLabel(scheduledAt: string | null | undefined): string | null {
+  if (!scheduledAt) return null;
+
+  const date = new Date(scheduledAt);
+  const time = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+  const isToday = date.toDateString() === new Date().toDateString();
+  const day = isToday ? "aujourd'hui" : `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+
+  return `⏰ Différé — ${day} à ${time}`;
+}

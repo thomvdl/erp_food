@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { OrderService } from '../../../core/order.service';
 import { Order } from '../../../core/models/order.model';
 import { KitchenEchoService } from '../../../core/kitchen-echo.service';
-import { formatMoney, sourceLabel } from '../../../core/ticket-print.util';
+import { formatMoney, scheduledLabel, sourceLabel } from '../../../core/ticket-print.util';
 
 /**
  * "Gestion des commandes" : toutes les tables actuellement ouvertes (POS - Restaurant), en liste
@@ -30,6 +30,7 @@ export class OrderList {
 
   readonly formatMoney = formatMoney;
   readonly sourceLabel = sourceLabel;
+  readonly scheduledLabel = scheduledLabel;
 
   constructor() {
     this.refresh();
